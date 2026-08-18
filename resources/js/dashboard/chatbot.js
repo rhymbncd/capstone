@@ -1,30 +1,34 @@
-
 import Swal from 'sweetalert2';
 
 document.addEventListener('DOMContentLoaded', function () {
 
-    const chatWindow  = document.getElementById('ai-chat-window');
+    const chatWindow = document.getElementById('ai-chat-window');
     const chatContent = document.getElementById('chat-content');
-    const input       = document.getElementById('ai-input');
-    const sendBtn     = document.getElementById('send-message-btn');
+    const input = document.getElementById('ai-input');
+    const sendBtn = document.getElementById('ai-send-btn');
+    const closeChatBtn = document.getElementById('close-chat');
+    const sidebarChatBtn = document.getElementById('sidebar-chat-btn');
+    const fabChatBtn = document.getElementById('fab-chat');
+    const startChatBtn = document.getElementById('start-chat-btn');
 
     let isOpen = false;
+    let isSending = false;
 
     // ============================================
     // GET CSRF TOKEN
     // ============================================
 
-    const getCsrfToken = () => {
+    function getCsrfToken() {
 
-        return window.Laravel?.csrfToken ||
+        return (
+            window.Laravel?.csrfToken ||
+            document
+                .querySelector('meta[name="csrf-token"]')
+                ?.getAttribute('content') ||
+            ''
+        );
 
-               document
-               .querySelector('meta[name="csrf-token"]')
-               ?.getAttribute('content') ||
-
-               '';
-
-    };
+    }
 
     // ============================================
     // GET CURRENT TIME
@@ -40,18 +44,22 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // ============================================
-    // OPEN CHAT WITH ANIMATION
+    // OPEN CHAT
     // ============================================
 
     window.openChat = function () {
 
         isOpen = true;
 
-        chatWindow?.classList.add('open');
+        if (chatWindow) {
+            chatWindow.classList.add('open');
+        }
 
         setTimeout(() => {
 
-            input?.focus();
+            if (input) {
+                input.focus();
+            }
 
         }, 300);
 
@@ -61,15 +69,13 @@ document.addEventListener('DOMContentLoaded', function () {
     // CLOSE CHAT
     // ============================================
 
-    document
-        .getElementById('close-chat')
-        ?.addEventListener('click', () => {
+    closeChatBtn?.addEventListener('click', () => {
 
-            isOpen = false;
+        isOpen = false;
 
-            chatWindow?.classList.remove('open');
+        chatWindow?.classList.remove('open');
 
-        });
+    });
 
     // ============================================
     // SHOW TYPING INDICATOR
@@ -77,45 +83,43 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function showTyping() {
 
-        if (!chatContent) return;
+        if (!chatContent) {
+            return;
+        }
 
-        const t = document.createElement('div');
+        // Prevent duplicate typing indicators
+        removeTyping();
 
-        t.id = 'typing-indicator';
+        const typing = document.createElement('div');
 
-        t.className = 'msg bot';
+        typing.id = 'typing-indicator';
+        typing.className = 'msg bot';
 
-        t.innerHTML = `
-        
+        typing.innerHTML = `
             <div class="msg-bubble typing-indicator">
-
                 <div class="typing-dot"></div>
                 <div class="typing-dot"></div>
                 <div class="typing-dot"></div>
-
             </div>
-        
         `;
 
-        chatContent.appendChild(t);
-        
-        chatContent.scrollTop = chatContent.scrollHeight;
-
-        chatContent.appendChild(t);
+        chatContent.appendChild(typing);
 
         scrollBottom();
 
     }
 
     // ============================================
-    // REMOVE TYPING
+    // REMOVE TYPING INDICATOR
     // ============================================
 
     function removeTyping() {
 
-        document
-            .getElementById('typing-indicator')
-            ?.remove();
+        const typing = document.getElementById(
+            'typing-indicator'
+        );
+
+        typing?.remove();
 
     }
 
@@ -125,7 +129,57 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function scrollBottom() {
 
+        if (!chatContent) {
+            return;
+        }
+
         chatContent.scrollTop = chatContent.scrollHeight;
+
+    }
+
+    // ============================================
+    // NOTIFICATION HELPERS
+    // ============================================
+
+    function showSuccess(message) {
+
+        if (window.Notification?.success) {
+
+            Notification.success(message);
+
+            return;
+
+        }
+
+        console.log(message);
+
+    }
+
+    function showError(message) {
+
+        if (window.Notification?.error) {
+
+            Notification.error(message);
+
+            return;
+
+        }
+
+        console.error(message);
+
+    }
+
+    function showWarning(message) {
+
+        if (window.Notification?.warning) {
+
+            Notification.warning(message);
+
+            return;
+
+        }
+
+        console.warn(message);
 
     }
 
@@ -135,51 +189,71 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function appendMessage(text, type) {
 
-        if (!chatContent) return;
+        if (!chatContent) {
+            return;
+        }
 
         const msg = document.createElement('div');
 
         msg.className = `msg ${type}`;
 
-        // ============================================
+        // ========================================
         // MESSAGE BUBBLE
-        // ============================================
+        // ========================================
 
-        const bbl = document.createElement('div');
+        const bubble = document.createElement('div');
 
-        bbl.className = 'msg-bubble';
+        bubble.className = 'msg-bubble';
 
-        // ============================================
+        // ========================================
         // USER MESSAGE
-        // ============================================
+        // ========================================
 
         if (type === 'user') {
 
-            bbl.innerText = text;
+            bubble.innerText = text;
 
         }
 
-        // ============================================
+        // ========================================
         // BOT MESSAGE
-        // ============================================
+        // ========================================
 
         else {
 
-            // Convert markdown bold
-            let formatted = text.replace(
+            let formatted = String(text ?? '');
+
+            // Escape dangerous HTML first
+            formatted = formatted
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+
+            // Bold markdown
+            formatted = formatted.replace(
                 /\*\*(.*?)\*\*/g,
                 '<strong>$1</strong>'
             );
 
-            // IMPORTANT
-            // Use innerHTML for LaTeX
-            bbl.innerHTML = formatted;
+            // Italic markdown
+            formatted = formatted.replace(
+                /\*(.*?)\*/g,
+                '<em>$1</em>'
+            );
+
+            // Preserve line breaks
+            formatted = formatted.replace(
+                /\n/g,
+                '<br>'
+            );
+
+            bubble.innerHTML = formatted;
 
         }
 
-        // ============================================
+        // ========================================
         // TIME
-        // ============================================
+        // ========================================
 
         const time = document.createElement('span');
 
@@ -187,37 +261,161 @@ document.addEventListener('DOMContentLoaded', function () {
 
         time.textContent = getTime();
 
-        // ============================================
+        // ========================================
         // APPEND
-        // ============================================
+        // ========================================
 
-        msg.appendChild(bbl);
-
+        msg.appendChild(bubble);
         msg.appendChild(time);
 
         chatContent.appendChild(msg);
 
         scrollBottom();
 
-        // ============================================
+        // ========================================
         // RENDER LATEX
-        // ============================================
+        // ========================================
 
-        if (window.MathJax && type === 'bot') {
+        if (
+            window.MathJax &&
+            type === 'bot'
+        ) {
 
-            MathJax.typesetClear([bbl]);
+            try {
 
-            MathJax.typesetPromise([bbl])
-                .catch((err) => {
+                MathJax.typesetClear([bubble]);
 
-                    console.error(
-                        'MathJax Error:',
-                        err
-                    );
+                MathJax.typesetPromise([bubble])
+                    .catch((error) => {
 
-                });
+                        console.error(
+                            'MathJax Error:',
+                            error
+                        );
+
+                    });
+
+            } catch (error) {
+
+                console.error(
+                    'MathJax rendering error:',
+                    error
+                );
+
+            }
 
         }
+
+    }
+
+    // ============================================
+    // GET SERVER ERROR MESSAGE
+    // ============================================
+
+    function getServerErrorMessage(
+        status,
+        data,
+        rawResponse
+    ) {
+
+        // Laravel validation error
+        if (
+            data &&
+            data.errors
+        ) {
+
+            const errors = Object.values(
+                data.errors
+            )
+                .flat()
+                .join(' ');
+
+            return errors;
+
+        }
+
+        // Laravel message
+        if (
+            data &&
+            data.message
+        ) {
+
+            return data.message;
+
+        }
+
+        // API error
+        if (
+            data &&
+            data.error
+        ) {
+
+            if (
+                typeof data.error === 'string'
+            ) {
+
+                return data.error;
+
+            }
+
+            if (
+                data.error.message
+            ) {
+
+                return data.error.message;
+
+            }
+
+        }
+
+        // HTTP status
+        if (status === 419) {
+
+            return 'Your session has expired. Please refresh the page and try again.';
+
+        }
+
+        if (status === 401) {
+
+            return 'You are not authorized to use the chatbot.';
+
+        }
+
+        if (status === 403) {
+
+            return 'You do not have permission to use the chatbot.';
+
+        }
+
+        if (status === 404) {
+
+            return 'Chatbot endpoint was not found. Please check the Laravel route.';
+
+        }
+
+        if (status === 429) {
+
+            return 'Too many requests. Please wait a moment and try again.';
+
+        }
+
+        if (status >= 500) {
+
+            return 'The chatbot server encountered an error. Please try again later.';
+
+        }
+
+        // If server returned HTML
+        if (
+            rawResponse &&
+            rawResponse.includes('<!DOCTYPE')
+        ) {
+
+            return 'The server returned an unexpected HTML response. Please check the Laravel logs.';
+
+        }
+
+        return `Request failed with HTTP status ${status}.`;
 
     }
 
@@ -227,137 +425,359 @@ document.addEventListener('DOMContentLoaded', function () {
 
     async function sendMessage(text = null) {
 
-        const message = text || input?.value.trim();
-
-        if (!message) {
-            Notification.warning('Please enter a message');
+        // Prevent multiple requests
+        if (isSending) {
             return;
         }
+
+        const message = (
+            text ??
+            input?.value ??
+            ''
+        ).trim();
+
+        // ========================================
+        // EMPTY MESSAGE
+        // ========================================
+
+        if (!message) {
+
+            showWarning(
+                'Please enter a message'
+            );
+
+            return;
+
+        }
+
+        // ========================================
+        // CHARACTER LIMIT
+        // ========================================
+
+        if (message.length > 1000) {
+
+            showWarning(
+                'Maximum 1000 characters allowed'
+            );
+
+            return;
+
+        }
+
+        // ========================================
+        // CSRF TOKEN
+        // ========================================
 
         const token = getCsrfToken();
 
-        // ============================================
-        // CHECK TOKEN
-        // ============================================
-
         if (!token) {
 
-            Notification.error('CSRF token not found');
+            console.error(
+                'CSRF token was not found.'
+            );
+
+            appendMessage(
+                'Security token not found. Please refresh the page and try again.',
+                'bot'
+            );
+
+            showError(
+                'CSRF token not found'
+            );
+
             return;
 
         }
 
-        // ============================================
+        // ========================================
         // USER MESSAGE
-        // ============================================
+        // ========================================
 
-        appendMessage(message, 'user');
+        appendMessage(
+            message,
+            'user'
+        );
 
-        if (input && !text) {
+        // ========================================
+        // CLEAR INPUT
+        // ========================================
+
+        if (
+            input &&
+            !text
+        ) {
 
             input.value = '';
+
             input.style.height = 'auto';
 
         }
 
-        // Disable send button while sending
+        // ========================================
+        // LOADING
+        // ========================================
+
+        isSending = true;
+
         if (sendBtn) {
+
             sendBtn.disabled = true;
-            sendBtn.classList.add('loading');
+
+            sendBtn.classList.add(
+                'loading'
+            );
+
         }
 
         showTyping();
 
+        // ========================================
+        // FETCH
+        // ========================================
+
         try {
 
-            // ============================================
-            // FETCH AI
-            // ============================================
+            console.log(
+                'Sending chatbot request...'
+            );
 
-            const response = await fetch('/chatbot/ask', {
+            const response = await fetch(
+                '/chatbot/ask',
+                {
 
-                method: 'POST',
+                    method: 'POST',
 
-                headers: {
+                    headers: {
 
-                    'Content-Type': 'application/json',
+                        'Content-Type':
+                            'application/json',
 
-                    'X-CSRF-TOKEN': token,
+                        'X-CSRF-TOKEN':
+                            token,
 
-                    'Accept': 'application/json'
+                        'Accept':
+                            'application/json',
 
-                },
+                        'X-Requested-With':
+                            'XMLHttpRequest'
 
-                body: JSON.stringify({
+                    },
 
-                    message: message
+                    credentials: 'same-origin',
 
-                })
+                    body: JSON.stringify({
 
-            });
+                        message: message
 
-            if (!response.ok) {
+                    })
 
-                throw new Error(
-                    `Server Error ${response.status}`
-                );
+                }
+            );
 
-            }
+            // ====================================
+            // GET RAW RESPONSE FIRST
+            // ====================================
 
-            const data = await response.json();
+            const rawResponse =
+                await response.text();
+
+            console.log(
+                'Chatbot HTTP Status:',
+                response.status
+            );
+
+            console.log(
+                'Chatbot Raw Response:',
+                rawResponse
+            );
 
             removeTyping();
 
-            // ============================================
+            // ====================================
+            // PARSE JSON
+            // ====================================
+
+            let data = null;
+
+            if (rawResponse) {
+
+                try {
+
+                    data = JSON.parse(
+                        rawResponse
+                    );
+
+                } catch (jsonError) {
+
+                    console.error(
+                        'JSON Parse Error:',
+                        jsonError
+                    );
+
+                    console.error(
+                        'Server Response:',
+                        rawResponse
+                    );
+
+                    appendMessage(
+                        'The chatbot server returned an invalid response. Please check the Laravel server logs.',
+                        'bot'
+                    );
+
+                    showError(
+                        'Invalid server response'
+                    );
+
+                    return;
+
+                }
+
+            }
+
+            // ====================================
+            // HTTP ERROR
+            // ====================================
+
+            if (!response.ok) {
+
+                const errorMessage =
+                    getServerErrorMessage(
+                        response.status,
+                        data,
+                        rawResponse
+                    );
+
+                console.error(
+                    'Chatbot Server Error:',
+                    errorMessage
+                );
+
+                appendMessage(
+                    errorMessage,
+                    'bot'
+                );
+
+                showError(
+                    errorMessage
+                );
+
+                return;
+
+            }
+
+            // ====================================
             // SUCCESS
-            // ============================================
+            // ====================================
 
-            if (data.status === 'success') {
+            if (
+                data &&
+                data.status === 'success'
+            ) {
+
+                const reply =
+                    data.reply ??
+                    data.message ??
+                    'The AI did not return a response.';
 
                 appendMessage(
-                    data.reply,
+                    reply,
                     'bot'
                 );
-                Notification.success('Response received!');
+
+                showSuccess(
+                    'Response received!'
+                );
+
+                return;
 
             }
 
-            // ============================================
-            // FAILED
-            // ============================================
+            // ====================================
+            // API FAILED
+            // ====================================
 
-            else {
-
-                appendMessage(
-                    'AI service failed. Please try again.',
-                    'bot'
+            const errorMessage =
+                getServerErrorMessage(
+                    response.status,
+                    data,
+                    rawResponse
                 );
-                Notification.error('AI service failed');
 
-            }
+            console.error(
+                'Chatbot API Error:',
+                data
+            );
+
+            appendMessage(
+                errorMessage ||
+                'The AI service could not process your request.',
+                'bot'
+            );
+
+            showError(
+                'AI service failed'
+            );
 
         }
+
+        // ========================================
+        // NETWORK / FETCH ERROR
+        // ========================================
 
         catch (error) {
 
             removeTyping();
 
-            console.error(error);
+            console.error(
+                'CHATBOT FETCH ERROR:',
+                error
+            );
+
+            let errorMessage =
+                'Unable to connect to the chatbot server.';
+
+            // Actual browser/network failure
+            if (
+                error instanceof TypeError
+            ) {
+
+                errorMessage =
+                    'Unable to connect to the chatbot server. Please check your connection or make sure the Laravel server is running.';
+
+            }
 
             appendMessage(
-                'Connection lost. Please check your internet connection.',
+                errorMessage,
                 'bot'
             );
 
-            Notification.error('Connection error');
+            showError(
+                error.message ||
+                'Chatbot connection failed'
+            );
 
         }
 
+        // ========================================
+        // FINALLY
+        // ========================================
+
         finally {
+
+            isSending = false;
+
             if (sendBtn) {
+
                 sendBtn.disabled = false;
-                sendBtn.classList.remove('loading');
+
+                sendBtn.classList.remove(
+                    'loading'
+                );
+
             }
+
+            scrollBottom();
+
         }
 
     }
@@ -366,86 +786,142 @@ document.addEventListener('DOMContentLoaded', function () {
     // SEND BUTTON
     // ============================================
 
-    document
-        .getElementById('ai-send-btn')
-        ?.addEventListener('click', () => {
+    sendBtn?.addEventListener(
+        'click',
+        () => {
 
             sendMessage();
 
-        });
+        }
+    );
 
     // ============================================
     // ENTER KEY
     // ============================================
 
-    input?.addEventListener('keypress', e => {
+    input?.addEventListener(
+        'keydown',
+        (event) => {
 
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            sendMessage();
-        }
+            if (
+                event.key === 'Enter' &&
+                !event.shiftKey
+            ) {
 
-    });
+                event.preventDefault();
 
-    // ============================================
-    // AUTO-RESIZE TEXTAREA
-    // ============================================
-    
-    if (input) {
-        input.addEventListener('input', () => {
-            input.style.height = 'auto';
-            input.style.height = Math.min(input.scrollHeight, 120) + 'px';
-        });
-    }
+                sendMessage();
 
-    // ============================================
-    // CHARACTER COUNT (if needed)
-    // ============================================
-    
-    if (input) {
-        input.addEventListener('input', () => {
-            const maxChars = 1000;
-            if (input.value.length > maxChars) {
-                input.value = input.value.substring(0, maxChars);
-                Notification.warning(`Maximum ${maxChars} characters allowed`);
             }
-        });
-    }
+
+        }
+    );
+
+    // ============================================
+    // AUTO RESIZE TEXTAREA
+    // ============================================
+
+    input?.addEventListener(
+        'input',
+        () => {
+
+            input.style.height = 'auto';
+
+            input.style.height =
+                Math.min(
+                    input.scrollHeight,
+                    120
+                ) + 'px';
+
+        }
+    );
+
+    // ============================================
+    // CHARACTER COUNT
+    // ============================================
+
+    input?.addEventListener(
+        'input',
+        () => {
+
+            const maxChars = 1000;
+
+            if (
+                input.value.length >
+                maxChars
+            ) {
+
+                input.value =
+                    input.value.substring(
+                        0,
+                        maxChars
+                    );
+
+                showWarning(
+                    `Maximum ${maxChars} characters allowed`
+                );
+
+            }
+
+        }
+    );
 
     // ============================================
     // QUICK REPLIES
     // ============================================
 
-    chatContent?.addEventListener('click', e => {
+    chatContent?.addEventListener(
+        'click',
+        (event) => {
 
-        if (
-            e.target.classList.contains(
-                'quick-reply-btn'
-            )
-        ) {
+            const button =
+                event.target.closest(
+                    '.quick-reply-btn'
+                );
 
-            sendMessage(
-                e.target.textContent.trim()
-            );
+            if (!button) {
+                return;
+            }
+
+            const message =
+                button.textContent.trim();
+
+            if (message) {
+
+                sendMessage(
+                    message
+                );
+
+            }
 
         }
-
-    });
+    );
 
     // ============================================
     // OPEN CHAT BUTTONS
     // ============================================
 
-    document
-        .getElementById('sidebar-chat-btn')
-        ?.addEventListener('click', openChat);
+    sidebarChatBtn?.addEventListener(
+        'click',
+        window.openChat
+    );
 
-    document
-        .getElementById('fab-chat')
-        ?.addEventListener('click', openChat);
+    fabChatBtn?.addEventListener(
+        'click',
+        window.openChat
+    );
 
-    document
-        .getElementById('start-chat-btn')
-        ?.addEventListener('click', openChat);
+    startChatBtn?.addEventListener(
+        'click',
+        window.openChat
+    );
+
+    // ============================================
+    // DEBUG
+    // ============================================
+
+    console.log(
+        'AI Chatbot initialized successfully.'
+    );
 
 });
