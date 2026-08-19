@@ -11,11 +11,19 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
 
+    <!-- PDF export (Download PDF Report, Reports tab) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/4.2.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
+
     <!-- Expose environment variables to frontend -->
     <script>
         window.__ENV__ = {
             SUPABASE_URL:      "{{ config('services.supabase.url') }}",
             SUPABASE_ANON_KEY: "{{ config('services.supabase.anon_key') }}",
+        };
+
+        window.__USER__ = {
+            name: "{{ auth()->user()->name }}",
         };
 
         // Provide safe Supabase init helper (used by module/teacher JS)
