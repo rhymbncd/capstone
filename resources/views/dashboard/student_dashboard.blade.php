@@ -447,7 +447,7 @@
                     </div>
                     <div class="field-row">
                         <label>Section / Class</label>
-                        <input type="text" value="" placeholder="e.g. Grade 10 — Rizal">
+                        <input type="text" value="{{ auth()->user()->section?->name ?? '' }}" placeholder="No section selected yet" readonly>
                     </div>
                     <div class="save-row">
                         <button class="btn-cancel">Cancel</button>
