@@ -19,6 +19,23 @@ it('lists real registered users for the admin', function () {
     expect($ids)->toContain($admin->id, $student->id);
 });
 
+it('includes each student\'s student ID for the admin', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $section = Section::factory()->create();
+    $student = User::factory()->create([
+        'role' => 'student',
+        'approval_status' => 'approved',
+        'section_id' => $section->id,
+        'student_id' => '24-8181',
+    ]);
+
+    $response = $this->actingAs($admin)->getJson(route('admin.users.index'));
+
+    $response->assertOk();
+    $data = collect($response->json('users'))->firstWhere('id', $student->id);
+    expect($data['studentId'])->toBe('24-8181');
+});
+
 it('lets an admin update another user\'s name, email, and role', function () {
     $admin = User::factory()->create(['role' => 'admin']);
     $section = Section::factory()->create();

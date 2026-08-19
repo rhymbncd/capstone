@@ -60,12 +60,13 @@
                 <h2>Pending <span class="badge badge-pending">{{ $pendingStudents->total() }}</span></h2>
             </div>
             <table>
-                <thead><tr><th>Name</th><th>Email</th><th>Requested</th><th>Actions</th></tr></thead>
+                <thead><tr><th>Name</th><th>Email</th><th>Student ID</th><th>Requested</th><th>Actions</th></tr></thead>
                 <tbody>
                     @forelse ($pendingStudents as $student)
                         <tr>
                             <td>{{ $student->name }}</td>
                             <td>{{ $student->email }}</td>
+                            <td>{{ $student->student_id ?? '—' }}</td>
                             <td>{{ $student->created_at->diffForHumans() }}</td>
                             <td class="actions">
                                 <form method="POST" action="{{ route('teacher.student.approve', $student->id) }}">
@@ -79,7 +80,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr class="empty-row"><td colspan="4">No pending students.</td></tr>
+                        <tr class="empty-row"><td colspan="5">No pending students.</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -91,12 +92,13 @@
                 <h2>Approved <span class="badge badge-approved">{{ $approvedStudents->total() }}</span></h2>
             </div>
             <table>
-                <thead><tr><th>Name</th><th>Email</th><th>Section</th><th>Actions</th></tr></thead>
+                <thead><tr><th>Name</th><th>Email</th><th>Student ID</th><th>Section</th><th>Actions</th></tr></thead>
                 <tbody>
                     @forelse ($approvedStudents as $student)
                         <tr>
                             <td>{{ $student->name }}</td>
                             <td>{{ $student->email }}</td>
+                            <td>{{ $student->student_id ?? '—' }}</td>
                             <td>{{ $student->section?->name ?? '—' }}</td>
                             <td class="actions">
                                 <form method="POST" action="{{ route('teacher.student.reset', $student->id) }}">
@@ -106,7 +108,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr class="empty-row"><td colspan="4">No approved students yet.</td></tr>
+                        <tr class="empty-row"><td colspan="5">No approved students yet.</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -118,12 +120,13 @@
                 <h2>Rejected <span class="badge badge-rejected">{{ $rejectedStudents->total() }}</span></h2>
             </div>
             <table>
-                <thead><tr><th>Name</th><th>Email</th><th>Actions</th></tr></thead>
+                <thead><tr><th>Name</th><th>Email</th><th>Student ID</th><th>Actions</th></tr></thead>
                 <tbody>
                     @forelse ($rejectedStudents as $student)
                         <tr>
                             <td>{{ $student->name }}</td>
                             <td>{{ $student->email }}</td>
+                            <td>{{ $student->student_id ?? '—' }}</td>
                             <td class="actions">
                                 <form method="POST" action="{{ route('teacher.student.reset', $student->id) }}">
                                     @csrf
@@ -132,7 +135,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr class="empty-row"><td colspan="3">No rejected students.</td></tr>
+                        <tr class="empty-row"><td colspan="4">No rejected students.</td></tr>
                     @endforelse
                 </tbody>
             </table>

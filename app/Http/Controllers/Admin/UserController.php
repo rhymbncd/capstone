@@ -17,7 +17,7 @@ class UserController extends Controller
     public function index(): JsonResponse
     {
         $users = User::orderByDesc('created_at')
-            ->get(['id', 'name', 'email', 'role', 'approval_status', 'created_at'])
+            ->get(['id', 'name', 'email', 'student_id', 'role', 'approval_status', 'created_at'])
             ->map(fn (User $user) => $this->toPayload($user));
 
         return response()->json(['users' => $users]);
@@ -79,7 +79,7 @@ class UserController extends Controller
     }
 
     /**
-     * @return array{id: int, name: string, email: string, role: string, status: string, joined: string}
+     * @return array{id: int, name: string, email: string, studentId: ?string, role: string, status: string, joined: string}
      */
     private function toPayload(User $user): array
     {
@@ -93,6 +93,7 @@ class UserController extends Controller
             'id' => $user->id,
             'name' => $user->name,
             'email' => $user->email,
+            'studentId' => $user->student_id,
             'role' => $user->role,
             'status' => $status,
             'joined' => $user->created_at->format('M j, Y'),

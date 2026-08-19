@@ -39,7 +39,7 @@ class StudentController extends Controller
                 $query->where('teacher_id', $teacher->id);
             })
             ->with('section:id,name')
-            ->get(['id', 'name', 'email', 'section_id', 'approval_status', 'created_at', 'updated_at']);
+            ->get(['id', 'name', 'email', 'student_id', 'section_id', 'approval_status', 'created_at', 'updated_at']);
 
         $studentIds = $students->pluck('id')->map(fn ($id) => (string) $id)->all();
 
@@ -63,6 +63,7 @@ class StudentController extends Controller
                 'id' => $student->id,
                 'name' => $student->name,
                 'email' => $student->email,
+                'studentId' => $student->student_id,
                 'section_id' => $student->section_id,
                 'status' => $this->getStudentStatus($student, $progress),
                 'progress' => $progress,

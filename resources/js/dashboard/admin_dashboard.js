@@ -212,13 +212,14 @@ function renderUsers() {
 
     const tbody = document.getElementById('users-tbody');
     if (!slice.length) {
-        tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">👤</div><h4>No users found</h4><p>Try a different search or filter.</p></div></td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">👤</div><h4>No users found</h4><p>Try a different search or filter.</p></div></td></tr>`;
     } else {
         tbody.innerHTML = slice.map((u, i) => `
             <tr>
                 <td style="color:var(--text-4);font-size:12px">${(userPage - 1) * USERS_PER_PAGE + i + 1}</td>
                 <td><b>${Security.escape(u.name)}</b></td>
                 <td style="color:var(--text-3)">${Security.escape(u.email)}</td>
+                <td style="font-size:12px;color:var(--text-3)">${u.studentId ? Security.escape(u.studentId) : '—'}</td>
                 <td><span class="role-badge role-${Security.escape(u.role)}">${Security.escape(capitalize(u.role))}</span></td>
                 <td style="font-size:12px;color:var(--text-3)">${Security.escape(u.joined)}</td>
                 <td><span class="status-badge ${u.status === 'Active' ? 'badge-good' : 'badge-danger'}">${Security.escape(u.status)}</span></td>

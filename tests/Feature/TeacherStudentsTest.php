@@ -62,6 +62,23 @@ it('returns the teacher\'s students with real progress computed from student_pro
     expect($freshData['avgPost'])->toBeNull();
 });
 
+it('includes each student\'s student ID', function () {
+    $teacher = User::factory()->teacher()->create(['approval_status' => 'approved']);
+    $section = Section::factory()->create(['teacher_id' => $teacher->id]);
+    $student = User::factory()->create([
+        'role' => 'student',
+        'approval_status' => 'approved',
+        'section_id' => $section->id,
+        'student_id' => '24-4242',
+    ]);
+
+    $response = $this->actingAs($teacher)->getJson(route('teacher.students.index'));
+
+    $response->assertOk();
+    $data = collect($response->json('students'))->firstWhere('id', $student->id);
+    expect($data['studentId'])->toBe('24-4242');
+});
+
 it('excludes students belonging to other teachers\' sections', function () {
     $teacherA = User::factory()->teacher()->create(['approval_status' => 'approved']);
     $teacherB = User::factory()->teacher()->create(['approval_status' => 'approved']);

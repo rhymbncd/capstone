@@ -429,7 +429,7 @@ function renderStudents() {
 
     const tbody = document.getElementById('students-tbody');
     if (!slice.length) {
-        tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">👤</div><h4>No students found</h4><p>Try a different search or filter.</p></div></td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">👤</div><h4>No students found</h4><p>Try a different search or filter.</p></div></td></tr>`;
     } else {
         tbody.innerHTML = slice.map((s, i) => `
             <tr>
@@ -440,6 +440,7 @@ function renderStudents() {
                         <b>${Security.escape(s.name)}</b>
                     </div>
                 </td>
+                <td style="font-size:12px;color:var(--text-3)">${s.studentId ? Security.escape(s.studentId) : '—'}</td>
                 <td>
                     <div style="display:flex;align-items:center;gap:8px">
                         <div class="progress-bar" style="width:80px;height:6px;display:inline-block">
@@ -777,9 +778,9 @@ function buildAndDownloadPdfReport(reportSections) {
 
         doc.autoTable({
             startY: y,
-            head: sectionStudents.length ? [['#', 'Name', 'Status', 'Progress', 'Avg Pre-Test', 'Avg Post-Test']] : undefined,
+            head: sectionStudents.length ? [['#', 'Name', 'Student ID', 'Status', 'Progress', 'Avg Pre-Test', 'Avg Post-Test']] : undefined,
             body: sectionStudents.length
-                ? sectionStudents.map((s, i) => [i + 1, s.name, s.status, `${s.progress}%`, pctOrDash(s.avgPre), pctOrDash(s.avgPost)])
+                ? sectionStudents.map((s, i) => [i + 1, s.name, s.studentId || '—', s.status, `${s.progress}%`, pctOrDash(s.avgPre), pctOrDash(s.avgPost)])
                 : [['No students enrolled in this section yet.']],
             headStyles: { fillColor: [37, 99, 235] },
             styles: { fontSize: 9 },
@@ -833,9 +834,9 @@ function buildAndDownloadExcelReport(reportSections) {
 
     reportSections.forEach(sec => {
         const sectionStudents = students.filter(s => s.section_id === sec.id);
-        const rows = [['#', 'Name', 'Status', 'Progress', 'Avg Pre-Test', 'Avg Post-Test']];
+        const rows = [['#', 'Name', 'Student ID', 'Status', 'Progress', 'Avg Pre-Test', 'Avg Post-Test']];
         sectionStudents.forEach((s, i) => {
-            rows.push([i + 1, s.name, s.status, `${s.progress}%`, pctOrDash(s.avgPre), pctOrDash(s.avgPost)]);
+            rows.push([i + 1, s.name, s.studentId || '—', s.status, `${s.progress}%`, pctOrDash(s.avgPre), pctOrDash(s.avgPost)]);
         });
         if (!sectionStudents.length) rows.push(['No students enrolled in this section yet.']);
 
