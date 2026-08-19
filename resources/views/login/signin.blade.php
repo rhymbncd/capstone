@@ -297,7 +297,7 @@
 
         <div class="row-meta">
           <label><input type="checkbox" name="remember"> Remember me for 30 days</label>
-          <a href="#" class="forgot">Forgot password?</a>
+          <a href="{{ ($portalType ?? 'student') === 'admin' ? '#' : route(($portalType ?? 'student').'.password.request') }}" class="forgot" id="forgot-link" style="{{ ($portalType ?? 'student') === 'admin' ? 'display:none' : '' }}">Forgot password?</a>
         </div>
 
         <button type="submit" class="btn-main">
@@ -314,6 +314,7 @@
 const roleLabels = { student: 'Sign in to your student account', teacher: 'Sign in to your teacher account', admin: 'Sign in to your admin account' };
 const roleRoutes = { student: '{{ route("student.login.submit") }}', teacher: '{{ route("teacher.login.submit") }}', admin: '{{ route("admin.login.submit") }}' };
 const googleRoutes = { student: '{{ route("auth.google.redirect", "student") }}', teacher: '{{ route("auth.google.redirect", "teacher") }}', admin: '{{ route("auth.google.redirect", "admin") }}' };
+const forgotRoutes = { student: '{{ route("student.password.request") }}', teacher: '{{ route("teacher.password.request") }}', admin: null };
 let currentRole = '{{ $portalType ?? "student" }}';
 
 function setRole(role, el) {
@@ -322,6 +323,10 @@ function setRole(role, el) {
   el.classList.add('active');
   document.getElementById('sub-text').textContent = roleLabels[role];
   document.getElementById('loginForm').action = roleRoutes[role];
+
+  const forgotLink = document.getElementById('forgot-link');
+  forgotLink.style.display = forgotRoutes[role] ? '' : 'none';
+  forgotLink.href = forgotRoutes[role] || '#';
 }
 
 function togglePw() {

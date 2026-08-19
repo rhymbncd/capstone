@@ -436,7 +436,7 @@ html,body { min-height:100%; font-family:'Plus Jakarta Sans',sans-serif; backgro
       <div class="mq-lesson-btn-row">
         <button class="mq-btn mq-btn--amber" id="mq-activity-btn">📝 Activity</button>
         <button class="mq-btn mq-btn--view-module" id="mq-viewmodule-btn">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13" style="flex-shrink:0"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13" style="flex-shrink:0"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
           View Module
         </button>
         <button class="mq-btn mq-btn--success" id="mq-posttest-btn" disabled>Take Post-Test →</button>
@@ -878,7 +878,7 @@ function injectCustomTopicsIntoPage() {
     });
 }
 
-const mqState = { topicKey:null, phase:'pre', questions:[], current:0, score:0, answered:false, completed:{} };
+const mqState = { topicKey:null, phase:'pre', questions:[], current:0, score:0, answered:false, completed:{}, answersLog:[] };
 let mqTimerInterval=null, mqTimeLeft=POST_TIMER_SECS;
 
 /* ════════════════════════════════════════════════════════════
@@ -917,6 +917,41 @@ async function mqSaveProgress(topicKey, phase, score, total, passed) {
         );
     } catch (e) {
         console.warn('Could not save progress:', e.message);
+    }
+}
+
+/**
+ * Save the actual list of answers a student gave for one pre-test,
+ * post-test, or activity attempt, so their teacher can review exactly
+ * what was answered (not just the score). Upserts on the same
+ * (session_id, topic_key, phase) key as student_progress.
+ */
+async function mqSaveQuizAnswers(topicKey, phase, answers, score, total) {
+    if (!SUPABASE_URL_M || !SUPABASE_ANON_KEY_M || !window.__USER__?.id) return;
+    try {
+        await fetch(
+            `${SUPABASE_URL_M}/rest/v1/student_quiz_answers?on_conflict=session_id,topic_key,phase`,
+            {
+                method: 'POST',
+                headers: {
+                    'apikey':        SUPABASE_ANON_KEY_M,
+                    'Authorization': `Bearer ${SUPABASE_ANON_KEY_M}`,
+                    'Content-Type':  'application/json',
+                    'Prefer':        'resolution=merge-duplicates,return=minimal',
+                },
+                body: JSON.stringify({
+                    session_id:   String(window.__USER__.id),
+                    student_name: window.__USER__.name,
+                    topic_key:    topicKey,
+                    phase,
+                    answers,
+                    score,
+                    total,
+                }),
+            }
+        );
+    } catch (e) {
+        console.warn('Could not save quiz answers:', e.message);
     }
 }
 
@@ -1073,12 +1108,13 @@ function openTopic(key) {
     }
 
     // Only open if teacher has published
-    mqState.topicKey  = key;
-    mqState.phase     = 'pre';
-    mqState.current   = 0;
-    mqState.score     = 0;
-    mqState.answered  = false;
-    mqState.questions = [...MQ_TOPICS[key].pre];
+    mqState.topicKey   = key;
+    mqState.phase      = 'pre';
+    mqState.current    = 0;
+    mqState.score      = 0;
+    mqState.answered   = false;
+    mqState.answersLog = [];
+    mqState.questions  = [...MQ_TOPICS[key].pre];
     mqRender();
     document.getElementById('mq-overlay').classList.add('mq-open');
 }
@@ -1201,6 +1237,12 @@ function mqSelectChoice(idx) {
   if(idx!==q.ans)btns[q.ans].classList.add('mq-choice--correct');
   if(idx===q.ans){mqState.score++;fb.className='mq-feedback mq-feedback--show mq-feedback--correct';fb.textContent='✓ Correct! '+q.exp;}
   else{fb.className='mq-feedback mq-feedback--show mq-feedback--wrong';fb.textContent='✗ Incorrect. '+q.exp;}
+  mqState.answersLog.push({
+    question:  q.q,
+    selected:  q.choices[idx] ?? null,
+    correct:   q.choices[q.ans] ?? null,
+    isCorrect: idx===q.ans,
+  });
   document.getElementById('mq-next-btn').disabled=false;
   document.getElementById('mq-skip-btn').style.display='none';
 }
@@ -1212,9 +1254,13 @@ function mqNext() {
       stateFlags[mqState.topicKey].pre=true;
       const total=mqState.questions.length;
       mqSaveProgress(mqState.topicKey,'pre',mqState.score,total,mqState.score>=Math.ceil(total*0.6));
+      mqSaveQuizAnswers(mqState.topicKey,'pre',mqState.answersLog,mqState.score,total);
       mqState.phase='lesson';
     }
-    else{mqState.phase='result';mqMarkDone();}
+    else{
+      mqSaveQuizAnswers(mqState.topicKey,'post',mqState.answersLog,mqState.score,mqState.questions.length);
+      mqState.phase='result';mqMarkDone();
+    }
     mqRender(); return;
   }
   mqState.answered=false; mqRenderQuestion();
@@ -1228,7 +1274,7 @@ function mqStartActivity() {
 function mqStartPost() {
   if(!stateFlags[mqState.topicKey].activity)return;
   mqStopTimer();
-  mqState.phase='post'; mqState.current=0; mqState.score=0; mqState.answered=false;
+  mqState.phase='post'; mqState.current=0; mqState.score=0; mqState.answered=false; mqState.answersLog=[];
   mqState.questions=[...MQ_TOPICS[mqState.topicKey].post];
   mqRender();
 }
@@ -1258,6 +1304,7 @@ function mqSubmitActivity() {
   const key = mqState.topicKey;
   const act = MQ_TOPICS[key].activity;
   let correct = 0;
+  const activityAnswers = [];
 
   act.items.forEach((item, i) => {
     const input = document.getElementById('mq-act-input-' + i);
@@ -1301,6 +1348,13 @@ function mqSubmitActivity() {
       hint.textContent = '✗ Hint: ' + (item.hint || '');
     }
     input.disabled = true;
+
+    activityAnswers.push({
+      question:  item.q,
+      selected:  val,
+      correct:   ans === '' ? null : ans,
+      isCorrect,
+    });
   });
 
   document.getElementById('mq-act-submit-btn').style.display = 'none';
@@ -1308,6 +1362,7 @@ function mqSubmitActivity() {
   // Pass threshold: 60% of items, minimum 1
   const threshold = Math.max(1, Math.ceil(act.items.length * 0.6));
   const pass = correct >= threshold;
+  mqSaveQuizAnswers(key, 'activity', activityAnswers, correct, act.items.length);
 
   if (pass) {
     stateFlags[key].activity = true;

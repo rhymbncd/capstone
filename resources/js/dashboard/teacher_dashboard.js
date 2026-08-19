@@ -550,6 +550,65 @@ function renderFeedbackHistory(studentId) {
     }).join('');
 }
 
+const ANSWERS_PHASE_META = {
+    pre:      { icon: '📝', label: 'Pre-Test' },
+    post:     { icon: '✅', label: 'Post-Test' },
+    activity: { icon: '📋', label: 'Activity' },
+};
+
+/** Show a student's saved pre-test/post-test/activity answers, fetched from the backend. */
+async function viewStudentAnswers(studentId, studentName) {
+    Swal.fire({
+        title: `${studentName}'s Answers`,
+        html: '<p style="color:#9ca3af;font-size:13px;padding:20px 0">Loading…</p>',
+        width: 620,
+        showConfirmButton: false,
+        showCloseButton: true,
+    });
+
+    let attempts;
+    try {
+        const data = await apiFetch(`/teacher/students/${studentId}/answers`);
+        attempts = data.attempts || [];
+    } catch (err) {
+        Swal.update({ html: `<p style="color:#ef4444;font-size:13px;padding:20px 0">Could not load answers: ${Security.escape(err.message)}</p>` });
+        return;
+    }
+
+    if (!attempts.length) {
+        Swal.update({ html: '<p style="color:#9ca3af;font-size:13px;padding:20px 0">This student hasn\'t attempted any pre-test, post-test, or activity yet.</p>' });
+        return;
+    }
+
+    const html = `
+        <div style="text-align:left;max-height:60vh;overflow-y:auto;padding:4px 2px">
+            ${attempts.map(a => {
+                const meta = ANSWERS_PHASE_META[a.phase] || { icon: '💬', label: a.phase };
+                const when = a.updated_at ? new Date(a.updated_at).toLocaleString() : '';
+                return `
+                    <div style="border:1px solid #e5e7eb;border-radius:10px;margin-bottom:12px;overflow:hidden">
+                        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#f9fafb;border-bottom:1px solid #f3f4f6">
+                            <span style="font-size:13px;font-weight:700;color:#111827">${meta.icon} ${Security.escape(meta.label)} — ${Security.escape(a.topic_name)}</span>
+                            <span style="font-size:12px;font-weight:700;color:#2563eb">${a.score}/${a.total}</span>
+                        </div>
+                        <div style="padding:8px 14px">
+                            ${(a.answers || []).map((qa, i) => `
+                                <div style="padding:8px 0;${i > 0 ? 'border-top:1px solid #f3f4f6' : ''}">
+                                    <div style="font-size:12.5px;font-weight:600;color:#374151;margin-bottom:4px">${i + 1}. ${Security.escape(qa.question)}</div>
+                                    <div style="font-size:12px;color:${qa.isCorrect ? '#059669' : '#dc2626'}">
+                                        ${qa.isCorrect ? '✓' : '✗'} Answered: <strong>${Security.escape(String(qa.selected ?? '—'))}</strong>
+                                        ${!qa.isCorrect && qa.correct ? ` — Correct: <strong>${Security.escape(String(qa.correct))}</strong>` : ''}
+                                    </div>
+                                </div>`).join('')}
+                        </div>
+                        ${when ? `<div style="padding:6px 14px;background:#fafbfc;font-size:10.5px;color:#9ca3af;border-top:1px solid #f3f4f6">${Security.escape(when)}</div>` : ''}
+                    </div>`;
+            }).join('')}
+        </div>`;
+
+    Swal.update({ html });
+}
+
 function openFeedback(id) {
     const s = students.find(x => x.id === id);
     if (!s) return;
@@ -960,6 +1019,12 @@ function renderSectionsContainer() {
                                 <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
                                     <span class="status-badge ${badgeClass(s.status)}">${Security.escape(s.status)}</span>
                                     <span style="font-size:12.5px;font-weight:700;color:${progressColor(s.progress)};width:36px;text-align:right">${s.progress}%</span>
+                                    <button onclick="viewStudentAnswers(${s.id}, '${Security.escape(s.name)}')" title="View this student's quiz answers"
+                                            style="background:none;border:none;cursor:pointer;padding:6px;color:#9ca3af;border-radius:6px;display:flex">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px">
+                                            <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                                        </svg>
+                                    </button>
                                 </div>
                             </div>`).join('')
                     }
@@ -3604,7 +3669,7 @@ Object.assign(window, {
     navigate,
 
     // Students
-    filterStudents, viewStudent, openFeedback, saveFeedback,
+    filterStudents, viewStudent, openFeedback, saveFeedback, viewStudentAnswers,
 
     // Modules
     filterModules, openAddModule, saveModule, viewModule, editModule, deleteModule, sendToDownloads,

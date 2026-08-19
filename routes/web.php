@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\TeacherApprovalController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\AdminDashboardController;
 use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\Auth\PasswordResetController;
 // Controllers
 use App\Http\Controllers\ChatbotController;
 use App\Http\Controllers\QuizController;
@@ -14,6 +15,7 @@ use App\Http\Controllers\StudentDashboardController;
 use App\Http\Controllers\SupabaseController;
 use App\Http\Controllers\Teacher\FeedbackController as TeacherFeedbackController;
 use App\Http\Controllers\Teacher\SectionController as TeacherSectionController;
+use App\Http\Controllers\Teacher\StudentAnswersController;
 use App\Http\Controllers\Teacher\StudentApprovalController;
 use App\Http\Controllers\TeacherDashboardController;
 use Illuminate\Support\Facades\Route;
@@ -43,6 +45,12 @@ Route::prefix('student')->group(function () {
     // Register
     Route::get('/register', [AuthController::class, 'showStudentRegisterForm'])->name('student.register.form');
     Route::post('/register', [AuthController::class, 'studentRegister'])->name('student.register');
+
+    // Password reset (emailed to the student's own inbox)
+    Route::get('/forgot-password', [PasswordResetController::class, 'showForgotForm'])->name('student.password.request')->defaults('portalType', 'student');
+    Route::post('/forgot-password', [PasswordResetController::class, 'sendResetLink'])->name('student.password.email')->defaults('portalType', 'student');
+    Route::get('/reset-password/{token}', [PasswordResetController::class, 'showResetForm'])->name('student.password.reset')->defaults('portalType', 'student');
+    Route::post('/reset-password', [PasswordResetController::class, 'resetPassword'])->name('student.password.update')->defaults('portalType', 'student');
 
     // Google signup completion
     Route::get('/complete-signup', [AuthController::class, 'showGoogleSignupCompletion'])->name('student.complete-google-signup');
@@ -74,6 +82,12 @@ Route::prefix('teacher')->group(function () {
     Route::get('/register', [AuthController::class, 'showTeacherRegisterForm'])->name('teacher.register.form');
     Route::post('/register', [AuthController::class, 'teacherRegister'])->name('teacher.register');
 
+    // Password reset (emailed to the teacher's own inbox)
+    Route::get('/forgot-password', [PasswordResetController::class, 'showForgotForm'])->name('teacher.password.request')->defaults('portalType', 'teacher');
+    Route::post('/forgot-password', [PasswordResetController::class, 'sendResetLink'])->name('teacher.password.email')->defaults('portalType', 'teacher');
+    Route::get('/reset-password/{token}', [PasswordResetController::class, 'showResetForm'])->name('teacher.password.reset')->defaults('portalType', 'teacher');
+    Route::post('/reset-password', [PasswordResetController::class, 'resetPassword'])->name('teacher.password.update')->defaults('portalType', 'teacher');
+
     // Dashboard (Protected with role middleware)
     Route::middleware(['auth', 'role:teacher'])->group(function () {
         Route::get('/dashboard', [TeacherDashboardController::class, 'index'])->name('teacher.dashboard');
@@ -88,6 +102,7 @@ Route::prefix('teacher')->group(function () {
             Route::post('/approve/{user}', [StudentApprovalController::class, 'approve'])->name('teacher.student.approve');
             Route::post('/reject/{user}', [StudentApprovalController::class, 'reject'])->name('teacher.student.reject');
             Route::post('/reset/{user}', [StudentApprovalController::class, 'reset'])->name('teacher.student.reset');
+            Route::get('/{student}/answers', [StudentAnswersController::class, 'index'])->name('teacher.students.answers');
         });
 
         // Sections Management
