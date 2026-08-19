@@ -105,6 +105,14 @@ it('renders the forgot and reset password forms for both portals', function () {
     $this->get(route('teacher.password.reset', ['token' => 'abc']))->assertOk();
 });
 
+it('locks the email field on the reset form to the address from the emailed link', function () {
+    $response = $this->get(route('student.password.reset', ['token' => 'abc', 'email' => 'locked@example.com']));
+
+    $response->assertOk();
+    $response->assertSee('value="locked@example.com"', false);
+    $response->assertSee('readonly', false);
+});
+
 afterEach(function () {
     DB::table('password_reset_tokens')->truncate();
 });

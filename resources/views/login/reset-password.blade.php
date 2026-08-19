@@ -95,7 +95,7 @@
       <label>Email address</label>
       <div class="iw">
         <i class="fa-solid fa-envelope ico"></i>
-        <input type="email" name="email" placeholder="Enter your email" autocomplete="email" required value="{{ old('email', $email ?? '') }}">
+        <input type="email" name="email" placeholder="Enter your email" autocomplete="off" readonly required value="{{ old('email', $email ?? '') }}" style="background:#e5e7eb;cursor:not-allowed">
       </div>
       @error('email')<p style="color: red; font-size: 12px; margin-top: 5px;">{{ $message }}</p>@enderror
     </div>
