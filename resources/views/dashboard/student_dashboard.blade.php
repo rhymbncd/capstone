@@ -446,6 +446,10 @@
                         <input type="email" value="{{ auth()->user()->email ?? '' }}" placeholder="Your email">
                     </div>
                     <div class="field-row">
+                        <label>Student ID</label>
+                        <input type="text" value="{{ auth()->user()->student_id ?? '' }}" placeholder="No student ID on file" readonly>
+                    </div>
+                    <div class="field-row">
                         <label>Section / Class</label>
                         <input type="text" value="{{ auth()->user()->section?->name ?? '' }}" placeholder="No section selected yet" readonly>
                     </div>
