@@ -516,6 +516,40 @@ async function loadFeedbacks() {
     }
 }
 
+const FEEDBACK_TYPE_META = {
+    encouragement: { icon: '💪', label: 'Encouragement' },
+    improvement:   { icon: '📈', label: 'Needs Improvement' },
+    praise:        { icon: '🌟', label: 'Praise' },
+    reminder:      { icon: '⏰', label: 'Reminder' },
+};
+
+/** Render this student's full feedback history inside the Send Feedback modal. */
+function renderFeedbackHistory(studentId) {
+    const wrap = document.getElementById('fb-history-wrap');
+    const list = document.getElementById('fb-history-list');
+    if (!wrap || !list) return;
+
+    const history = feedbacks.filter(f => f.studentId === studentId);
+
+    if (!history.length) {
+        wrap.style.display = 'none';
+        return;
+    }
+
+    wrap.style.display = '';
+    list.innerHTML = history.map(f => {
+        const meta = FEEDBACK_TYPE_META[f.type] || { icon: '💬', label: f.type };
+        return `
+            <div style="background:#f4f6fb;border-radius:8px;padding:10px 12px">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+                    <span style="font-size:11px;font-weight:700;color:#2563eb">${meta.icon} ${Security.escape(meta.label)}</span>
+                    <span style="font-size:10px;color:#9ca3af">${Security.escape(f.date)}</span>
+                </div>
+                <div style="font-size:12.5px;color:#374151">${Security.escape(f.message)}</div>
+            </div>`;
+    }).join('');
+}
+
 function openFeedback(id) {
     const s = students.find(x => x.id === id);
     if (!s) return;
@@ -523,6 +557,7 @@ function openFeedback(id) {
     document.getElementById('fb-student-name').textContent = s.name;
     document.getElementById('fb-message').value = '';
     document.getElementById('fb-type').value = 'encouragement';
+    renderFeedbackHistory(id);
     openModal('modal-feedback');
 }
 
@@ -545,7 +580,10 @@ async function saveFeedback() {
         });
         feedbacks.unshift(data.feedback);
         logActivity('Feedback Sent', `Feedback sent to ${s.name}`, 'success');
-        closeModal('modal-feedback');
+        // Keep the modal open so the teacher can send another right away —
+        // just clear the message and refresh the history above it.
+        document.getElementById('fb-message').value = '';
+        renderFeedbackHistory(feedbackTargetId);
         renderHome();
         toast('success', `Feedback sent to ${Security.escape(s.name)}!`);
     } catch (err) {

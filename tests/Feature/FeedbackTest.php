@@ -27,6 +27,36 @@ it('lets a teacher send feedback to a student in their own section', function ()
     ]);
 });
 
+it('lets a teacher send multiple feedback messages to the same student over time', function () {
+    $teacher = User::factory()->teacher()->create(['approval_status' => 'approved']);
+    $section = Section::factory()->create(['teacher_id' => $teacher->id]);
+    $student = User::factory()->create([
+        'role' => 'student',
+        'approval_status' => 'approved',
+        'section_id' => $section->id,
+    ]);
+
+    $this->actingAs($teacher)->postJson(route('teacher.feedback.store'), [
+        'student_id' => $student->id,
+        'type' => 'encouragement',
+        'message' => 'Keep going, you are improving!',
+    ])->assertCreated();
+
+    $this->actingAs($teacher)->postJson(route('teacher.feedback.store'), [
+        'student_id' => $student->id,
+        'type' => 'praise',
+        'message' => 'Excellent score on this week\'s quiz!',
+    ])->assertCreated();
+
+    expect(TeacherFeedback::where('teacher_id', $teacher->id)->where('student_id', $student->id)->count())->toBe(2);
+
+    // The teacher's feedback list surfaces the full history for that student.
+    $index = $this->actingAs($teacher)->getJson(route('teacher.feedback.index'));
+    $index->assertOk();
+    $forStudent = collect($index->json('feedback'))->where('studentId', $student->id);
+    expect($forStudent)->toHaveCount(2);
+});
+
 it('prevents a teacher from sending feedback to a student outside their section', function () {
     $teacherA = User::factory()->teacher()->create(['approval_status' => 'approved']);
     $teacherB = User::factory()->teacher()->create(['approval_status' => 'approved']);

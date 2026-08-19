@@ -972,9 +972,15 @@
             <span class="modal-title">Send Feedback</span>
             <button class="modal-close" onclick="closeModal('modal-feedback')">✕</button>
         </div>
-        <p style="font-size:13px;color:var(--text-3);margin-bottom:16px">
+        <p style="font-size:13px;color:var(--text-3);margin-bottom:12px">
             To: <strong id="fb-student-name" style="color:var(--text)"></strong>
         </p>
+
+        <div id="fb-history-wrap" style="margin-bottom:16px;display:none">
+            <label style="font-size:12px;font-weight:600;color:var(--text-3);display:block;margin-bottom:6px">Feedback History</label>
+            <div id="fb-history-list" style="max-height:180px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding-right:4px"></div>
+        </div>
+
         <div class="field-row">
             <label for="fb-type">Feedback Type</label>
             <select id="fb-type">
