@@ -82,6 +82,10 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                 Content
             </button>
+            <button class="sidebar-item" data-page="modules">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                Modules
+            </button>
             <button class="sidebar-item" data-page="activity">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
                 Activity
@@ -419,6 +423,83 @@
                 </div>
             </div>
 
+            <!-- MODULES PAGE -->
+            <div class="page" id="page-modules">
+                <div class="hero-section">
+                    <h1 class="welcome-title">Modules</h1>
+                    <p class="welcome-subtitle">Upload and manage learning modules platform-wide</p>
+                </div>
+
+                <div class="metrics-scroll-wrap">
+                    <div class="metrics-grid">
+                        <div class="metric-card">
+                            <div class="metric-header">
+                                <span class="metric-label">Total Modules</span>
+                                <div class="icon-container blue-theme">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                                </div>
+                            </div>
+                            <div class="metric-value" id="mod-total">0</div>
+                            <div class="metric-sub">available modules</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-header">
+                                <span class="metric-label">Published</span>
+                                <div class="icon-container green-theme">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                                </div>
+                            </div>
+                            <div class="metric-value" id="mod-published">0</div>
+                            <div class="metric-sub">active modules</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-header">
+                                <span class="metric-label">Draft</span>
+                                <div class="icon-container orange-theme">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                                </div>
+                            </div>
+                            <div class="metric-value" id="mod-draft">0</div>
+                            <div class="metric-sub">in draft</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-header">
+                                <span class="metric-label">Avg. Completion</span>
+                                <div class="icon-container purple-theme">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                                </div>
+                            </div>
+                            <div class="metric-value" id="mod-completion">0%</div>
+                            <div class="metric-sub">student completion</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modules-container">
+                    <div class="section-label">All Modules</div>
+                    <div class="section-sub">Browse, add, and manage learning modules — same library teachers upload to</div>
+                    <div class="toolbar">
+                        <input type="text" class="search-input" id="module-search"
+                               placeholder="🔍  Search modules…" oninput="filterModules()"
+                               maxlength="100" autocomplete="off">
+                        <select class="filter-select" id="module-topic-filter" onchange="filterModules()">
+                            <option value="">All Topics</option>
+                            <option value="Module 1: Sequences and Series">Module 1: Sequences and Series</option>
+                            <option value="Module 2: Polynomials">Module 2: Polynomials</option>
+                            <option value="Module 3: Advanced Equations">Module 3: Advanced Equations</option>
+                        </select>
+                        <button class="add-btn" onclick="openAddModule()">+ Add Module</button>
+                    </div>
+                    <div id="modules-grid" class="module-cards-grid">
+                        <div class="empty-state">
+                            <div class="empty-icon">📦</div>
+                            <h4>No modules yet</h4>
+                            <p>Click "Add Module" to create your first learning module.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- ACTIVITY PAGE -->
             <div class="page" id="page-activity">
                 <div class="hero-section">
@@ -558,6 +639,7 @@
     <button class="nav-item" data-page="users"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Users</span><div class="nav-dot"></div></button>
     <button class="nav-item" data-page="analytics"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg><span>Analytics</span><div class="nav-dot"></div></button>
     <button class="nav-item" data-page="content"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>Content</span><div class="nav-dot"></div></button>
+    <button class="nav-item" data-page="modules"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg><span>Modules</span><div class="nav-dot"></div></button>
     <button class="nav-item" data-page="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span>Settings</span><div class="nav-dot"></div></button>
 </nav>
 
@@ -579,6 +661,69 @@
         <div class="save-row">
             <button class="btn-cancel" onclick="closeModal('modal-user')">Cancel</button>
             <button class="btn-save" onclick="saveUser()">Save User</button>
+        </div>
+    </div>
+</div>
+
+<!-- ADD/EDIT MODULE MODAL -->
+<div class="modal-overlay" id="modal-add-module">
+    <div class="modal">
+        <div class="modal-header">
+            <span class="modal-title" id="mod-modal-title">Add Module</span>
+            <button class="modal-close" onclick="cancelModule()">✕</button>
+        </div>
+        <div class="field-row">
+            <label for="mod-title">Module Title</label>
+            <input type="text" id="mod-title" placeholder="e.g. Introduction to Algebra" maxlength="100" autocomplete="off">
+        </div>
+        <div class="field-row">
+            <label for="mod-topic">Topic</label>
+            <select id="mod-topic">
+                <option value="Module 1: Sequences and Series">Module 1: Sequences and Series</option>
+                <option value="Module 2: Polynomials">Module 2: Polynomials</option>
+                <option value="Module 3: Advanced Equations">Module 3: Advanced Equations</option>
+            </select>
+        </div>
+        <div class="field-row">
+            <label for="mod-desc">Description</label>
+            <textarea id="mod-desc" rows="3" placeholder="Brief description of this module…" maxlength="300"></textarea>
+        </div>
+        <div class="field-row">
+            <label for="mod-status">Status</label>
+            <input type="text" id="mod-status" value="Draft" readonly>
+        </div>
+        <div class="field-row">
+            <label for="mod-file">Upload File <span style="font-weight:500;text-transform:none;font-size:11px;color:var(--text-4)">(optional — PDF, DOC, DOCX, PPT, PPTX)</span></label>
+            <div class="file-upload-area" id="mod-file-area">
+                <input type="file" id="mod-file" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.png,.jpg,.jpeg">
+                <div class="file-upload-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="17 8 12 3 7 8"/>
+                        <line x1="12" y1="3" x2="12" y2="15"/>
+                    </svg>
+                </div>
+                <div class="file-upload-label">Click or drag &amp; drop to upload</div>
+                <div class="file-upload-hint">Supported: <span>PDF, DOC, DOCX, PPT, PPTX</span> — max 20 MB</div>
+            </div>
+            <div class="file-preview" id="mod-file-preview">
+                <div class="file-preview-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                    </svg>
+                </div>
+                <div class="file-preview-info">
+                    <div class="file-preview-name" id="mod-file-name">—</div>
+                    <div class="file-preview-size" id="mod-file-size">—</div>
+                </div>
+                <button type="button" class="file-preview-remove" id="mod-file-remove" title="Remove file" onclick="clearFile()">✕</button>
+            </div>
+        </div>
+        <input type="hidden" id="mod-edit-id" value="">
+        <div class="save-row">
+            <button class="btn-cancel" onclick="cancelModule()">Cancel</button>
+            <button class="btn-save" onclick="saveModule()">Save Module</button>
         </div>
     </div>
 </div>

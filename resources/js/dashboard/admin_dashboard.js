@@ -129,12 +129,14 @@ const Security = {
 /* ============================================================
    STATE
    ============================================================ */
-let users    = [];
-let contents = [];
-let activity = [];
+let users      = [];
+let contents   = [];
+let activity   = [];
+let modulesData = [];
 
 let userEditId     = null;
 let contentLoading = false;
+let pendingFile     = null;
 const USERS_PER_PAGE = 6;
 let userPage = 1;
 
@@ -927,7 +929,7 @@ async function renderAnalytics() {
    NAVIGATION
    ============================================================ */
 function navigate(page) {
-    const allowed = ['home','users','analytics','content','activity','settings'];
+    const allowed = ['home','users','analytics','content','modules','activity','settings'];
     if (!allowed.includes(page)) return;
 
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -942,6 +944,7 @@ function navigate(page) {
     if (page === 'users')     renderUsers();
     if (page === 'analytics') renderAnalytics();
     if (page === 'content')   loadAndRenderContent();
+    if (page === 'modules')   loadAndRenderModules();
     if (page === 'activity')  renderActivity();
     if (page === 'settings')  loadSettings();   // re-load from Supabase when tab opens
 }
@@ -1008,6 +1011,586 @@ function makePgBtn(label, disabled, handler) {
 }
 function warn(title, text)  { Swal.fire({ icon:'warning', title, text, confirmButtonColor:'#2563eb' }); }
 function toast(icon, title) { Swal.fire({ icon, title, timer:2000, timerProgressBar:true, showConfirmButton:false }); }
+function progressColor(pct) {
+    if (pct >= 80) return '#2563eb';
+    if (pct >= 60) return '#10b981';
+    if (pct >= 40) return '#f97316';
+    return '#ef4444';
+}
+function formatFileSize(bytes) {
+    if (!bytes) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+}
+function topicTheme(topic) {
+    if (topic.includes('Module 1') || topic.includes('Sequences')) return 'blue-theme';
+    if (topic.includes('Module 2') || topic.includes('Polynomials')) return 'green-theme';
+    if (topic.includes('Module 3') || topic.includes('Advanced')) return 'orange-theme';
+    return 'blue-theme';
+}
+
+/* ============================================================
+   MODULES — full CRUD over the same "modules" bucket / module_status
+   table that the teacher's own Modules tab uses. Admin uploads land
+   as "pending" just like a teacher's, and go through the same
+   Content Management approval queue.
+   ============================================================ */
+
+/** Guess the module group from the file title keywords */
+function guessModuleTopic(title) {
+    const t = title.toLowerCase();
+    if (/arithmetic|geometric|harmonic|fibonacci|finite|infinite|sequence|series/.test(t))
+        return 'Module 1: Sequences and Series';
+    if (/polynomial|remainder|factor|division/.test(t))
+        return 'Module 2: Polynomials';
+    if (/rational|radical|exponential|logarithm|system/.test(t))
+        return 'Module 3: Advanced Equations';
+    return 'General';
+}
+
+async function uploadFileToSupabase(file) {
+    const safeFileName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+    const filePath      = `${Date.now()}_${safeFileName}`;
+    const uploadUrl     = `${SUPABASE_URL}/storage/v1/object/${BUCKET_NAME}/${filePath}`;
+
+    const res = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+            'Content-Type':  file.type || 'application/octet-stream',
+            'x-upsert':      'false',
+        },
+        body: file,
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || `Upload failed (${res.status})`);
+    }
+
+    const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET_NAME}/${filePath}`;
+    return { publicUrl, path: filePath };
+}
+
+async function deleteFileFromSupabase(filePath) {
+    const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET_NAME}/${filePath}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || `Delete failed (${res.status})`);
+    }
+    return true;
+}
+
+async function fetchModulesFromSupabase() {
+    const listRes = await fetch(`${SUPABASE_URL}/storage/v1/object/list/${BUCKET_NAME}`, {
+        method: 'POST',
+        headers: sbHeaders(),
+        body: JSON.stringify({ prefix: '', limit: 200, offset: 0 }),
+    });
+    if (!listRes.ok) {
+        const err = await listRes.json().catch(() => ({}));
+        throw new Error(err.message || `Failed to list bucket (${listRes.status})`);
+    }
+    const files = await listRes.json();
+
+    let statusRows = [];
+    try {
+        statusRows = await sbSelect(STATUS_TABLE, '?select=*');
+    } catch (e) {
+        console.warn('Could not fetch module_status table:', e.message);
+    }
+
+    const statusMap = {};
+    statusRows.forEach(r => { statusMap[r.file_name] = r; });
+
+    const merged = files
+        .filter(f => f.name && !f.name.startsWith('.'))
+        .map((f, idx) => {
+            const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET_NAME}/${encodeURIComponent(f.name)}`;
+            const rawName   = f.name.replace(/^\d+_/, '');
+            const fileTitle = rawName.replace(/\.[^/.]+$/, '');
+            const existing  = statusMap[f.name];
+            const dbStatus  = existing?.status ?? 'pending';
+
+            const title = existing?.module_title ?? fileTitle;
+            const topic = existing?.module_topic ?? guessModuleTopic(fileTitle);
+            const desc  = existing?.module_desc ?? '';
+
+            const displayStatus =
+                dbStatus === 'approved' ? 'Published' :
+                dbStatus === 'rejected' ? 'Rejected'  :
+                'Pending Review';
+
+            return {
+                id:          f.id || idx + 1,
+                storageName: f.name,
+                title, desc, topic,
+                status:      displayStatus,
+                dbStatus,
+                completion:  0,
+                date:        formatDate(f.created_at || f.updated_at),
+                fileName:    rawName,
+                fileSize:    f.metadata?.size ?? 0,
+                fileUrl:     publicUrl,
+                dbId:        existing?.id ?? null,
+            };
+        });
+
+    const toInsert = merged
+        .filter(m => !m.dbId)
+        .map(m => ({ file_name: m.storageName, file_url: m.fileUrl, status: 'pending' }));
+
+    if (toInsert.length) {
+        try {
+            const inserted = await sbUpsert(STATUS_TABLE, toInsert);
+            if (Array.isArray(inserted)) {
+                inserted.forEach(row => {
+                    const item = merged.find(m => m.storageName === row.file_name);
+                    if (item) item.dbId = row.id;
+                });
+            }
+        } catch (e) {
+            console.warn('Auto-insert status rows failed:', e.message);
+        }
+    }
+
+    return merged;
+}
+
+function getFilteredModules() {
+    const q     = Security.sanitize(document.getElementById('module-search')?.value || '').toLowerCase();
+    const topic = document.getElementById('module-topic-filter')?.value || '';
+    return modulesData.filter(m =>
+        m.title.toLowerCase().includes(q) &&
+        (!topic || m.topic === topic)
+    );
+}
+
+function moduleBadgeClass(status) {
+    if (status === 'Published') return 'badge-good';
+    if (status === 'Rejected')  return 'badge-danger';
+    return 'badge-average';
+}
+
+async function loadAndRenderModules() {
+    const grid = document.getElementById('modules-grid');
+    if (grid) {
+        grid.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-icon">⏳</div>
+                <h4>Loading modules…</h4>
+                <p>Fetching latest status from Supabase.</p>
+            </div>`;
+    }
+    setText('mod-total', '…'); setText('mod-published', '…');
+    setText('mod-draft', '…'); setText('mod-completion', '…');
+
+    try {
+        modulesData = await fetchModulesFromSupabase();
+        renderModules();
+    } catch (err) {
+        console.error('Supabase load error:', err);
+        modulesData = [];
+        if (grid) {
+            grid.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-icon">⚠️</div>
+                    <h4>Could not load modules</h4>
+                    <p>${Security.escape(err.message)}</p>
+                    <button class="primary-btn" style="margin-top:12px" onclick="loadAndRenderModules()">Retry</button>
+                </div>`;
+        }
+        setText('mod-total', '0'); setText('mod-published', '0');
+        setText('mod-draft', '0'); setText('mod-completion', '0%');
+    }
+}
+
+function renderModules() {
+    const published = modulesData.filter(m => m.status === 'Published').length;
+    const pending    = modulesData.filter(m => m.status === 'Pending Review').length;
+    const rejected   = modulesData.filter(m => m.status === 'Rejected').length;
+    const avgComp    = modulesData.length
+        ? Math.round(modulesData.reduce((s, m) => s + (m.completion || 0), 0) / modulesData.length)
+        : 0;
+
+    setText('mod-total', modulesData.length);
+    setText('mod-published', published);
+    setText('mod-draft', pending + rejected);
+    setText('mod-completion', avgComp + '%');
+
+    const grid     = document.getElementById('modules-grid');
+    const filtered = getFilteredModules();
+
+    if (!filtered.length) {
+        grid.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-icon">📦</div>
+                <h4>${modulesData.length ? 'No modules match your search' : 'No modules uploaded yet'}</h4>
+                <p>${modulesData.length ? 'Try a different search or topic filter.' : 'Click "+ Add Module" to upload the first file.'}</p>
+            </div>`;
+        return;
+    }
+
+    grid.innerHTML = filtered.map(m => {
+        const fileBadge = m.fileName
+            ? `<span class="module-file-badge">
+                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;flex-shrink:0">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                 </svg>
+                 ${m.fileUrl
+                     ? `<a href="${Security.escape(m.fileUrl)}" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:underline">${Security.escape(m.fileName)}</a>`
+                     : Security.escape(m.fileName)
+                 }
+               </span>`
+            : '';
+
+        const rejectedHint = m.status === 'Rejected'
+            ? `<div style="margin-top:6px;padding:6px 10px;background:#fef2f2;border-radius:6px;font-size:11px;color:#dc2626;font-weight:600">⚠️ Marked rejected — edit and re-save, or delete.</div>`
+            : '';
+        const pendingHint = m.status === 'Pending Review'
+            ? `<div style="margin-top:6px;padding:6px 10px;background:#fff7ed;border-radius:6px;font-size:11px;color:#ea580c;font-weight:600">🕐 Awaiting approval in Content Management before students can access it.</div>`
+            : '';
+
+        return `
+        <div class="module-card">
+            <div class="module-card-header">
+                <div class="module-icon-wrap ${topicTheme(m.topic)}">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px">
+                        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+                    </svg>
+                </div>
+                <span class="status-badge ${moduleBadgeClass(m.status)}">${Security.escape(m.status)}</span>
+            </div>
+            <div class="module-card-title">${Security.escape(m.title)}</div>
+            <div class="module-card-topic">${Security.escape(m.topic)}</div>
+            <div class="module-card-desc">${Security.escape(m.desc || '')}</div>
+            ${fileBadge}
+            ${rejectedHint}
+            ${pendingHint}
+            <div class="module-card-footer">
+                <div>
+                    <div class="progress-bar" style="height:5px;margin-bottom:4px">
+                        <div class="progress-fill" style="width:${m.completion || 0}%;background:${progressColor(m.completion || 0)}"></div>
+                    </div>
+                    <span style="font-size:11px;color:var(--text-4);font-weight:600">${m.completion || 0}% avg. completion</span>
+                </div>
+                <div class="module-card-actions">
+                    <button class="tbl-btn view" onclick="viewModule('${Security.escape(String(m.id))}')">View</button>
+                    <button class="tbl-btn edit" onclick="editModule('${Security.escape(String(m.id))}')">Edit</button>
+                    <button class="tbl-btn feedback" onclick="deleteModule('${Security.escape(String(m.id))}')">Delete</button>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function filterModules() { renderModules(); }
+
+function cancelModule() {
+    document.getElementById('mod-title').value  = '';
+    document.getElementById('mod-desc').value   = '';
+    document.getElementById('mod-topic').value  = 'Module 1: Sequences and Series';
+    document.getElementById('mod-status').value = 'Draft';
+    document.getElementById('mod-edit-id').value = '';
+    document.getElementById('mod-modal-title').textContent = 'Add Module';
+    clearFile();
+    closeModal('modal-add-module');
+}
+
+function openAddModule() {
+    document.getElementById('mod-title').value  = '';
+    document.getElementById('mod-desc').value   = '';
+    document.getElementById('mod-topic').value  = 'Module 1: Sequences and Series';
+    document.getElementById('mod-status').value = 'Draft';
+    document.getElementById('mod-edit-id').value = '';
+    document.getElementById('mod-modal-title').textContent = 'Add Module';
+    clearFile();
+    openModal('modal-add-module');
+}
+
+async function saveModule() {
+    const title  = Security.sanitize(document.getElementById('mod-title').value.trim());
+    const desc   = Security.sanitize(document.getElementById('mod-desc').value.trim());
+    const topic  = document.getElementById('mod-topic').value.trim();
+    const editId = document.getElementById('mod-edit-id').value.trim();
+
+    if (!title || title.length < 3)
+        return warn('Title required', 'Please enter a module title (at least 3 characters).');
+
+    const saveBtn = document.querySelector('#modal-add-module .btn-save');
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
+
+    try {
+        let fileName = null, fileSize = null, fileUrl = null, storageName = null;
+
+        if (pendingFile) {
+            const MAX_BYTES = 20 * 1024 * 1024;
+            if (pendingFile.size > MAX_BYTES) {
+                if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save Module'; }
+                return warn('File too large', 'Please select a file smaller than 20 MB.');
+            }
+            const ALLOWED_EXTENSIONS = ['pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'txt', 'png', 'jpg', 'jpeg'];
+            const ext = pendingFile.name.split('.').pop()?.toLowerCase();
+            if (!ext || !ALLOWED_EXTENSIONS.includes(ext)) {
+                if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save Module'; }
+                return warn('Unsupported file type', `Allowed types: ${ALLOWED_EXTENSIONS.join(', ')}`);
+            }
+            if (saveBtn) saveBtn.textContent = 'Uploading…';
+
+            fileName = pendingFile.name;
+            fileSize = pendingFile.size;
+            const result = await uploadFileToSupabase(pendingFile);
+            fileUrl     = result.publicUrl;
+            storageName = result.path;
+        }
+
+        if (editId) {
+            const moduleIndex = modulesData.findIndex(m => String(m.id) === String(editId));
+            if (moduleIndex === -1) {
+                if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save Module'; }
+                return warn('Error', 'Module not found in local data.');
+            }
+            const existing = modulesData[moduleIndex];
+
+            modulesData[moduleIndex] = {
+                ...existing, title, desc, topic,
+                fileName:    pendingFile ? fileName    : existing.fileName,
+                fileSize:    pendingFile ? fileSize    : existing.fileSize,
+                fileUrl:     pendingFile ? fileUrl     : existing.fileUrl,
+                storageName: pendingFile ? storageName : existing.storageName,
+            };
+
+            if (existing.dbId) {
+                try {
+                    if (saveBtn) saveBtn.textContent = 'Updating database…';
+                    await sbUpdate(STATUS_TABLE, { id: existing.dbId }, {
+                        module_title: title,
+                        module_desc: desc,
+                        module_topic: topic,
+                        ...(pendingFile && { file_name: storageName, file_url: fileUrl }),
+                    });
+                } catch (err) {
+                    warn('Save Failed', `Could not save to database: ${err.message}`);
+                    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save Module'; }
+                    return;
+                }
+            } else {
+                try {
+                    const inserted = await sbUpsert(STATUS_TABLE, [{
+                        file_name: existing.storageName || null,
+                        file_url: existing.fileUrl || null,
+                        status: 'pending',
+                        module_title: title,
+                        module_desc: desc,
+                        module_topic: topic,
+                    }]);
+                    if (Array.isArray(inserted) && inserted[0]) modulesData[moduleIndex].dbId = inserted[0].id;
+                } catch (err) {
+                    console.warn('Upsert fallback failed:', err.message);
+                }
+            }
+
+            await logEvent('content', 'Module Updated', `"${title}" was edited by admin`, 'Updated');
+            pendingFile = null;
+            closeModal('modal-add-module');
+            renderModules();
+            toast('success', `"${Security.escape(title)}" updated successfully!`);
+        } else {
+            if (saveBtn) saveBtn.textContent = 'Saving to database…';
+            let dbId = null;
+            try {
+                const inserted = await sbUpsert(STATUS_TABLE, [{
+                    file_name: storageName || null,
+                    file_url: fileUrl || null,
+                    status: 'pending',
+                    module_title: title,
+                    module_desc: desc,
+                    module_topic: topic,
+                }]);
+                if (Array.isArray(inserted) && inserted[0]) dbId = inserted[0].id;
+            } catch (err) {
+                console.warn('Could not create database row:', err.message);
+            }
+
+            modulesData.push({
+                id: Date.now(), storageName: storageName || null,
+                title, desc, topic,
+                status: 'Pending Review', dbStatus: 'pending', completion: 0,
+                date: formatDate(new Date().toISOString()),
+                fileName: fileName || null, fileSize: fileSize || 0, fileUrl: fileUrl || null,
+                dbId,
+            });
+
+            await logEvent('content', 'Module Uploaded', `"${title}" uploaded by admin`, 'Created');
+            pendingFile = null;
+            closeModal('modal-add-module');
+            renderModules();
+            toast('success', `"${Security.escape(title)}" uploaded!`);
+        }
+    } catch (err) {
+        console.error('saveModule error:', err);
+        warn('Upload Failed', err.message || 'Could not save the module. Please try again.');
+    } finally {
+        if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save Module'; }
+    }
+}
+
+function viewModule(id) {
+    const m = modulesData.find(x => String(x.id) === String(id));
+    if (!m) return;
+    const fileHtml = m.fileName
+        ? `<div style="display:flex;justify-content:space-between;margin-top:8px">
+               <span style="font-size:12px;color:#6b7280;font-weight:600">Attached File</span>
+               <span style="font-size:12px;font-weight:700;color:#2563eb">
+                   ${m.fileUrl
+                       ? `<a href="${Security.escape(m.fileUrl)}" target="_blank" rel="noopener noreferrer">${Security.escape(m.fileName)}</a>`
+                       : Security.escape(m.fileName)}
+               </span>
+           </div>`
+        : '';
+    Swal.fire({
+        title: Security.escape(m.title),
+        html: `
+            <div style="text-align:left;font-family:'Plus Jakarta Sans',sans-serif">
+                <div style="background:#f4f6fb;border-radius:10px;padding:14px;margin-bottom:12px">
+                    <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+                        <span style="font-size:12px;color:#6b7280;font-weight:600">Topic</span>
+                        <span style="font-size:13px;font-weight:700;color:#111827">${Security.escape(m.topic)}</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between">
+                        <span style="font-size:12px;color:#6b7280;font-weight:600">Status</span>
+                        <span style="font-size:12px;font-weight:700">${Security.escape(m.status)}</span>
+                    </div>
+                    ${fileHtml}
+                </div>
+                <p style="font-size:13px;color:#6b7280">${Security.escape(m.desc || 'No description provided.')}</p>
+            </div>`,
+        confirmButtonColor: '#2563eb',
+        confirmButtonText: 'Close',
+    });
+}
+
+function editModule(id) {
+    const m = modulesData.find(x => String(x.id) === String(id));
+    if (!m) return;
+
+    document.getElementById('mod-title').value  = m.title || '';
+    document.getElementById('mod-desc').value   = m.desc || '';
+    document.getElementById('mod-topic').value  = m.topic || 'Module 1: Sequences and Series';
+    document.getElementById('mod-status').value = 'Draft';
+    document.getElementById('mod-edit-id').value = String(m.id);
+    document.getElementById('mod-modal-title').textContent = 'Edit Module';
+
+    pendingFile = null;
+    const fileInput  = document.getElementById('mod-file');
+    const uploadArea = document.getElementById('mod-file-area');
+    if (fileInput) fileInput.value = '';
+
+    if (m.fileName) {
+        const filePreview     = document.getElementById('mod-file-preview');
+        const filePreviewName = document.getElementById('mod-file-name');
+        const filePreviewSize = document.getElementById('mod-file-size');
+        if (filePreview) filePreview.classList.add('visible');
+        if (uploadArea) uploadArea.style.display = 'none';
+        if (filePreviewName) filePreviewName.textContent = m.fileName;
+        if (filePreviewSize) filePreviewSize.textContent = formatFileSize(m.fileSize);
+        if (fileInput) fileInput.setAttribute('data-existing-file', m.storageName);
+    } else {
+        const filePreview = document.getElementById('mod-file-preview');
+        if (filePreview) filePreview.classList.remove('visible');
+        if (uploadArea) uploadArea.style.display = '';
+        if (fileInput) fileInput.removeAttribute('data-existing-file');
+    }
+
+    openModal('modal-add-module');
+}
+
+async function deleteModule(id) {
+    const m = modulesData.find(x => String(x.id) === String(id));
+    if (!m) return;
+    Swal.fire({
+        title: 'Delete Module?',
+        text: `"${m.title}" will be permanently deleted, including its file.`,
+        icon: 'warning', showCancelButton: true,
+        confirmButtonColor: '#ef4444', cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Delete', cancelButtonText: 'Cancel',
+    }).then(async r => {
+        if (!r.isConfirmed) return;
+        try {
+            if (m.storageName) {
+                try {
+                    await deleteFileFromSupabase(m.storageName);
+                } catch (fileErr) {
+                    console.warn('Could not delete file from storage:', fileErr.message);
+                }
+            }
+            if (m.dbId) {
+                try {
+                    await sbDelete(STATUS_TABLE, { id: m.dbId });
+                } catch (dbErr) {
+                    console.warn('Could not delete from database:', dbErr.message);
+                }
+            }
+            modulesData = modulesData.filter(x => String(x.id) !== String(id));
+            await logEvent('content', 'Module Deleted', `"${m.title}" permanently deleted by admin`, 'Deleted');
+            renderModules();
+            toast('success', 'Module permanently deleted.');
+        } catch (err) {
+            console.error('Delete error:', err);
+            warn('Delete Failed', err.message || 'Could not delete the module.');
+        }
+    });
+}
+
+/* ============================================================
+   FILE UPLOAD HANDLER (Add/Edit Module modal)
+   ============================================================ */
+function clearFile() {
+    pendingFile = null;
+    const fileInput  = document.getElementById('mod-file');
+    const uploadArea = document.getElementById('mod-file-area');
+    const preview    = document.getElementById('mod-file-preview');
+
+    if (fileInput) { fileInput.value = ''; fileInput.removeAttribute('data-existing-file'); }
+    if (preview) preview.classList.remove('visible');
+    if (uploadArea) { uploadArea.style.display = ''; uploadArea.style.removeProperty('display'); }
+}
+
+function initFileUpload() {
+    const fileInput   = document.getElementById('mod-file');
+    const uploadArea  = document.getElementById('mod-file-area');
+    const preview     = document.getElementById('mod-file-preview');
+    const previewName = document.getElementById('mod-file-name');
+    const previewSize = document.getElementById('mod-file-size');
+    const removeBtn   = document.getElementById('mod-file-remove');
+
+    if (!fileInput) return;
+
+    function showPreview(file) {
+        pendingFile = file;
+        previewName.textContent = file.name;
+        previewSize.textContent = formatFileSize(file.size);
+        preview.classList.add('visible');
+        uploadArea.style.display = 'none';
+    }
+
+    fileInput.addEventListener('change', () => {
+        if (fileInput.files && fileInput.files[0]) showPreview(fileInput.files[0]);
+    });
+    removeBtn.addEventListener('click', clearFile);
+    uploadArea.addEventListener('dragover',  e => { e.preventDefault(); uploadArea.classList.add('drag-over'); });
+    uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('drag-over'));
+    uploadArea.addEventListener('drop', e => {
+        e.preventDefault();
+        uploadArea.classList.remove('drag-over');
+        const file = e.dataTransfer.files[0];
+        if (file) showPreview(file);
+    });
+}
 
 /* ============================================================
    GLOBAL EXPOSE (for onclick= attributes in Blade)
@@ -1017,6 +1600,8 @@ Object.assign(window, {
     filterUsers, editUser, saveUser, deleteUser,
     filterContent, loadAndRenderContent,
     approveContent, rejectContent, resetContentStatus, deleteContent,
+    filterModules, loadAndRenderModules, openAddModule, cancelModule, saveModule,
+    viewModule, editModule, deleteModule, clearFile,
     filterActivity,
     savePlatformInfo, saveSettings, confirmDanger,
     openModal, closeModal, confirmLogout,
@@ -1038,6 +1623,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'Escape')
             document.querySelectorAll('.modal-overlay.open').forEach(o => closeModal(o.id));
     });
+    initFileUpload();
 
     // Load everything from Supabase, then render
     initDashboard();
