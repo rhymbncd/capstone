@@ -230,6 +230,7 @@ class TeacherApprovalTest extends TestCase
             'lastName' => 'Doe',
             'email' => 'jane@example.com',
             'section_id' => $section->id,
+            'student_id' => '24-0001',
             'password' => 'password123',
             'password_confirmation' => 'password123',
         ]);

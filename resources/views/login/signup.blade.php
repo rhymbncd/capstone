@@ -388,6 +388,15 @@
           @error('email')<p style="color: red; font-size: 12px; margin-top: 5px;">{{ $message }}</p>@enderror
         </div>
 
+        <div class="ig" id="student-id-row">
+          <label>Student ID</label>
+          <div class="iw">
+            <i class="fa-solid fa-id-card ico"></i>
+            <input type="text" name="student_id" id="student_id" placeholder="e.g. 24-1234" autocomplete="off" value="{{ old('student_id') }}">
+          </div>
+          @error('student_id')<p style="color: red; font-size: 12px; margin-top: 5px;">{{ $message }}</p>@enderror
+        </div>
+
         <div class="section-picker-wrap" id="section-row">
           <label for="section-search-input">Section</label>
 
@@ -469,6 +478,7 @@ function setRole(role, el) {
   document.getElementById('sub-text').textContent = roleLabels[role];
   document.getElementById('signupForm').action = roleRoutes[role];
   document.getElementById('section-row').style.display = role === 'student' ? 'block' : 'none';
+  document.getElementById('student-id-row').style.display = role === 'student' ? 'block' : 'none';
 }
 
 function redirectToGoogle() {
@@ -506,12 +516,36 @@ function checkStrength() {
 // Validate section selection before form submission
 function validateSection(event) {
   if (currentRole !== 'student') {
-    return true; // Only validate section for students
+    return true; // Only validate section/student ID for students
   }
+
+  const studentIdInput = document.getElementById('student_id');
+  if (!studentIdInput.value.trim()) {
+    event.preventDefault();
+    studentIdInput.style.borderColor = '#ef4444';
+    studentIdInput.parentElement.style.background = '';
+    studentIdInput.style.background = '#fef2f2';
+    studentIdInput.focus();
+
+    let idErrorMsg = document.getElementById('student-id-error-msg');
+    if (!idErrorMsg) {
+      idErrorMsg = document.createElement('p');
+      idErrorMsg.id = 'student-id-error-msg';
+      idErrorMsg.style.cssText = 'color: #ef4444; font-size: 12px; margin-top: 5px;';
+      document.getElementById('student-id-row').appendChild(idErrorMsg);
+    }
+    idErrorMsg.textContent = 'Please enter your student ID';
+
+    return false;
+  }
+  studentIdInput.style.borderColor = '';
+  studentIdInput.style.background = '';
+  const idErrorMsg = document.getElementById('student-id-error-msg');
+  if (idErrorMsg) idErrorMsg.textContent = '';
 
   const sectionId = document.getElementById('section_id').value.trim();
   const sectionInput = document.getElementById('section-search-input');
-  
+
   if (!sectionId) {
     event.preventDefault();
     
@@ -707,6 +741,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const form = document.getElementById('signupForm');
   form.action = roleRoutes[currentRole];
   document.getElementById('section-row').style.display = currentRole === 'student' ? 'block' : 'none';
+  document.getElementById('student-id-row').style.display = currentRole === 'student' ? 'block' : 'none';
   initSectionPicker();
   loadSections();
 });

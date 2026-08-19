@@ -242,6 +242,17 @@
     <form id="completionForm" method="POST" onsubmit="return validateSection(event)">
       @csrf
 
+      <div class="ig" id="student-id-row">
+        <label>Student ID <span style="color: #ef4444;">*</span></label>
+        <div class="iw">
+          <i class="fa-solid fa-id-card ico" style="position:absolute;left:13px;font-size:15px;color:#aaa;pointer-events:none"></i>
+          <input type="text" name="student_id" id="student_id" placeholder="e.g. 24-1234" autocomplete="off"
+                 style="width:100%;padding:11px 13px 11px 40px;background:#F1F5F9;border:1.5px solid transparent;border-radius:11px;font-size:14px;color:#333;outline:none;transition:.2s"
+                 value="{{ old('student_id') }}">
+        </div>
+        @error('student_id')<p style="color: #ef4444; font-size: 12px; margin-top: 5px;">{{ $message }}</p>@enderror
+      </div>
+
       <div class="section-picker-wrap" id="section-row">
         <label for="section-search-input">Select Your Section <span style="color: #ef4444;">*</span></label>
 
@@ -305,6 +316,29 @@
 <script>
 // Validate section selection before form submission
 function validateSection(event) {
+  const studentIdInput = document.getElementById('student_id');
+  if (!studentIdInput.value.trim()) {
+    event.preventDefault();
+    studentIdInput.style.borderColor = '#ef4444';
+    studentIdInput.style.background = '#fef2f2';
+    studentIdInput.focus();
+
+    let idErrorMsg = document.getElementById('student-id-error-msg');
+    if (!idErrorMsg) {
+      idErrorMsg = document.createElement('p');
+      idErrorMsg.id = 'student-id-error-msg';
+      idErrorMsg.style.cssText = 'color: #ef4444; font-size: 12px; margin-top: 5px;';
+      document.getElementById('student-id-row').appendChild(idErrorMsg);
+    }
+    idErrorMsg.textContent = 'Please enter your student ID';
+
+    return false;
+  }
+  studentIdInput.style.borderColor = '';
+  studentIdInput.style.background = '';
+  const idErrorMsg = document.getElementById('student-id-error-msg');
+  if (idErrorMsg) idErrorMsg.textContent = '';
+
   const sectionId = document.getElementById('section_id').value.trim();
   const sectionInput = document.getElementById('section-search-input');
 

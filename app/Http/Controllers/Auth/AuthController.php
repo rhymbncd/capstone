@@ -78,6 +78,7 @@ class AuthController extends Controller
             'lastName' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users,email',
             'section_id' => 'required|exists:sections,id',
+            'student_id' => 'required|string|max:50',
             'password' => 'required|string|min:8|confirmed',
         ]);
 
@@ -89,6 +90,7 @@ class AuthController extends Controller
             'password' => Hash::make($validated['password']),
             'role' => 'student',
             'section_id' => $validated['section_id'],
+            'student_id' => $validated['student_id'],
             'approval_status' => 'pending',
         ]);
 
@@ -129,6 +131,7 @@ class AuthController extends Controller
 
         $validated = $request->validate([
             'section_id' => 'required|exists:sections,id',
+            'student_id' => 'required|string|max:50',
         ]);
 
         $user = User::find($userId);
@@ -136,9 +139,10 @@ class AuthController extends Controller
             return redirect()->route('student.login')->withErrors(['error' => 'User not found.']);
         }
 
-        // Update user with section
+        // Update user with section and student ID
         $user->update([
             'section_id' => $validated['section_id'],
+            'student_id' => $validated['student_id'],
             'approval_status' => 'pending', // Mark for teacher approval
         ]);
 
