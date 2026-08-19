@@ -318,7 +318,7 @@
   <div class="form-side">
     <div class="form-content">
       <h2>Create account</h2>
-      <p class="sub" id="sub-text">Sign up as a student for free</p>
+      <p class="sub" id="sub-text">Sign up as {{ ($portalType ?? 'student') === 'admin' ? 'an administrator' : 'a '.($portalType ?? 'student') }}{{ ($portalType ?? 'student') === 'student' ? ' for free' : '' }}</p>
 
       @if ($errors->any())
         <div style="background: #f8d7da; color: #721c24; padding: 12px; border-radius: 8px; margin-bottom: 20px; font-size: 13px; border: 1px solid #f5c6cb;">
@@ -335,13 +335,13 @@
       @endif
 
       <div class="role-tabs">
-        <button class="role-tab active" onclick="setRole('student', this)">
+        <button class="role-tab {{ ($portalType ?? 'student') === 'student' ? 'active' : '' }}" onclick="setRole('student', this)">
           <i class="fa-solid fa-user-graduate"></i><span>Student</span>
         </button>
-        <button class="role-tab" onclick="setRole('teacher', this)">
+        <button class="role-tab {{ ($portalType ?? 'student') === 'teacher' ? 'active' : '' }}" onclick="setRole('teacher', this)">
           <i class="fa-solid fa-chalkboard-user"></i><span>Teacher</span>
         </button>
-        <button class="role-tab" onclick="setRole('admin', this)">
+        <button class="role-tab {{ ($portalType ?? 'student') === 'admin' ? 'active' : '' }}" onclick="setRole('admin', this)">
           <i class="fa-solid fa-lock"></i><span>Admin</span>
         </button>
       </div>
@@ -460,7 +460,7 @@
 const roleLabels = { student: 'Sign up as a student for free', teacher: 'Sign up as a teacher', admin: 'Sign up as an administrator' };
 const roleRoutes = { student: '{{ route("student.register") }}', teacher: '{{ route("teacher.register") }}', admin: '{{ route("admin.register") }}' };
 const googleRoutes = { student: '{{ route("auth.google.redirect", "student") }}', teacher: '{{ route("auth.google.redirect", "teacher") }}', admin: '{{ route("auth.google.redirect", "admin") }}' };
-let currentRole = 'student';
+let currentRole = '{{ $portalType ?? "student" }}';
 
 function setRole(role, el) {
   currentRole = role;
@@ -589,14 +589,6 @@ function loadSections() {
     });
 }
 
-// Set initial form action on page load
-document.addEventListener('DOMContentLoaded', function() {
-  const form = document.getElementById('signupForm');
-  form.action = roleRoutes['student'];
-  document.getElementById('section-row').style.display = 'block';
-  loadSections();
-});
-
 // ═════════════════════════════════════════════════════════════
 // SECTION PICKER DROPDOWN HANDLER
 // ═════════════════════════════════════════════════════════════
@@ -707,11 +699,14 @@ function initSectionPicker() {
   });
 }
 
-// Set initial form action on page load
+// Set initial form action to match the portal actually visited (was
+// previously hardcoded to 'student', so visiting /teacher/register or
+// /admin/register directly and submitting without touching a tab first
+// would silently submit as a student registration).
 document.addEventListener('DOMContentLoaded', function() {
   const form = document.getElementById('signupForm');
-  form.action = roleRoutes['student'];
-  document.getElementById('section-row').style.display = 'block';
+  form.action = roleRoutes[currentRole];
+  document.getElementById('section-row').style.display = currentRole === 'student' ? 'block' : 'none';
   initSectionPicker();
   loadSections();
 });

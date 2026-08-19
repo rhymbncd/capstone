@@ -236,7 +236,7 @@
   <div class="form-side">
     <div class="form-content">
       <h2>Welcome back</h2>
-      <p class="sub" id="sub-text">Sign in to your student account</p>
+      <p class="sub" id="sub-text">Sign in to your {{ $portalType ?? 'student' }} account</p>
 
       @if (session('success'))
         <div style="background: #d4edda; color: #155724; padding: 12px; border-radius: 8px; margin-bottom: 20px; font-size: 13px; border: 1px solid #c3e6cb;">
@@ -251,13 +251,13 @@
       @endif
 
       <div class="role-tabs">
-        <button class="role-tab active" onclick="setRole('student', this)">
+        <button class="role-tab {{ ($portalType ?? 'student') === 'student' ? 'active' : '' }}" onclick="setRole('student', this)">
           <i class="fa-solid fa-user-graduate"></i><span>Student</span>
         </button>
-        <button class="role-tab" onclick="setRole('teacher', this)">
+        <button class="role-tab {{ ($portalType ?? 'student') === 'teacher' ? 'active' : '' }}" onclick="setRole('teacher', this)">
           <i class="fa-solid fa-chalkboard-user"></i><span>Teacher</span>
         </button>
-        <button class="role-tab" onclick="setRole('admin', this)">
+        <button class="role-tab {{ ($portalType ?? 'student') === 'admin' ? 'active' : '' }}" onclick="setRole('admin', this)">
           <i class="fa-solid fa-lock"></i><span>Admin</span>
         </button>
       </div>
@@ -314,7 +314,7 @@
 const roleLabels = { student: 'Sign in to your student account', teacher: 'Sign in to your teacher account', admin: 'Sign in to your admin account' };
 const roleRoutes = { student: '{{ route("student.login.submit") }}', teacher: '{{ route("teacher.login.submit") }}', admin: '{{ route("admin.login.submit") }}' };
 const googleRoutes = { student: '{{ route("auth.google.redirect", "student") }}', teacher: '{{ route("auth.google.redirect", "teacher") }}', admin: '{{ route("auth.google.redirect", "admin") }}' };
-let currentRole = 'student';
+let currentRole = '{{ $portalType ?? "student" }}';
 
 function setRole(role, el) {
   currentRole = role;
@@ -335,10 +335,13 @@ function redirectToGoogle() {
   window.location.href = googleRoutes[currentRole];
 }
 
-// Set initial form action
+// Set initial form action to match the portal actually visited
+// (was previously hardcoded to 'student', so visiting /teacher/login or
+// /admin/login directly and signing in without touching a tab first would
+// silently submit as a student login and always fail).
 document.addEventListener('DOMContentLoaded', function() {
   const form = document.getElementById('loginForm');
-  form.action = roleRoutes['student'];
+  form.action = roleRoutes[currentRole];
 });
 </script>
 </body>

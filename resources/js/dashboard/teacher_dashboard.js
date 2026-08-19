@@ -742,8 +742,10 @@ async function loadAndRenderModules() {
    ============================================================ */
 
 function loadSectionsForReports() {
-    fetch('/api/sections')
-        .then(r => r.json())
+    // Scoped to this teacher's own sections (/api/sections is the public,
+    // unscoped list used by the registration form — using it here leaked
+    // every other teacher's section names into this teacher's Reports tab).
+    apiFetch('/teacher/sections/list')
         .then(data => {
             allSections = data.sections || [];
             renderSectionsContainer();
@@ -768,13 +770,20 @@ function renderSectionsContainer() {
     }
 
     const colors = ['#3b82f6', '#10b981', '#f97316', '#8b5cf6', '#ec4899', '#06b6d4'];
-    
+
     container.innerHTML = allSections.map((sec, idx) => {
         const colorHex = colors[idx % colors.length];
-        const studentCount = sec.students_count || 0;
-        const avgProgress = sec.avg_progress || 0;
-        const needsAttention = sec.needs_attention || 0;
-        
+
+        // Real students in this section, from the already-loaded roster
+        // (StudentController::getTeacherStudents), not a placeholder count.
+        const sectionStudents = students.filter(s => s.section_id === sec.id);
+        const studentCount = sectionStudents.length;
+        const avgProgress = studentCount
+            ? Math.round(sectionStudents.reduce((sum, s) => sum + s.progress, 0) / studentCount)
+            : 0;
+        const needsAttention = sectionStudents.filter(s => s.status === 'Needs Help').length;
+        const top = [...sectionStudents].sort((a, b) => b.progress - a.progress)[0];
+
         return `
             <div style="border:1px solid #e5e7eb;border-radius:16px;margin-bottom:20px;overflow:hidden;background:white;box-shadow:0 1px 3px rgba(0,0,0,0.05)">
                 <!-- Section Header -->
@@ -810,19 +819,30 @@ function renderSectionsContainer() {
                     </div>
                 </div>
                 
-                <!-- Section Content -->
-                <div style="padding:48px 24px;text-align:center;min-height:180px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#fafbfc">
-                    ${studentCount === 0 
-                        ? `<div style="color:#d1d5db;font-size:64px;margin-bottom:12px;opacity:0.8">👥</div>
-                           <div style="color:#9ca3af;font-size:15px;font-weight:500">No students in this section yet</div>`
-                        : `<div style="font-size:16px;color:#111827;font-weight:600"><strong>${studentCount}</strong> students enrolled</div>
-                           <div style="font-size:14px;color:#6b7280;margin-top:6px">Average progress: <strong>${avgProgress}%</strong></div>`
+                <!-- Section Content: real student roster -->
+                <div style="padding:16px 24px;background:#fafbfc">
+                    ${studentCount === 0
+                        ? `<div style="text-align:center;padding:32px 0">
+                               <div style="color:#d1d5db;font-size:64px;margin-bottom:12px;opacity:0.8">👥</div>
+                               <div style="color:#9ca3af;font-size:15px;font-weight:500">No students in this section yet</div>
+                           </div>`
+                        : sectionStudents.map(s => `
+                            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f3f4f6">
+                                <div style="display:flex;align-items:center;gap:10px;min-width:0">
+                                    <div class="student-avatar" style="width:28px;height:28px;font-size:10px;flex-shrink:0">${Security.escape(initials(s.name))}</div>
+                                    <span style="font-size:13.5px;color:#111827;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${Security.escape(s.name)}</span>
+                                </div>
+                                <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+                                    <span class="status-badge ${badgeClass(s.status)}">${Security.escape(s.status)}</span>
+                                    <span style="font-size:12.5px;font-weight:700;color:${progressColor(s.progress)};width:36px;text-align:right">${s.progress}%</span>
+                                </div>
+                            </div>`).join('')
                     }
                 </div>
-                
+
                 <!-- Section Footer -->
                 <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 24px;background:#f9fafb;border-top:1px solid #f3f4f6;font-size:13px;color:#6b7280">
-                    <span>Top: <strong style="color:#111827">N/A</strong></span>
+                    <span>Top: <strong style="color:#111827">${top ? Security.escape(top.name) : 'N/A'}</strong></span>
                     <span>Needs attention: <strong style="color:#111827">${needsAttention} students</strong></span>
                 </div>
             </div>
@@ -832,9 +852,9 @@ function renderSectionsContainer() {
 
 async function loadSections() {
     try {
-        const response = await fetch('/api/sections');
-        if (!response.ok) throw new Error('Failed to fetch sections');
-        const data = await response.json();
+        // Scoped to this teacher's own sections — /api/sections is the
+        // public, unscoped list used by the registration form.
+        const data = await apiFetch('/teacher/sections/list');
         sections = data.sections || [];
     } catch (err) {
         console.error('Error loading sections:', err);

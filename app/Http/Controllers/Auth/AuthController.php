@@ -155,6 +155,11 @@ class AuthController extends Controller
         return view('login.signin', ['portalType' => 'teacher']);
     }
 
+    public function showTeacherRegisterForm()
+    {
+        return view('login.signup', ['portalType' => 'teacher']);
+    }
+
     public function teacherLogin(Request $request): Response|RedirectResponse
     {
         $request->validate([
@@ -226,6 +231,11 @@ class AuthController extends Controller
     public function showAdminLoginForm()
     {
         return view('login.signin', ['portalType' => 'admin']);
+    }
+
+    public function showAdminRegisterForm()
+    {
+        return view('login.signup', ['portalType' => 'admin']);
     }
 
     public function adminLogin(Request $request)
