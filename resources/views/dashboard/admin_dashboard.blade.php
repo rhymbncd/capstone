@@ -15,12 +15,21 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.js"></script>
 
+    <!-- PDF/Excel export (Users, Analytics, Modules, Activity) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/4.2.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
     {{-- Vite: compiles admin_dashboard.css + admin_dashboard.js --}}
     <!-- Expose environment variables to frontend -->
     <script>
         window.__ENV__ = {
             SUPABASE_URL:      "{{ config('services.supabase.url') }}",
             SUPABASE_ANON_KEY: "{{ config('services.supabase.anon_key') }}",
+        };
+
+        window.__USER__ = {
+            name: "{{ auth()->user()->name }}",
         };
 
         window.getSupabaseClient = function(timeout = 3000) {
@@ -293,8 +302,26 @@
                         @endforeach
                     </div>
                     @endif
-                    <div class="section-label">All Users</div>
-                    <div class="section-sub">Search, filter, and manage user accounts</div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+                        <div>
+                            <div class="section-label">All Users</div>
+                            <div class="section-sub">Search, filter, and manage user accounts</div>
+                        </div>
+                        <div style="display:flex;gap:8px">
+                            <button class="primary-btn" onclick="exportUsersPdf()" style="display:flex;align-items:center;gap:6px;padding:10px 18px">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                                </svg>
+                                PDF
+                            </button>
+                            <button class="primary-btn" onclick="exportUsersExcel()" style="display:flex;align-items:center;gap:6px;padding:10px 18px;background:#16a34a">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                                </svg>
+                                Excel
+                            </button>
+                        </div>
+                    </div>
                     <div class="toolbar">
                         <input type="text" class="search-input" id="user-search" placeholder="🔍  Search by name or email…" oninput="filterUsers()" maxlength="100" autocomplete="off">
                         <select class="filter-select" id="user-role-filter" onchange="filterUsers()">
@@ -316,9 +343,25 @@
 
             <!-- ANALYTICS PAGE -->
             <div class="page" id="page-analytics">
-                <div class="hero-section">
-                    <h1 class="welcome-title">Analytics</h1>
-                    <p class="welcome-subtitle">Platform usage, engagement, and performance metrics</p>
+                <div class="hero-section" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+                    <div>
+                        <h1 class="welcome-title">Analytics</h1>
+                        <p class="welcome-subtitle">Platform usage, engagement, and performance metrics</p>
+                    </div>
+                    <div style="display:flex;gap:8px">
+                        <button class="primary-btn" onclick="exportAnalyticsPdf()" style="display:flex;align-items:center;gap:6px;padding:10px 18px">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                            </svg>
+                            PDF
+                        </button>
+                        <button class="primary-btn" onclick="exportAnalyticsExcel()" style="display:flex;align-items:center;gap:6px;padding:10px 18px;background:#16a34a">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                            </svg>
+                            Excel
+                        </button>
+                    </div>
                 </div>
                 <div class="metrics-scroll-wrap">
                     <div class="metrics-grid">
@@ -476,8 +519,26 @@
                 </div>
 
                 <div class="modules-container">
-                    <div class="section-label">All Modules</div>
-                    <div class="section-sub">Browse, add, and manage learning modules — same library teachers upload to</div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+                        <div>
+                            <div class="section-label">All Modules</div>
+                            <div class="section-sub">Browse, add, and manage learning modules — same library teachers upload to</div>
+                        </div>
+                        <div style="display:flex;gap:8px">
+                            <button class="primary-btn" onclick="exportModulesPdf()" style="display:flex;align-items:center;gap:6px;padding:10px 18px">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                                </svg>
+                                PDF
+                            </button>
+                            <button class="primary-btn" onclick="exportModulesExcel()" style="display:flex;align-items:center;gap:6px;padding:10px 18px;background:#16a34a">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                                </svg>
+                                Excel
+                            </button>
+                        </div>
+                    </div>
                     <div class="toolbar">
                         <input type="text" class="search-input" id="module-search"
                                placeholder="🔍  Search modules…" oninput="filterModules()"
@@ -514,8 +575,26 @@
                     </div>
                 </div>
                 <div class="modules-container">
-                    <div class="section-label">Event Timeline</div>
-                    <div class="section-sub">Most recent system and user events</div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+                        <div>
+                            <div class="section-label">Event Timeline</div>
+                            <div class="section-sub">Most recent system and user events</div>
+                        </div>
+                        <div style="display:flex;gap:8px">
+                            <button class="primary-btn" onclick="exportActivityPdf()" style="display:flex;align-items:center;gap:6px;padding:10px 18px">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                                </svg>
+                                PDF
+                            </button>
+                            <button class="primary-btn" onclick="exportActivityExcel()" style="display:flex;align-items:center;gap:6px;padding:10px 18px;background:#16a34a">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                                </svg>
+                                Excel
+                            </button>
+                        </div>
+                    </div>
                     <div class="toolbar">
                         <select class="filter-select" id="activity-filter" onchange="filterActivity()" style="flex:1">
                             <option value="">All Events</option>

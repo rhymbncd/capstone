@@ -253,7 +253,7 @@
                             <span class="percentage blue" id="home-mod1-pct">0%</span>
                         </div>
                         <div class="progress-bar-bg"><div class="progress-fill blue" id="home-mod1-fill" style="width:0%"></div></div>
-                        <button class="view-topics-btn" onclick="navigate('modules')">View Topics</button>
+                        <button class="view-topics-btn" onclick="navigate('modules', 1)">View Topics</button>
                     </div>
 
                     <div class="module-item">
@@ -263,7 +263,7 @@
                             <span class="percentage blue" id="home-mod2-pct">0%</span>
                         </div>
                         <div class="progress-bar-bg"><div class="progress-fill blue" id="home-mod2-fill" style="width:0%"></div></div>
-                        <button class="view-topics-btn" onclick="navigate('modules')">View Topics</button>
+                        <button class="view-topics-btn" onclick="navigate('modules', 2)">View Topics</button>
                     </div>
 
                     <div class="module-item">
@@ -273,7 +273,7 @@
                             <span class="percentage blue" id="home-mod3-pct">0%</span>
                         </div>
                         <div class="progress-bar-bg"><div class="progress-fill blue" id="home-mod3-fill" style="width:0%"></div></div>
-                        <button class="view-topics-btn" onclick="navigate('modules')">View Topics</button>
+                        <button class="view-topics-btn" onclick="navigate('modules', 3)">View Topics</button>
                     </div>
                 </section>
 

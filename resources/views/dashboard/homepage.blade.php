@@ -52,7 +52,7 @@
 
     <div class="hero-content">
 
-        <h1>LearnMath</h1>
+        <h1>MathLearn</h1>
 
         <h2>Math Learning Assistant</h2>
 

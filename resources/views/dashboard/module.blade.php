@@ -64,6 +64,11 @@ html,body { min-height:100%; font-family:'Plus Jakarta Sans',sans-serif; backgro
   background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
   padding:18px; margin-bottom:20px; box-shadow:var(--shadow);
   animation:fadeIn 0.4s ease forwards; opacity:0; animation-delay:0.05s;
+  transition:box-shadow 0.3s ease, border-color 0.3s ease;
+}
+.modules-container.mq-module-highlight {
+  border-color:var(--blue-mid);
+  box-shadow:0 0 0 3px var(--blue-light), var(--shadow);
 }
 .topic-list { list-style:none; }
 .topic-item {
@@ -356,7 +361,7 @@ html,body { min-height:100%; font-family:'Plus Jakarta Sans',sans-serif; backgro
       <p class="welcome-subtitle">Pre-Test → Lesson → Activity → Post-Test · Complete each step to unlock the next</p>
     </div>
 
-    <section class="modules-container">
+    <section class="modules-container" id="module1">
       <div class="section-label">Module 1: Sequences and Series</div>
       <div class="section-sub" id="mod1-sub">0% complete · 0 of 5 topics done</div>
       <ul class="topic-list">
@@ -368,7 +373,7 @@ html,body { min-height:100%; font-family:'Plus Jakarta Sans',sans-serif; backgro
       </ul>
     </section>
 
-    <section class="modules-container">
+    <section class="modules-container" id="module2">
       <div class="section-label">Module 2: Polynomials and Polynomial Equations</div>
       <div class="section-sub" id="mod2-sub">0% complete · 0 of 3 topics done</div>
       <ul class="topic-list">
@@ -378,7 +383,7 @@ html,body { min-height:100%; font-family:'Plus Jakarta Sans',sans-serif; backgro
       </ul>
     </section>
 
-    <section class="modules-container">
+    <section class="modules-container" id="module3">
       <div class="section-label">Module 3: Advanced Equations and Functions</div>
       <div class="section-sub" id="mod3-sub">0% complete · 0 of 4 topics done</div>
       <ul class="topic-list">
@@ -1496,6 +1501,19 @@ document.addEventListener('DOMContentLoaded', async function () {
         applyCompletedTopicsToUI();
     } catch (e) {
         console.warn('Progress restore failed:', e.message);
+    }
+
+    // ── Jump straight to the module the student clicked on the dashboard
+    //    (e.g. "View Topics" on Module 2), instead of always landing on
+    //    Module 1 at the top. Done last, after layout has settled from
+    //    the async content above. ──
+    if (location.hash) {
+        const target = document.querySelector(location.hash);
+        if (target) {
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            target.classList.add('mq-module-highlight');
+            setTimeout(() => target.classList.remove('mq-module-highlight'), 1800);
+        }
     }
 });
 

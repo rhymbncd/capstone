@@ -7,17 +7,16 @@ document.addEventListener('DOMContentLoaded', function () {
     /* ================================
        NAVIGATION
        ================================ */
-    function navigate(page) {
+    function navigate(page, moduleNum) {
         // Modules is a separate Blade view — use Laravel route
         if (page === 'modules') {
             // The route URL is injected by the Blade template via a meta tag
             const modulesUrl = document.querySelector('meta[name="modules-url"]');
-            if (modulesUrl) {
-                window.location.href = modulesUrl.getAttribute('content');
-            } else {
-                // Fallback: try /student/modules
-                window.location.href = '/student/modules';
-            }
+            const base = modulesUrl ? modulesUrl.getAttribute('content') : '/student/modules';
+            // Which module card/button was actually clicked — the modules
+            // page scrolls straight to that section instead of always
+            // landing back at Module 1.
+            window.location.href = moduleNum ? `${base}#module${moduleNum}` : base;
             return;
         }
 
@@ -758,11 +757,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // ✅ Check summative status when navigating to it
     const _originalNavigate = window.navigate;
-    window.navigate = async function(page) {
+    window.navigate = async function(page, ...rest) {
         if (page === 'summative') {
             await updateSummativeLockStatus();
         }
-        _originalNavigate(page);
+        _originalNavigate(page, ...rest);
     };
 
     // ✅ Wrap startQuiz() to prevent direct access when locked
