@@ -12,6 +12,7 @@
         "php": "^8.2",
         "laravel/socialite": "^5.27",
         "laravel/tinker": "^2.10.1",
+        "resend/resend-php": "^1.9",
         "spatie/pdf-to-text": "^1.54",
         "supabase-php/supabase-client": "^1.2"
     },
