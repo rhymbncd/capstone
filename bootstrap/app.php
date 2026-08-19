@@ -1,10 +1,12 @@
 <?php
 
+use App\Http\Middleware\PreventRequestsDuringMaintenance;
 use App\Http\Middleware\RoleMiddleware;
 use App\Http\Middleware\StudentMiddleware;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
-use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Foundation\Configuration\Middleware as MiddlewareConfig;
+use Illuminate\Foundation\Http\Middleware\PreventRequestsDuringMaintenance as FrameworkPreventRequestsDuringMaintenance;
 use Illuminate\Http\Request;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -13,7 +15,7 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
-    ->withMiddleware(function (Middleware $middleware) {
+    ->withMiddleware(function (MiddlewareConfig $middleware) {
         $middleware->alias([
             'role' => RoleMiddleware::class,
             'student' => StudentMiddleware::class,
@@ -29,6 +31,10 @@ return Application::configure(basePath: dirname(__DIR__))
                 default => route('student.login'),
             };
         });
+
+        // Keep the admin portal reachable during maintenance mode, so the
+        // admin who enabled it isn't locked out of turning it back off.
+        $middleware->replace(FrameworkPreventRequestsDuringMaintenance::class, PreventRequestsDuringMaintenance::class);
     })
 
     ->withExceptions(function (Exceptions $exceptions) {

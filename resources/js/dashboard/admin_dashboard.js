@@ -413,11 +413,20 @@ async function loadSettings() {
         // Feature flag toggles
         setToggle('feat-ai-tutor',      map['feat_ai_tutor']      === 'true');
         setToggle('feat-leaderboard',   map['feat_leaderboard']   === 'true');
-        setToggle('feat-maintenance',   map['feat_maintenance']   === 'true');
         setToggle('feat-registration',  map['feat_registration']  === 'true');
 
     } catch (err) {
         console.warn('loadSettings error:', err.message);
+    }
+
+    // Maintenance mode's checkbox always reflects the real server state
+    // (not the Supabase mirror, which can drift if `php artisan up` is
+    // ever run outside this toggle).
+    try {
+        const status = await apiFetch('/admin/maintenance/status');
+        setToggle('feat-maintenance', !!status.down);
+    } catch (err) {
+        console.warn('Could not load maintenance status:', err.message);
     }
 }
 
@@ -459,10 +468,11 @@ async function saveSettings(label) {
             notif_weekly:       getToggle('notif-weekly'),
         };
     } else if (label === 'Feature Flags') {
+        // Maintenance Mode is excluded here — it takes effect immediately
+        // when toggled (see initMaintenanceToggle), not on "Save Features".
         pairs = {
             feat_ai_tutor:     getToggle('feat-ai-tutor'),
             feat_leaderboard:  getToggle('feat-leaderboard'),
-            feat_maintenance:  getToggle('feat-maintenance'),
             feat_registration: getToggle('feat-registration'),
         };
     } else if (label === 'Roles & Permissions') {
@@ -477,6 +487,50 @@ async function saveSettings(label) {
     } catch (err) {
         warn('Save Failed', err.message || 'Could not save settings.');
     }
+}
+
+/* ============================================================
+   MAINTENANCE MODE — takes effect immediately (not on "Save Features"),
+   since it's a live, site-wide, high-impact switch rather than a
+   preference. Confirmed before it fires either direction.
+   ============================================================ */
+function initMaintenanceToggle() {
+    const checkbox = document.getElementById('feat-maintenance');
+    if (!checkbox) return;
+
+    checkbox.addEventListener('change', function () {
+        // 'change' fires after the browser has already flipped .checked to
+        // the new value, so that value IS the intended new state — unlike
+        // 'click', where reading .checked mid-event is timing-dependent.
+        const enabling = checkbox.checked;
+        checkbox.checked = !enabling; // hold the visual state until confirmed
+
+        Swal.fire({
+            icon: enabling ? 'warning' : 'question',
+            title: enabling ? 'Enable Maintenance Mode?' : 'Disable Maintenance Mode?',
+            html: enabling
+                ? '<p style="font-size:13px;color:#6b7280">Students and teachers will be signed out to a "under maintenance" page until you turn this back off. The admin portal stays reachable so you can undo this here.</p>'
+                : '<p style="font-size:13px;color:#6b7280">The site will become accessible to everyone again.</p>',
+            showCancelButton: true,
+            confirmButtonColor: enabling ? '#ef4444' : '#2563eb',
+            cancelButtonColor: '#6b7280',
+            confirmButtonText: enabling ? 'Enable Maintenance Mode' : 'Disable Maintenance Mode',
+            cancelButtonText: 'Cancel',
+        }).then(async r => {
+            if (!r.isConfirmed) return;
+            try {
+                const result = await apiFetch('/admin/maintenance/toggle', {
+                    method: 'POST',
+                    body: JSON.stringify({ enable: enabling }),
+                });
+                checkbox.checked = !!result.down;
+                saveSettingsToSupabase({ feat_maintenance: checkbox.checked }).catch(() => {});
+                toast('success', enabling ? 'Maintenance mode is now ON.' : 'Maintenance mode is now OFF.');
+            } catch (err) {
+                warn('Could Not Toggle Maintenance Mode', err.message || 'Please try again.');
+            }
+        });
+    });
 }
 
 async function confirmDanger(action, desc) {
@@ -1624,6 +1678,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.querySelectorAll('.modal-overlay.open').forEach(o => closeModal(o.id));
     });
     initFileUpload();
+    initMaintenanceToggle();
 
     // Load everything from Supabase, then render
     initDashboard();

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\MaintenanceController;
 use App\Http\Controllers\Admin\TeacherApprovalController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\AdminDashboardController;
@@ -161,6 +162,12 @@ Route::prefix('admin')->group(function () {
             Route::get('/', [AdminUserController::class, 'index'])->name('admin.users.index');
             Route::patch('/{user}', [AdminUserController::class, 'update'])->name('admin.users.update');
             Route::delete('/{user}', [AdminUserController::class, 'destroy'])->name('admin.users.destroy');
+        });
+
+        // Maintenance Mode
+        Route::prefix('maintenance')->group(function () {
+            Route::get('/status', [MaintenanceController::class, 'status'])->name('admin.maintenance.status');
+            Route::post('/toggle', [MaintenanceController::class, 'toggle'])->name('admin.maintenance.toggle');
         });
     });
 });
