@@ -655,8 +655,19 @@ function renderReports() {
     renderSectionsContainer();
 }
 
+/** Sections to report on, and the real students within each. */
+function getReportSections() {
+    return allSections.length ? allSections : sections;
+}
+function sectionAvgProgress(sectionStudents) {
+    return sectionStudents.length
+        ? Math.round(sectionStudents.reduce((sum, s) => sum + s.progress, 0) / sectionStudents.length)
+        : 0;
+}
+const pctOrDash = v => (v === null || v === undefined ? '—' : `${v}%`);
+
 function generatePDFReport() {
-    const reportSections = allSections.length ? allSections : sections;
+    const reportSections = getReportSections();
     if (!reportSections.length) return Swal.fire({ icon: 'warning', title: 'No Sections', text: 'Create at least one section first.', confirmButtonColor: '#2563eb' });
 
     Swal.fire({
@@ -686,7 +697,6 @@ function buildAndDownloadPdfReport(reportSections) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
     const teacherName = window.__USER__?.name || 'Teacher';
-    const pctOrDash = v => (v === null || v === undefined ? '—' : `${v}%`);
 
     doc.setFontSize(18);
     doc.text('Student Performance Report', 14, 18);
@@ -697,9 +707,7 @@ function buildAndDownloadPdfReport(reportSections) {
     let y = 34;
     reportSections.forEach(sec => {
         const sectionStudents = students.filter(s => s.section_id === sec.id);
-        const avg = sectionStudents.length
-            ? Math.round(sectionStudents.reduce((sum, s) => sum + s.progress, 0) / sectionStudents.length)
-            : 0;
+        const avg = sectionAvgProgress(sectionStudents);
 
         if (y > 265) { doc.addPage(); y = 20; }
 
@@ -723,6 +731,67 @@ function buildAndDownloadPdfReport(reportSections) {
     });
 
     doc.save(`student-report-${new Date().toISOString().slice(0, 10)}.pdf`);
+}
+
+function generateExcelReport() {
+    const reportSections = getReportSections();
+    if (!reportSections.length) return Swal.fire({ icon: 'warning', title: 'No Sections', text: 'Create at least one section first.', confirmButtonColor: '#2563eb' });
+
+    Swal.fire({
+        icon: 'info', title: 'Generate Excel Report',
+        html: '<p style="color:#6b7280;font-size:14px">Downloads a workbook with one sheet per section (name, status, progress, and test averages).</p>',
+        showCancelButton: true, confirmButtonColor: '#16a34a', cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Generate Report', cancelButtonText: 'Cancel',
+    }).then(r => {
+        if (!r.isConfirmed) return;
+        try {
+            buildAndDownloadExcelReport(reportSections);
+            logActivity('Report Generated', 'Excel report was downloaded', 'report');
+            toast('success', 'Excel report downloaded!');
+        } catch (err) {
+            console.error('Excel generation error:', err);
+            warn('Excel Generation Failed', 'Could not generate the spreadsheet. Please try again.');
+        }
+    });
+}
+
+/** Build a real .xlsx workbook from the teacher's real sections + students and trigger a download. */
+function buildAndDownloadExcelReport(reportSections) {
+    if (!window.XLSX) {
+        throw new Error('Spreadsheet library failed to load. Check your connection and try again.');
+    }
+
+    const wb = XLSX.utils.book_new();
+    const usedSheetNames = new Set();
+
+    // Summary sheet first
+    const summaryRows = [['Section', 'Students', 'Avg Progress']];
+    reportSections.forEach(sec => {
+        const sectionStudents = students.filter(s => s.section_id === sec.id);
+        summaryRows.push([sec.name, sectionStudents.length, `${sectionAvgProgress(sectionStudents)}%`]);
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summaryRows), 'Summary');
+
+    reportSections.forEach(sec => {
+        const sectionStudents = students.filter(s => s.section_id === sec.id);
+        const rows = [['#', 'Name', 'Status', 'Progress', 'Avg Pre-Test', 'Avg Post-Test']];
+        sectionStudents.forEach((s, i) => {
+            rows.push([i + 1, s.name, s.status, `${s.progress}%`, pctOrDash(s.avgPre), pctOrDash(s.avgPost)]);
+        });
+        if (!sectionStudents.length) rows.push(['No students enrolled in this section yet.']);
+
+        // Excel sheet names: max 31 chars, no \ / ? * [ ] :, and must be unique.
+        let sheetName = sec.name.replace(/[\\/?*[\]:]/g, ' ').trim().slice(0, 31) || 'Section';
+        let suffix = 2;
+        while (usedSheetNames.has(sheetName)) {
+            sheetName = `${sheetName.slice(0, 28)} (${suffix++})`;
+        }
+        usedSheetNames.add(sheetName);
+
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), sheetName);
+    });
+
+    XLSX.writeFile(wb, `student-report-${new Date().toISOString().slice(0, 10)}.xlsx`);
 }
 
 /* ============================================================
@@ -3542,7 +3611,7 @@ Object.assign(window, {
     loadAndRenderModules, cancelModule, clearFile, resetModuleForm,
 
     // Reports / Sections
-    openAddSection, editSection, deleteSection, generatePDFReport,
+    openAddSection, editSection, deleteSection, generatePDFReport, generateExcelReport,
 
     // Profile
     saveProfile,
