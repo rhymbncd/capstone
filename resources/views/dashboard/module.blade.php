@@ -7,6 +7,16 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.js"></script>
+
+  <!-- PDF.js — renders module PDFs inline for viewing (no forced download) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script>
+    window.addEventListener('load', function () {
+      if (typeof pdfjsLib !== 'undefined') {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      }
+    });
+  </script>
   <style>
 *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 :root {
@@ -215,6 +225,20 @@ html,body { min-height:100%; font-family:'Plus Jakarta Sans',sans-serif; backgro
   font-size:12px; padding:10px 14px;
 }
 .mq-btn--view-module:hover { background:var(--blue-light); border-color:var(--blue); transform:translateY(-1px); box-shadow:0 4px 12px rgba(37,99,235,0.15); }
+
+/* PDF VIEWER — inline viewing of the module PDF, with reading-progress tracking */
+.mq-pdf-modal { max-width:720px; height:92vh; max-height:92vh; display:flex; flex-direction:column; overflow-y:hidden; }
+.mq-pdf-header { flex-shrink:0; padding-right:30px; margin-bottom:12px; }
+.mq-pdf-title { font-size:16px; font-weight:800; color:var(--text); margin-bottom:10px; }
+.mq-pdf-progress-label { font-size:11px; font-weight:700; color:var(--text-3); margin-bottom:5px; text-transform:uppercase; letter-spacing:0.3px; }
+.mq-pdf-pages {
+  flex:1; overflow-y:auto; min-height:0;
+  background:var(--bg); border:1px solid var(--border); border-radius:12px; padding:14px;
+  display:flex; flex-direction:column; align-items:center; gap:12px;
+}
+.mq-pdf-page-canvas { max-width:100%; height:auto; box-shadow:0 2px 10px rgba(0,0,0,0.1); border-radius:4px; background:white; }
+.mq-pdf-loading, .mq-pdf-error { padding:60px 0; text-align:center; color:var(--text-3); font-size:13px; font-weight:600; }
+#mq-pdf-overlay { z-index:600; }
 
 /* ACTIVITY area — fill-in-the-blank */
 .mq-activity-box { background:var(--bg); border:1px solid var(--border); border-radius:12px; padding:18px; margin-bottom:16px; }
@@ -446,6 +470,21 @@ html,body { min-height:100%; font-family:'Plus Jakarta Sans',sans-serif; backgro
       </div>
       <div class="mq-btn-row mq-btn-row--center" id="mq-result-btns"></div>
     </div>
+  </div>
+</div>
+
+<!-- PDF VIEWER MODAL -->
+<div class="mq-overlay" id="mq-pdf-overlay">
+  <div class="mq-modal mq-pdf-modal" id="mq-pdf-modal">
+    <button class="mq-close" id="mq-pdf-close-btn">✕</button>
+    <div class="mq-pdf-header">
+      <div class="mq-pdf-title" id="mq-pdf-title"></div>
+      <div class="mq-progress-wrap" style="margin-bottom:0">
+        <div class="mq-pdf-progress-label">Read <span id="mq-pdf-progress-pct">0</span>%</div>
+        <div class="mq-progress-bar"><div class="mq-progress-fill" id="mq-pdf-progress-fill" style="width:0%"></div></div>
+      </div>
+    </div>
+    <div class="mq-pdf-pages" id="mq-pdf-pages"></div>
   </div>
 </div>
 
@@ -912,6 +951,34 @@ async function mqLoadProgress() {
     }
 }
 
+/** How far (0-100) this student has scrolled through each topic's module PDF. */
+const mqReadPct = {};
+
+/**
+ * Load this student's saved reading-progress percentage for every topic
+ * (stored in student_progress with phase='reading') so the lesson screen
+ * can show how much of the PDF they've already read.
+ */
+async function mqLoadReadingProgress() {
+    if (!SUPABASE_URL_M || !SUPABASE_ANON_KEY_M || !window.__USER__?.id) return;
+    try {
+        const res = await fetch(
+            `${SUPABASE_URL_M}/rest/v1/student_progress?select=topic_key,score&session_id=eq.${encodeURIComponent(String(window.__USER__.id))}&phase=eq.reading`,
+            {
+                headers: {
+                    'apikey':        SUPABASE_ANON_KEY_M,
+                    'Authorization': `Bearer ${SUPABASE_ANON_KEY_M}`,
+                },
+            }
+        );
+        if (!res.ok) return;
+        const rows = await res.json();
+        rows.forEach(r => { mqReadPct[r.topic_key] = r.score ?? 0; });
+    } catch (e) {
+        console.warn('Could not load reading progress:', e.message);
+    }
+}
+
 /**
  * Reflect mqState.completed (loaded from the database) onto the topic
  * list: mark finished topics done and unlock the next topic in order.
@@ -1068,6 +1135,8 @@ function mqRender() {
     statusRow.innerHTML='';
     function pill(text,cls){const d=document.createElement('div');d.className='mq-status-pill '+cls;d.textContent=text;statusRow.appendChild(d);}
     pill(stateFlags[key].pre?'✅ Pre-Test done':'⏳ Pre-Test done','mq-status-pill--done');
+    const readPct=mqReadPct[key]||0;
+    pill('📖 '+readPct+'% Read',readPct>=100?'mq-status-pill--done':(readPct>0?'mq-status-pill--pending':'mq-status-pill--locked'));
     pill(stateFlags[key].activity?'✅ Activity done':'🔒 Activity pending',stateFlags[key].activity?'mq-status-pill--done':'mq-status-pill--pending');
     pill(stateFlags[key].post?'✅ Post-Test done':'🔒 Post-Test locked',stateFlags[key].post?'mq-status-pill--done':'mq-status-pill--locked');
     document.getElementById('mq-posttest-btn').disabled=!stateFlags[key].activity;
@@ -1338,6 +1407,9 @@ document.addEventListener('DOMContentLoaded', async function () {
     document.getElementById('mq-skip-btn').addEventListener('click', mqNext);
     document.getElementById('mq-activity-btn').addEventListener('click', mqStartActivity);
     document.getElementById('mq-viewmodule-btn').addEventListener('click', mqViewModule);
+    document.getElementById('mq-pdf-close-btn').addEventListener('click', closePdfViewer);
+    document.getElementById('mq-pdf-overlay').addEventListener('click', function (e) { if (e.target === this) closePdfViewer(); });
+    document.getElementById('mq-pdf-pages').addEventListener('scroll', mqOnPdfScroll);
     document.getElementById('mq-posttest-btn').addEventListener('click', mqStartPost);
     document.getElementById('mq-act-submit-btn').addEventListener('click', mqSubmitActivity);
     document.getElementById('mq-act-back-btn').addEventListener('click', () => { mqState.phase = 'lesson'; mqRender(); });
@@ -1365,7 +1437,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 
     // ── Restore this student's completed topics from Supabase ──
     try {
-        await mqLoadProgress();
+        await Promise.all([mqLoadProgress(), mqLoadReadingProgress()]);
         applyCompletedTopicsToUI();
     } catch (e) {
         console.warn('Progress restore failed:', e.message);
@@ -1388,42 +1460,130 @@ const TOPIC_MODULE_FILES = {
   log:  'Logarithmic Functions.pdf',
 };
 
+/* ════════════════════════════════════════════════════════════
+   INLINE PDF VIEWER — opens the module PDF for reading in-page
+   (no forced download) and tracks how far the student scrolls
+   through it as a reading-progress percentage.
+   ════════════════════════════════════════════════════════════ */
+const mqPdfState = { topicKey:null, maxScrollPct:0, saveTimer:null };
+
 function mqViewModule() {
-  const file = TOPIC_MODULE_FILES[mqState.topicKey];
-  if (file) handleDownload(file);
+  const key  = mqState.topicKey;
+  const file = TOPIC_MODULE_FILES[key];
+  if (file) openPdfViewer(key, file);
 }
 
-async function handleDownload(filename) {
+async function openPdfViewer(topicKey, filename) {
+  const overlay   = document.getElementById('mq-pdf-overlay');
+  const pagesEl   = document.getElementById('mq-pdf-pages');
+  const titleEl   = document.getElementById('mq-pdf-title');
+
+  titleEl.textContent = MQ_TOPICS[topicKey]?.name || filename;
+  pagesEl.innerHTML    = '<div class="mq-pdf-loading">Loading module…</div>';
+  overlay.classList.add('mq-open');
+
+  mqPdfState.topicKey     = topicKey;
+  mqPdfState.maxScrollPct = mqReadPct[topicKey] || 0;
+  updatePdfProgressUI(mqPdfState.maxScrollPct);
+
   try {
-    // Check if supabaseClient is available
     if (!window.supabaseClient) {
       throw new Error('Supabase client not initialized. Please refresh the page.');
     }
-
-    console.log('📥 Downloading:', filename);
+    if (typeof pdfjsLib === 'undefined') {
+      throw new Error('PDF viewer failed to load. Check your connection and try again.');
+    }
 
     const sb = await window.getSupabaseClient();
-    const { data, error } = await sb
-      .storage
-      .from('materials')
-      .download(filename);
-
+    const { data, error } = await sb.storage.from('materials').download(filename);
     if (error) throw error;
 
-    console.log('✓ Downloaded successfully, starting browser download...');
+    const arrayBuffer = await data.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
 
-    const blobUrl = window.URL.createObjectURL(data);
-    const link    = document.createElement('a');
-    link.href     = blobUrl;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(blobUrl);
-
+    pagesEl.innerHTML = '';
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page     = await pdf.getPage(i);
+      const viewport = page.getViewport({ scale: 1.3 });
+      const canvas   = document.createElement('canvas');
+      canvas.className = 'mq-pdf-page-canvas';
+      canvas.width  = viewport.width;
+      canvas.height = viewport.height;
+      pagesEl.appendChild(canvas);
+      await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+    }
   } catch (err) {
-    console.error('Download error:', err);
-    Swal.fire({ icon: 'error', title: 'Download Error', text: err.message });
+    console.error('View module error:', err);
+    pagesEl.innerHTML = '<div class="mq-pdf-error">Could not open this module. Please try again.</div>';
+    Swal.fire({ icon: 'error', title: 'Could Not Open Module', text: err.message });
+  }
+}
+
+/** Reading progress = how far down the scrollable PDF container the student has reached. */
+function mqOnPdfScroll(e) {
+  const el = e.target;
+  const scrollable = el.scrollHeight - el.clientHeight;
+  const pct = scrollable > 0 ? Math.min(100, Math.round((el.scrollTop / scrollable) * 100)) : 100;
+
+  if (pct > mqPdfState.maxScrollPct) {
+    mqPdfState.maxScrollPct = pct;
+    updatePdfProgressUI(pct);
+    clearTimeout(mqPdfState.saveTimer);
+    mqPdfState.saveTimer = setTimeout(() => {
+      mqSaveReadingProgress(mqPdfState.topicKey, mqPdfState.maxScrollPct);
+    }, 800);
+  }
+}
+
+function updatePdfProgressUI(pct) {
+  document.getElementById('mq-pdf-progress-pct').textContent = pct;
+  document.getElementById('mq-pdf-progress-fill').style.width = pct + '%';
+}
+
+function closePdfViewer() {
+  document.getElementById('mq-pdf-overlay').classList.remove('mq-open');
+  document.getElementById('mq-pdf-pages').innerHTML = '';
+  clearTimeout(mqPdfState.saveTimer);
+
+  if (mqPdfState.topicKey && mqPdfState.maxScrollPct > (mqReadPct[mqPdfState.topicKey] || 0)) {
+    mqReadPct[mqPdfState.topicKey] = mqPdfState.maxScrollPct;
+    mqSaveReadingProgress(mqPdfState.topicKey, mqPdfState.maxScrollPct);
+  }
+
+  // Refresh the lesson status pills so the updated % Read is visible immediately.
+  if (mqState.phase === 'lesson') mqRender();
+
+  mqPdfState.topicKey = null;
+  mqPdfState.maxScrollPct = 0;
+}
+
+/** Persist this student's reading-progress percentage for a topic (student_progress, phase='reading'). */
+async function mqSaveReadingProgress(topicKey, pct) {
+  if (!SUPABASE_URL_M || !SUPABASE_ANON_KEY_M || !window.__USER__?.id || !topicKey) return;
+  try {
+    await fetch(
+      `${SUPABASE_URL_M}/rest/v1/student_progress?on_conflict=session_id,topic_key,phase`,
+      {
+        method: 'POST',
+        headers: {
+          'apikey':        SUPABASE_ANON_KEY_M,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY_M}`,
+          'Content-Type':  'application/json',
+          'Prefer':        'resolution=merge-duplicates,return=minimal',
+        },
+        body: JSON.stringify({
+          session_id:   String(window.__USER__.id),
+          student_name: window.__USER__.name,
+          topic_key:    topicKey,
+          phase:        'reading',
+          score:        pct,
+          total:        100,
+          passed:       pct >= 100,
+        }),
+      }
+    );
+  } catch (e) {
+    console.warn('Could not save reading progress:', e.message);
   }
 }
 
