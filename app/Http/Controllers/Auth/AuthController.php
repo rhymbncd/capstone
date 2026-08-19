@@ -384,20 +384,32 @@ class AuthController extends Controller
             }
         }
 
-        // Update or create user with Google ID
-        $isNewUser = ! User::where('google_id', $googleUser->getId())->exists();
-        $approvalStatus = $isNewUser && $role !== 'admin' ? 'pending' : 'approved';
+        // Find an existing account: first one already linked to this Google
+        // ID, otherwise one registered with the same email via the normal
+        // signup form (so "Continue with Google" links it instead of
+        // crashing on the email's unique constraint).
+        $user = User::where('google_id', $googleUser->getId())->first()
+            ?? User::where('email', $googleUser->getEmail())->first();
 
-        $user = User::updateOrCreate(
-            ['google_id' => $googleUser->getId()],
-            [
+        $isNewUser = $user === null;
+
+        if ($isNewUser) {
+            $user = User::create([
+                'google_id' => $googleUser->getId(),
                 'name' => $googleUser->getName() ?? 'Google User',
                 'email' => $googleUser->getEmail(),
                 'password' => Hash::make(uniqid()),
                 'role' => $role,
-                'approval_status' => $approvalStatus,
-            ]
-        );
+                'approval_status' => $role !== 'admin' ? 'pending' : 'approved',
+            ]);
+        } elseif ($user->google_id === null) {
+            // Existing password-based account signing in with Google for the
+            // first time — link the accounts. Never touch role/approval_status
+            // here: doing so on every login would silently re-approve an
+            // account a teacher/admin had since rejected or reset to pending.
+            $user->google_id = $googleUser->getId();
+            $user->save();
+        }
 
         if (! ($user instanceof User)) {
             return redirect()->route('student.login')->withErrors(['error' => 'Failed to create or retrieve user account.']);
@@ -418,7 +430,7 @@ class AuthController extends Controller
         }
 
         // Check if student needs to complete section selection (Google sign-up)
-        if ($user->role === 'student' && $isNewUser && $user->section_id === null) {
+        if ($user->role === 'student' && $user->section_id === null) {
             // Store user ID in session and redirect to section selection
             session(['google_user_id' => $user->id, 'oauth_role' => 'student']);
 
