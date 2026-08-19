@@ -436,14 +436,14 @@
 
                 <div class="settings-section">
                     <h3>Account Information</h3>
-                    <p class="desc">Update your personal details</p>
+                    <p class="desc">Your registered account details</p>
                     <div class="field-row">
                         <label>Full Name</label>
-                        <input type="text" value="{{ auth()->user()->name ?? '' }}" placeholder="Your full name">
+                        <input type="text" value="{{ auth()->user()->name ?? '' }}" placeholder="Your full name" readonly>
                     </div>
                     <div class="field-row">
                         <label>Email Address</label>
-                        <input type="email" value="{{ auth()->user()->email ?? '' }}" placeholder="Your email">
+                        <input type="email" value="{{ auth()->user()->email ?? '' }}" placeholder="Your email" readonly>
                     </div>
                     <div class="field-row">
                         <label>Student ID</label>
@@ -452,10 +452,6 @@
                     <div class="field-row">
                         <label>Section / Class</label>
                         <input type="text" value="{{ auth()->user()->section?->name ?? '' }}" placeholder="No section selected yet" readonly>
-                    </div>
-                    <div class="save-row">
-                        <button class="btn-cancel">Cancel</button>
-                        <button class="btn-save" onclick="toast('success','Profile updated!')">Save Changes</button>
                     </div>
                 </div>
 
