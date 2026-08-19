@@ -2,9 +2,6 @@
    resources/js/dashboard/student_dashboard.js
    ================================ */
 
-// Track which module's summative test we're currently viewing
-let currentModuleForSummative = null;
-
 document.addEventListener('DOMContentLoaded', function () {
 
     /* ================================
@@ -419,8 +416,17 @@ document.addEventListener('DOMContentLoaded', function () {
        SUPABASE PROGRESS TRACKING
        ================================ */
 
+    // Real topic set, matching module.blade.php's TOPIC_ORDER / MQ_TOPICS
+    const MODULE_TOPICS = {
+        mod1: ['ari', 'geo', 'har', 'fib', 'fin'],
+        mod2: ['div', 'rem', 'poly'],
+        mod3: ['rat', 'rad', 'exp', 'log'],
+    };
+    const ALL_TOPICS = [...MODULE_TOPICS.mod1, ...MODULE_TOPICS.mod2, ...MODULE_TOPICS.mod3];
+
     const Progress = {
         userId: window.__USER__?.id ?? null,
+        _rowsCache: null,
 
         // ✅ Async Supabase helpers
         async sbSelect(table, select = '*', filters = {}) {
@@ -438,175 +444,108 @@ document.addEventListener('DOMContentLoaded', function () {
             return res.ok ? await res.json() : [];
         },
 
-        async sbInsert(table, data) {
-            const res = await fetch(`${window.__ENV__.SUPABASE_URL}/rest/v1/${table}`, {
+        async sbUpsert(table, data, onConflict) {
+            const url = `${window.__ENV__.SUPABASE_URL}/rest/v1/${table}${onConflict ? `?on_conflict=${onConflict}` : ''}`;
+            const res = await fetch(url, {
                 method: 'POST',
                 headers: {
                     'apikey': window.__ENV__.SUPABASE_ANON_KEY,
                     'Authorization': `Bearer ${window.__ENV__.SUPABASE_ANON_KEY}`,
                     'Content-Type': 'application/json',
-                    'Prefer': 'return=representation'
+                    'Prefer': 'resolution=merge-duplicates,return=minimal'
                 },
                 body: JSON.stringify(data)
-            });
-            return res.ok ? await res.json() : null;
-        },
-
-        async sbUpsert(table, data) {
-            const res = await fetch(`${window.__ENV__.SUPABASE_URL}/rest/v1/${table}`, {
-                method: 'POST',
-                headers: {
-                    'apikey': window.__ENV__.SUPABASE_ANON_KEY,
-                    'Authorization': `Bearer ${window.__ENV__.SUPABASE_ANON_KEY}`,
-                    'Content-Type': 'application/json',
-                    'Prefer': 'resolution=merge-duplicates,return=representation'
-                },
-                body: JSON.stringify(data)
-            });
-            return res.ok ? await res.json() : null;
-        },
-
-        async sbUpdate(table, data, filters = {}) {
-            let url = `${window.__ENV__.SUPABASE_URL}/rest/v1/${table}?`;
-            Object.entries(filters).forEach(([col, val], i) => {
-                if (i > 0) url += '&';
-                if (typeof val === 'string') url += `${col}=eq.${encodeURIComponent(val)}`;
-                else if (typeof val === 'number') url += `${col}=eq.${val}`;
-            });
-            const res = await fetch(url, {
-                method: 'PATCH',
-                headers: {
-                    'apikey': window.__ENV__.SUPABASE_ANON_KEY,
-                    'Authorization': `Bearer ${window.__ENV__.SUPABASE_ANON_KEY}`,
-                    'Content-Type': 'application/json',
-                    'Prefer': 'return=representation'
-                },
-                body: JSON.stringify(data)
-            });
-            return res.ok ? await res.json() : null;
-        },
-
-        async sbDelete(table, filters = {}) {
-            let url = `${window.__ENV__.SUPABASE_URL}/rest/v1/${table}?`;
-            Object.entries(filters).forEach(([col, val], i) => {
-                if (i > 0) url += '&';
-                if (typeof val === 'string') url += `${col}=eq.${encodeURIComponent(val)}`;
-                else if (typeof val === 'number') url += `${col}=eq.${val}`;
-            });
-            const res = await fetch(url, {
-                method: 'DELETE',
-                headers: {
-                    'apikey': window.__ENV__.SUPABASE_ANON_KEY,
-                    'Authorization': `Bearer ${window.__ENV__.SUPABASE_ANON_KEY}`
-                }
             });
             return res.ok;
         },
 
-        // ✅ Load student progress from Supabase
-        async loadProgress() {
+        // ✅ Load every student_progress row for this student (cached per page load)
+        async loadRows(force = false) {
             if (!this.userId) {
-                console.warn('Student ID not available');
-                return null;
+                console.warn('Student progress tracking disabled: User not authenticated');
+                return [];
             }
+            if (this._rowsCache && !force) return this._rowsCache;
             try {
-                const data = await this.sbSelect('student_progress', '*', { student_id: this.userId });
-                return data.length > 0 ? data[0] : null;
+                const rows = await this.sbSelect(
+                    'student_progress',
+                    'topic_key,phase,score,total,passed,created_at',
+                    { session_id: String(this.userId) }
+                );
+                this._rowsCache = Array.isArray(rows) ? rows : [];
             } catch (err) {
                 console.error('Error loading progress:', err.message);
-                return null;
+                this._rowsCache = [];
             }
+            return this._rowsCache;
         },
 
-        // ✅ Save/update quiz score to Supabase
-        async saveQuizScore(score, totalQuestions) {
+        // ✅ Save a summative-test attempt (dashboard's own review quiz)
+        async saveSummativeAttempt(score, total) {
             if (!this.userId) {
                 console.warn('Student ID not available for quiz save');
                 return;
             }
             try {
-                const data = {
-                    student_id: this.userId,
-                    quiz_score: score,
-                    quiz_total: totalQuestions,
-                    last_quiz_attempt: new Date().toISOString()
-                };
-                await this.sbUpsert('student_progress', data);
-                console.log('Quiz score saved:', score, '/', totalQuestions);
+                await this.sbUpsert('student_progress', {
+                    session_id: String(this.userId),
+                    student_name: window.__USER__?.name ?? null,
+                    topic_key: 'summative',
+                    phase: 'post',
+                    score,
+                    total,
+                    passed: score >= Math.ceil(total * 0.6),
+                }, 'session_id,topic_key,phase');
+                this._rowsCache = null; // invalidate cache
+                console.log('Quiz score saved:', score, '/', total);
             } catch (err) {
                 console.error('Error saving quiz score:', err.message);
             }
         },
 
-        // ✅ Mark a module as completed
-        async markModuleCompleted(moduleName) {
-            if (!this.userId) {
-                console.warn('Student ID not available for module completion');
-                return;
+        // ✅ Aggregate real stats from the loaded rows
+        computeStats(rows) {
+            const completedTopics = new Set(
+                rows.filter(r => r.phase === 'post' && ALL_TOPICS.includes(r.topic_key)).map(r => r.topic_key)
+            );
+
+            const perModule = {};
+            Object.entries(MODULE_TOPICS).forEach(([mod, topics]) => {
+                const done = topics.filter(t => completedTopics.has(t)).length;
+                perModule[mod] = { done, total: topics.length, pct: Math.round((done / topics.length) * 100) };
+            });
+
+            const overallPct = Math.round((completedTopics.size / ALL_TOPICS.length) * 100);
+
+            const avgOf = phase => {
+                const scored = rows.filter(r => r.phase === phase && ALL_TOPICS.includes(r.topic_key) && r.total > 0);
+                if (!scored.length) return null;
+                return Math.round(scored.reduce((sum, r) => sum + (r.score / r.total) * 100, 0) / scored.length);
+            };
+            const avgPre  = avgOf('pre');
+            const avgPost = avgOf('post');
+            const improvement = (avgPre === null || avgPost === null) ? null : avgPost - avgPre;
+
+            // Streak: consecutive calendar days (ending today or yesterday) with at least one attempt
+            const days = new Set(rows.map(r => new Date(r.created_at).toDateString()));
+            let streak = 0;
+            const cursor = new Date();
+            if (!days.has(cursor.toDateString())) cursor.setDate(cursor.getDate() - 1);
+            while (days.has(cursor.toDateString())) {
+                streak++;
+                cursor.setDate(cursor.getDate() - 1);
             }
-            try {
-                const data = {
-                    student_id: this.userId,
-                    completed_modules: JSON.stringify([...(JSON.parse(await this.getCompletedModules()) || []), moduleName]),
-                    last_activity: new Date().toISOString()
-                };
-                await this.sbUpsert('student_progress', data);
-                console.log('Module marked complete:', moduleName);
-            } catch (err) {
-                console.error('Error marking module complete:', err.message);
-            }
+
+            const recent = [...rows]
+                .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+                .slice(0, 5);
+
+            return { completedTopics, perModule, overallPct, attempts: rows.length, streak, recent, avgPre, avgPost, improvement };
         },
 
-        // ✅ Get completed modules
-        async getCompletedModules() {
-            const progress = await this.loadProgress();
-            if (!progress || !progress.completed_modules) return [];
-            try {
-                return JSON.parse(progress.completed_modules) || [];
-            } catch {
-                return [];
-            }
-        },
-
-        // ✅ Initialize progress on page load
         async init() {
-            if (!this.userId) {
-                console.warn('Student progress tracking disabled: User not authenticated');
-                return;
-            }
-            try {
-                const progress = await this.loadProgress();
-                console.log('Student progress loaded:', progress);
-                // Optionally display progress stats in dashboard
-                if (progress?.quiz_score) {
-                    console.log(`Last quiz: ${progress.quiz_score}/${progress.quiz_total}`);
-                }
-            } catch (err) {
-                console.error('Error initializing progress:', err.message);
-            }
-        },
-
-        // ✅ Track module completion with score threshold
-        async trackModuleCompletion(moduleName, score, passThreshold = 70) {
-            if (!this.userId) {
-                console.warn('Student ID not available for module tracking');
-                return false;
-            }
-            try {
-                // Only mark as complete if score meets threshold
-                if (score >= passThreshold) {
-                    const completed = await this.getCompletedModules();
-                    if (!completed.includes(moduleName)) {
-                        await this.markModuleCompleted(moduleName);
-                        console.log(`✅ Module completed: ${moduleName}`);
-                        return true;
-                    }
-                }
-                return false;
-            } catch (err) {
-                console.error('Error tracking module completion:', err.message);
-                return false;
-            }
+            const rows = await this.loadRows();
+            console.log('Student progress loaded:', rows.length, 'attempts');
         }
     };
 
@@ -615,95 +554,89 @@ document.addEventListener('DOMContentLoaded', function () {
     window.submitQuiz = function() {
         originalSubmitQuiz.call(this);
         // Save quiz score to Supabase
-        Progress.saveQuizScore(quizScore, quizQuestions.length);
+        Progress.saveSummativeAttempt(quizScore, quizQuestions.length);
     };
 
-    // Initialize progress tracking on page load
-    Progress.init();
+    /* ================================
+       DASHBOARD ANALYTICS — real data, no hardcoded values
+       ================================ */
+    async function loadDashboardAnalytics() {
+        const rows = await Progress.loadRows();
+        const stats = Progress.computeStats(rows);
+
+        const setText = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+        const setWidth = (id, pct) => { const el = document.getElementById(id); if (el) el.style.width = pct + '%'; };
+
+        // Home page
+        setText('home-overall-progress', stats.overallPct + '%');
+        setText('home-topics-done', `${stats.completedTopics.size}/${ALL_TOPICS.length}`);
+        setText('home-streak', stats.streak);
+        ['mod1', 'mod2', 'mod3'].forEach(mod => {
+            setText(`home-${mod}-pct`, stats.perModule[mod].pct + '%');
+            setWidth(`home-${mod}-fill`, stats.perModule[mod].pct);
+            setText(`home-${mod}-icon`, stats.perModule[mod].done === stats.perModule[mod].total ? '✓' : '—');
+        });
+
+        // Progress page
+        setText('progress-overall', stats.overallPct + '%');
+        setText('progress-topics-done', `${stats.completedTopics.size}/${ALL_TOPICS.length}`);
+        setText('progress-attempts', stats.attempts);
+        setText('progress-avg-pre', stats.avgPre === null ? '—' : stats.avgPre + '%');
+        setText('progress-improvement', stats.improvement === null ? '—' : `${stats.improvement >= 0 ? '+' : ''}${stats.improvement}%`);
+        ['mod1', 'mod2', 'mod3'].forEach(mod => {
+            setText(`progress-${mod}-pct`, stats.perModule[mod].pct + '%');
+            setWidth(`progress-${mod}-fill`, stats.perModule[mod].pct);
+        });
+
+        // Recent activity
+        const emptyEl = document.getElementById('recent-activity-empty');
+        const listEl  = document.getElementById('recent-activity-list');
+        if (listEl && emptyEl) {
+            if (stats.recent.length === 0) {
+                emptyEl.style.display = '';
+                listEl.style.display  = 'none';
+            } else {
+                emptyEl.style.display = 'none';
+                listEl.style.display  = '';
+                listEl.innerHTML = stats.recent.map(r => {
+                    const when  = new Date(r.created_at).toLocaleString();
+                    const label = r.topic_key === 'summative' ? 'Summative Test' : `Topic "${r.topic_key}"`;
+                    const phase = r.phase === 'pre' ? 'Pre-Test' : 'Post-Test';
+                    const badge = r.passed ? 'badge-good' : 'badge-warn';
+                    return `<div class="module-item">
+                        <div class="module-title-row">
+                            <span class="module-name">${label} — ${phase}</span>
+                            <span class="status-badge ${badge}">${r.score}/${r.total}</span>
+                        </div>
+                        <div class="section-sub" style="margin:2px 0 0">${when}</div>
+                    </div>`;
+                }).join('');
+            }
+        }
+    }
+
+    // Initialize progress tracking + analytics on page load
+    Progress.init().then(loadDashboardAnalytics);
 
     /* ================================
        SUMMATIVE TEST LOCKING LOGIC
        ================================ */
 
-    // ✅ Check if student has completed all module topics
-    const TOTAL_TOPICS = 16; // Total topics across all 3 modules
-    const EXPECTED_COMPLETED_MODULES = [
-        'Module 1: Sequences and Series',
-        'Module 2: Polynomials',
-        'Module 3: Advanced Equations'
-    ];
-
+    // ✅ Unlocked once the student has completed (post-tested) every real topic
     async function isSummativeUnlocked() {
-        // If a specific module is being tested, check only that module completion
-        if (currentModuleForSummative) {
-            const progress = await Progress.loadProgress();
-            if (!progress) return false;
-
-            let completedModules = [];
-            try {
-                if (progress.completed_modules) {
-                    completedModules = JSON.parse(progress.completed_modules);
-                }
-            } catch (e) {
-                console.warn('Could not parse completed_modules:', e);
-                return false;
-            }
-
-            // Check if the current module is completed
-            const moduleNames = {
-                1: 'Module 1: Sequences and Series',
-                2: 'Module 2: Polynomials',
-                3: 'Module 3: Advanced Equations'
-            };
-
-            return completedModules.includes(moduleNames[currentModuleForSummative]);
-        }
-
-        // Legacy: if no specific module, check all completed (for backwards compatibility)
-        const progress = await Progress.loadProgress();
-        if (!progress) return false;
-
-        let completedModules = [];
-        try {
-            if (progress.completed_modules) {
-                completedModules = JSON.parse(progress.completed_modules);
-            }
-        } catch (e) {
-            console.warn('Could not parse completed_modules:', e);
-            return false;
-        }
-
-        // Check if all expected modules are completed
-        const allCompleted = EXPECTED_COMPLETED_MODULES.every(module =>
-            completedModules.includes(module)
-        );
-
-        return allCompleted;
+        const rows = await Progress.loadRows();
+        const stats = Progress.computeStats(rows);
+        return stats.completedTopics.size >= ALL_TOPICS.length;
     }
 
     async function getCompletionProgress() {
-        const progress = await Progress.loadProgress();
-        let completedModules = [];
-        
-        try {
-            if (progress?.completed_modules) {
-                completedModules = JSON.parse(progress.completed_modules);
-            }
-        } catch (e) {
-            console.warn('Could not parse completed_modules:', e);
-        }
-
-        const completedCount = completedModules.filter(m =>
-            EXPECTED_COMPLETED_MODULES.includes(m)
-        ).length;
-
+        const rows = await Progress.loadRows();
+        const stats = Progress.computeStats(rows);
         return {
-            completed: completedCount,
-            total: EXPECTED_COMPLETED_MODULES.length,
-            percentage: Math.round((completedCount / EXPECTED_COMPLETED_MODULES.length) * 100),
-            remaining: EXPECTED_COMPLETED_MODULES.filter(m =>
-                !completedModules.includes(m)
-            )
+            completed: stats.completedTopics.size,
+            total: ALL_TOPICS.length,
+            percentage: stats.overallPct,
+            remaining: ALL_TOPICS.filter(t => !stats.completedTopics.has(t)),
         };
     }
 
@@ -715,21 +648,10 @@ document.addEventListener('DOMContentLoaded', function () {
         const quizStartScreen = document.getElementById('quiz-start-screen');
 
         if (!unlocked) {
-            // Show lock notice
-            let lockMessage = 'Complete this module first to unlock the summative test.';
-            
-            if (currentModuleForSummative) {
-                const moduleNames = {
-                    1: 'Module 1',
-                    2: 'Module 2',
-                    3: 'Module 3'
-                };
-                lockMessage = `Complete ${moduleNames[currentModuleForSummative]} first to unlock its summative test.`;
-            }
-
+            const progress = await getCompletionProgress();
             const lockDisplay = `
                 <div style="margin-bottom: 12px;">
-                    <div style="font-size: 13px; color: #92400e;">${lockMessage}</div>
+                    <div style="font-size: 13px; color: #92400e;">Complete all learning module topics first to unlock the summative test (${progress.completed}/${progress.total} done).</div>
                 </div>
             `;
 
@@ -746,28 +668,6 @@ document.addEventListener('DOMContentLoaded', function () {
             if (quizStartScreen) quizStartScreen.style.display = 'block';
         }
     }
-
-    // ✅ Function to start a module-specific summative test
-    window.startModuleSummativeTest = async function(moduleNumber) {
-        currentModuleForSummative = moduleNumber;
-        const unlocked = await isSummativeUnlocked();
-        
-        if (!unlocked) {
-            const moduleNames = {
-                1: 'Module 1: Sequences and Series',
-                2: 'Module 2: Polynomials',
-                3: 'Module 3: Advanced Equations'
-            };
-            window.toast('warning', `🔒 Complete ${moduleNames[moduleNumber]} first to unlock its test!`);
-            return;
-        }
-
-        // Navigate to summative page and show instructions
-        navigate('summative');
-        setTimeout(() => {
-            window.showTestInstructions();
-        }, 100);
-    };
 
     // ✅ Function to show test instructions
     window.showTestInstructions = function() {
@@ -792,10 +692,7 @@ document.addEventListener('DOMContentLoaded', function () {
     window.startQuiz = async function() {
         const unlocked = await isSummativeUnlocked();
         if (!unlocked) {
-            const moduleMessage = currentModuleForSummative 
-                ? `🔒 Complete Module ${currentModuleForSummative} first!`
-                : '🔒 Complete all module topics first to unlock this test!';
-            window.toast('warning', moduleMessage);
+            window.toast('warning', '🔒 Complete all module topics first to unlock this test!');
             return;
         }
         _originalStartQuiz();

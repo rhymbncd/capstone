@@ -1,8 +1,11 @@
 <?php
 
+use App\Http\Middleware\RoleMiddleware;
+use App\Http\Middleware\StudentMiddleware;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -12,9 +15,20 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->alias([
-            'role' => \App\Http\Middleware\RoleMiddleware::class,
-            'student' => \App\Http\Middleware\StudentMiddleware::class,
+            'role' => RoleMiddleware::class,
+            'student' => StudentMiddleware::class,
         ]);
+
+        // This app has three separate login portals and no route named
+        // "login", so the framework default (route('login')) would 500.
+        // Send guests to the portal matching the URL they tried to reach.
+        $middleware->redirectGuestsTo(function (Request $request) {
+            return match (true) {
+                $request->is('teacher*') => route('teacher.login'),
+                $request->is('admin*') => route('admin.login'),
+                default => route('student.login'),
+            };
+        });
     })
 
     ->withExceptions(function (Exceptions $exceptions) {

@@ -211,17 +211,17 @@
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
                                 </div>
                             </div>
-                            <div class="metric-value">0%</div>
+                            <div class="metric-value" id="home-overall-progress">0%</div>
                             <div class="metric-sub">across all modules</div>
                         </div>
                         <div class="metric-card" onclick="navigate('modules')">
                             <div class="metric-header">
-                                <span class="metric-label">Quizzes Done</span>
+                                <span class="metric-label">Topics Done</span>
                                 <div class="icon-container orange-theme">
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.21 13.89L7 23L12 20L17 23L15.79 13.88"/><circle cx="12" cy="8" r="7"/><circle cx="12" cy="8" r="3"/></svg>
                                 </div>
                             </div>
-                            <div class="metric-value">0/20</div>
+                            <div class="metric-value" id="home-topics-done">0/12</div>
                             <div class="metric-sub">keep going!</div>
                         </div>
                         <div class="metric-card">
@@ -231,7 +231,7 @@
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
                                 </div>
                             </div>
-                            <div class="metric-value">0</div>
+                            <div class="metric-value" id="home-streak">0</div>
                             <div class="metric-sub">days streak</div>
                         </div>
                     </div>
@@ -243,31 +243,31 @@
 
                     <div class="module-item">
                         <div class="module-title-row">
-                            <span class="status-icon">—</span>
+                            <span class="status-icon" id="home-mod1-icon">—</span>
                             <span class="module-name">Sequences and Series</span>
-                            <span class="percentage blue">0%</span>
+                            <span class="percentage blue" id="home-mod1-pct">0%</span>
                         </div>
-                        <div class="progress-bar-bg"><div class="progress-fill blue" style="width:0%"></div></div>
+                        <div class="progress-bar-bg"><div class="progress-fill blue" id="home-mod1-fill" style="width:0%"></div></div>
                         <button class="view-topics-btn" onclick="navigate('modules')">View Topics</button>
                     </div>
 
                     <div class="module-item">
                         <div class="module-title-row">
-                            <span class="status-icon">—</span>
+                            <span class="status-icon" id="home-mod2-icon">—</span>
                             <span class="module-name">Polynomials and Polynomial Equations</span>
-                            <span class="percentage blue">0%</span>
+                            <span class="percentage blue" id="home-mod2-pct">0%</span>
                         </div>
-                        <div class="progress-bar-bg"><div class="progress-fill blue" style="width:0%"></div></div>
+                        <div class="progress-bar-bg"><div class="progress-fill blue" id="home-mod2-fill" style="width:0%"></div></div>
                         <button class="view-topics-btn" onclick="navigate('modules')">View Topics</button>
                     </div>
 
                     <div class="module-item">
                         <div class="module-title-row">
-                            <span class="status-icon">—</span>
+                            <span class="status-icon" id="home-mod3-icon">—</span>
                             <span class="module-name">Advanced Equations and Functions</span>
-                            <span class="percentage blue">0%</span>
+                            <span class="percentage blue" id="home-mod3-pct">0%</span>
                         </div>
-                        <div class="progress-bar-bg"><div class="progress-fill blue" style="width:0%"></div></div>
+                        <div class="progress-bar-bg"><div class="progress-fill blue" id="home-mod3-fill" style="width:0%"></div></div>
                         <button class="view-topics-btn" onclick="navigate('modules')">View Topics</button>
                     </div>
                 </section>
@@ -322,7 +322,7 @@
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
                                 </div>
                             </div>
-                            <div class="metric-value">0%</div>
+                            <div class="metric-value" id="progress-overall">0%</div>
                             <div class="metric-sub">all modules</div>
                         </div>
                         <div class="metric-card">
@@ -332,18 +332,38 @@
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
                                 </div>
                             </div>
-                            <div class="metric-value">0/16</div>
+                            <div class="metric-value" id="progress-topics-done">0/12</div>
                             <div class="metric-sub">total topics</div>
                         </div>
                         <div class="metric-card">
                             <div class="metric-header">
-                                <span class="metric-label">Quizzes</span>
+                                <span class="metric-label">Quiz Attempts</span>
                                 <div class="icon-container orange-theme">
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.21 13.89L7 23L12 20L17 23L15.79 13.88"/><circle cx="12" cy="8" r="7"/></svg>
                                 </div>
                             </div>
-                            <div class="metric-value">0/20</div>
-                            <div class="metric-sub">completed</div>
+                            <div class="metric-value" id="progress-attempts">0</div>
+                            <div class="metric-sub">pre &amp; post-tests taken</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-header">
+                                <span class="metric-label">Avg. Pre-Test</span>
+                                <div class="icon-container blue-theme">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+                                </div>
+                            </div>
+                            <div class="metric-value" id="progress-avg-pre">—</div>
+                            <div class="metric-sub">before studying</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-header">
+                                <span class="metric-label">Improvement</span>
+                                <div class="icon-container purple-theme">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                                </div>
+                            </div>
+                            <div class="metric-value" id="progress-improvement">—</div>
+                            <div class="metric-sub">post-test vs pre-test</div>
                         </div>
                     </div>
                 </div>
@@ -353,27 +373,28 @@
                     <div class="section-sub">Detailed breakdown by module</div>
 
                     <div class="progress-row">
-                        <div class="progress-label"><span>Sequences and Series</span><span>0%</span></div>
-                        <div class="progress-bar"><div class="progress-fill-bar" style="width:0%; background:var(--blue)"></div></div>
+                        <div class="progress-label"><span>Sequences and Series</span><span id="progress-mod1-pct">0%</span></div>
+                        <div class="progress-bar"><div class="progress-fill-bar" id="progress-mod1-fill" style="width:0%; background:var(--blue)"></div></div>
                     </div>
                     <div class="progress-row">
-                        <div class="progress-label"><span>Polynomials and Polynomial Equations</span><span>0%</span></div>
-                        <div class="progress-bar"><div class="progress-fill-bar" style="width:0%; background:var(--orange)"></div></div>
+                        <div class="progress-label"><span>Polynomials and Polynomial Equations</span><span id="progress-mod2-pct">0%</span></div>
+                        <div class="progress-bar"><div class="progress-fill-bar" id="progress-mod2-fill" style="width:0%; background:var(--orange)"></div></div>
                     </div>
                     <div class="progress-row" style="margin-bottom:0">
-                        <div class="progress-label"><span>Advanced Equations and Functions</span><span>0%</span></div>
-                        <div class="progress-bar"><div class="progress-fill-bar" style="width:0%; background:var(--purple)"></div></div>
+                        <div class="progress-label"><span>Advanced Equations and Functions</span><span id="progress-mod3-pct">0%</span></div>
+                        <div class="progress-bar"><div class="progress-fill-bar" id="progress-mod3-fill" style="width:0%; background:var(--purple)"></div></div>
                     </div>
                 </section>
 
                 <section class="modules-container">
                     <div class="section-label">Recent Activity</div>
                     <div class="section-sub">Your latest learning events</div>
-                    <div class="empty-state">
+                    <div class="empty-state" id="recent-activity-empty">
                         <div class="empty-icon">📋</div>
                         <h4>No activity yet</h4>
                         <p>Start a module to track your progress here.</p>
                     </div>
+                    <div id="recent-activity-list" style="display:none"></div>
                 </section>
             </div>
 
@@ -772,53 +793,7 @@
     @csrf
 </form>
 
-{{--
-    FIXED ISSUES IN THIS SCRIPT BLOCK:
-    1. Added <script> tags (code was previously bare/untagged — browser ignored it entirely)
-    2. Changed supabasejs.createClient → supabase.createClient (correct global name from CDN)
-    3. Renamed client variable to supabaseClient to avoid conflict with the supabase global
-    4. Replaced all toast('success','Download started!') onclick stubs with handleDownload() calls
-    5. Replace the placeholder URL and KEY below with your real Supabase project values
---}}
-<script>
-    // ─── Download handler ────────────────────────────────────────────────────────
-    // supabaseClient is already initialized globally in the head
-    window.handleDownload = async function(filePathOrUrl, isDirectUrl = false) {
-        try {
-            if (typeof toast === 'function') toast('info', 'Connecting...');
-
-            if (isDirectUrl) {
-                // ✅ Teacher upload — direct Supabase Storage URL
-                const link = document.createElement('a');
-                link.href     = filePathOrUrl;
-                link.target   = '_blank';
-                link.download = filePathOrUrl.split('/').pop();
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-            } else {
-                // ✅ Hardcoded — download from 'materials' bucket
-                const { data, error } = await supabaseClient
-                    .storage
-                    .from('materials')
-                    .download(filePathOrUrl);
-                if (error) throw error;
-                const blobUrl = window.URL.createObjectURL(data);
-                const link    = document.createElement('a');
-                link.href     = blobUrl;
-                link.download = filePathOrUrl.split('/').pop();
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                window.URL.revokeObjectURL(blobUrl);
-            }
-
-            if (typeof toast === 'function') toast('success', 'Download started!');
-        } catch (err) {
-            if (typeof toast === 'function') toast('error', 'Error: ' + err.message);
-        }
-    }
-<!-- ... lahat ng content ng dashboard mo ... -->
+{{-- window.handleDownload is defined in resources/js/dashboard/student_dashboard.js --}}
 
     {{-- 1. I-include ang chatbot HTML --}}
     @include('dashboard.chatbot')

@@ -1,17 +1,19 @@
 <?php
 
 use App\Http\Controllers\Admin\TeacherApprovalController;
+use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\AdminDashboardController;
 use App\Http\Controllers\Auth\AuthController;
 // Controllers
 use App\Http\Controllers\ChatbotController;
 use App\Http\Controllers\QuizController;
 use App\Http\Controllers\SectionController;
+use App\Http\Controllers\StudentController;
 use App\Http\Controllers\StudentDashboardController;
+use App\Http\Controllers\SupabaseController;
 use App\Http\Controllers\Teacher\SectionController as TeacherSectionController;
 use App\Http\Controllers\Teacher\StudentApprovalController;
 use App\Http\Controllers\TeacherDashboardController;
-use App\Http\Controllers\SupabaseController;
 use Illuminate\Support\Facades\Route;
 
 // Gawin itong ganito sa web.php
@@ -69,10 +71,12 @@ Route::prefix('teacher')->group(function () {
     Route::middleware(['auth', 'role:teacher'])->group(function () {
         Route::get('/dashboard', [TeacherDashboardController::class, 'index'])->name('teacher.dashboard');
         Route::post('/logout', [AuthController::class, 'logout'])->name('teacher.logout');
-        Route::post('/teacher/generate-quiz', [QuizController::class, 'generate'])->name('quiz.generate');
+        Route::post('/generate-quiz', [QuizController::class, 'generate'])->name('quiz.generate');
+        Route::post('/quiz/generate-text', [QuizController::class, 'generateText'])->name('quiz.generate-text');
 
         // Student Approvals
         Route::prefix('students')->group(function () {
+            Route::get('/', [StudentController::class, 'getTeacherStudents'])->name('teacher.students.index');
             Route::get('/approvals', [StudentApprovalController::class, 'index'])->name('teacher.student-approvals');
             Route::post('/approve/{user}', [StudentApprovalController::class, 'approve'])->name('teacher.student.approve');
             Route::post('/reject/{user}', [StudentApprovalController::class, 'reject'])->name('teacher.student.reject');
@@ -90,18 +94,16 @@ Route::prefix('teacher')->group(function () {
 });
 
 // ============ API ROUTES ============
+// Read-only and public: used by the registration form (before login) and the
+// teacher dashboard. Writes are handled exclusively by the ownership-checked
+// Teacher\SectionController routes under /teacher/sections/*.
 Route::get('/api/sections', [SectionController::class, 'index'])->name('api.sections');
-Route::post('/api/sections', [SectionController::class, 'store'])->middleware('auth')->name('api.sections.store');
-Route::delete('/api/sections/{section}', [SectionController::class, 'destroy'])->middleware('auth')->name('api.sections.destroy');
 Route::get('/api/test', function () {
     return response()->json(['message' => 'API routing works']);
 })->name('api.test');
 
 // Supabase connection test route
 Route::get('/supabase-test', [SupabaseController::class, 'test'])->name('supabase.test');
-
-// Get Groq API key (protected by auth middleware)
-Route::get('/api/get-groq-key', [QuizController::class, 'getGroqKey'])->name('api.get-groq-key')->middleware('auth');
 
 // ============ ADMIN ROUTES ============
 Route::prefix('admin')->group(function () {
@@ -124,6 +126,13 @@ Route::prefix('admin')->group(function () {
             Route::post('/approve/{user}', [TeacherApprovalController::class, 'approve'])->name('admin.teacher.approve');
             Route::post('/reject/{user}', [TeacherApprovalController::class, 'reject'])->name('admin.teacher.reject');
             Route::post('/reset/{user}', [TeacherApprovalController::class, 'reset'])->name('admin.teacher.reset');
+        });
+
+        // User Management
+        Route::prefix('users')->group(function () {
+            Route::get('/', [AdminUserController::class, 'index'])->name('admin.users.index');
+            Route::patch('/{user}', [AdminUserController::class, 'update'])->name('admin.users.update');
+            Route::delete('/{user}', [AdminUserController::class, 'destroy'])->name('admin.users.destroy');
         });
     });
 });

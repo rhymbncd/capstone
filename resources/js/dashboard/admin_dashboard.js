@@ -2,10 +2,12 @@
  * admin_dashboard.js
  * Path: resources/js/dashboard/admin_dashboard.js
  *
- * Full Supabase persistence:
- *   - admin_users       → Users CRUD
+ * Users are managed through the Laravel-backed /admin/users endpoints
+ * (real `users` table). Everything else persists straight to Supabase:
+ *   - module_status     → Content moderation queue
  *   - activity_logs     → Event logs
  *   - platform_settings → Settings key/value store
+ *   - student_progress  → Platform analytics (read-only here)
  */
 
 import Swal from 'sweetalert2';
@@ -19,7 +21,6 @@ const SUPABASE_URL      = window.__ENV__?.SUPABASE_URL;
 const SUPABASE_ANON_KEY = window.__ENV__?.SUPABASE_ANON_KEY;
 const BUCKET_NAME       = 'modules';
 const STATUS_TABLE      = 'module_status';
-const USERS_TABLE       = 'admin_users';
 const ACTIVITY_TABLE    = 'activity_logs';
 const SETTINGS_TABLE    = 'platform_settings';
 
@@ -158,20 +159,32 @@ async function initDashboard() {
    USERS — Supabase CRUD
    ============================================================ */
 
-/** Fetch all users from Supabase and store in local array */
+const csrfToken = () => document.querySelector('meta[name="csrf-token"]')?.content;
+
+async function apiFetch(url, options = {}) {
+    const res = await fetch(url, {
+        credentials: 'same-origin',
+        ...options,
+        headers: {
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': csrfToken() ?? '',
+            ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+            ...options.headers,
+        },
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.message || `Request failed (${res.status})`);
+    return data;
+}
+
+/** Fetch all real platform users (Laravel-backed, not the disconnected admin_users table) */
 async function loadUsers() {
     try {
-        const rows = await sbSelect(USERS_TABLE, '?select=*&order=joined_at.desc');
-        users = rows.map(r => ({
-            id:     r.id,
-            name:   r.name,
-            email:  r.email,
-            role:   r.role,
-            status: r.status,
-            joined: formatDate(r.joined_at),
-        }));
+        const data = await apiFetch('/admin/users');
+        users = Array.isArray(data.users) ? data.users : [];
     } catch (err) {
         console.warn('loadUsers error:', err.message);
+        users = [];
     }
 }
 
@@ -229,16 +242,6 @@ function renderUsers() {
 
 function filterUsers() { userPage = 1; renderUsers(); }
 
-function openAddUser() {
-    userEditId = null;
-    document.getElementById('modal-user-title').textContent = 'Add New User';
-    document.getElementById('u-name').value   = '';
-    document.getElementById('u-email').value  = '';
-    document.getElementById('u-role').value   = 'student';
-    document.getElementById('u-status').value = 'Active';
-    openModal('modal-user');
-}
-
 function editUser(id) {
     const u = users.find(x => x.id === id);
     if (!u) return;
@@ -247,11 +250,13 @@ function editUser(id) {
     document.getElementById('u-name').value   = u.name;
     document.getElementById('u-email').value  = u.email;
     document.getElementById('u-role').value   = u.role;
-    document.getElementById('u-status').value = u.status;
+    document.getElementById('u-status').value = u.status === 'Active' ? 'Active' : 'Inactive';
     openModal('modal-user');
 }
 
 async function saveUser() {
+    if (!userEditId) return; // accounts are created via self-service registration + approval, not here
+
     const name   = Security.sanitize(document.getElementById('u-name').value);
     const email  = Security.sanitize(document.getElementById('u-email').value);
     const role   = document.getElementById('u-role').value;
@@ -266,44 +271,20 @@ async function saveUser() {
     if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
 
     try {
-        if (userEditId) {
-            // UPDATE existing user
-            const updated = await sbUpdate(USERS_TABLE, { id: userEditId }, { name, email, role, status });
-            const u = users.find(x => x.id === userEditId);
-            if (u) Object.assign(u, { name, email, role, status });
-            await logEvent('content', 'User Updated', `${name}'s profile was edited`, 'Updated');
-            toast('success', 'User updated successfully.');
-        } else {
-            // Check duplicate email locally first (quick UX)
-            if (users.some(u => u.email.toLowerCase() === email.toLowerCase())) {
-                return warn('Duplicate email', 'A user with this email already exists.');
-            }
-            // INSERT new user
-            const inserted = await sbInsert(USERS_TABLE, { name, email, role, status });
-            const newUser  = Array.isArray(inserted) ? inserted[0] : inserted;
-            users.unshift({
-                id:     newUser.id,
-                name:   newUser.name,
-                email:  newUser.email,
-                role:   newUser.role,
-                status: newUser.status,
-                joined: formatDate(newUser.joined_at),
-            });
-            await logEvent('registration', 'New User Added', `${name} joined as ${role}`, 'New');
-            toast('success', 'New user added successfully.');
-        }
+        const data = await apiFetch(`/admin/users/${userEditId}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ name, email, role, status }),
+        });
+        const u = users.find(x => x.id === userEditId);
+        if (u) Object.assign(u, data.user);
+        await logEvent('content', 'User Updated', `${name}'s profile was edited`, 'Updated');
+        toast('success', 'User updated successfully.');
 
         closeModal('modal-user');
         renderUsers();
         renderHome();
-
     } catch (err) {
-        // Supabase unique violation on email
-        if (err.message?.includes('duplicate') || err.message?.includes('unique')) {
-            warn('Duplicate email', 'A user with this email already exists.');
-        } else {
-            warn('Save Failed', err.message || 'Could not save user. Please try again.');
-        }
+        warn('Save Failed', err.message || 'Could not save user. Please try again.');
     } finally {
         if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save User'; }
     }
@@ -321,7 +302,7 @@ async function deleteUser(id) {
     }).then(async r => {
         if (!r.isConfirmed) return;
         try {
-            await sbDelete(USERS_TABLE, { id });
+            await apiFetch(`/admin/users/${id}`, { method: 'DELETE' });
             await logEvent('system', 'User Deleted', `Account for ${u.name} removed`, 'System');
             users = users.filter(x => x.id !== id);
             renderUsers();
@@ -805,6 +786,7 @@ function renderHome() {
     setText('m-total',    users.length);
     setText('m-students', users.filter(u => u.role === 'student').length);
     setText('m-teachers', users.filter(u => u.role === 'teacher').length);
+    setText('m-pending',  users.filter(u => u.status === 'Pending').length);
 
     const logEl = document.getElementById('home-activity-log');
     if (!activity.length) {
@@ -828,30 +810,65 @@ function renderHome() {
 /* ============================================================
    ANALYTICS
    ============================================================ */
-function renderAnalytics() {
-    const students = users.filter(u => u.role === 'student');
-    setText('a-dau',         Math.floor(students.length * 0.6));
-    setText('a-score',       '—');
-    setText('a-completions', 0);
+const CURRICULUM_TOPICS = ['ari','geo','har','fib','fin','div','rem','poly','rat','rad','exp','log'];
+
+/** Load every student_progress row (platform-wide) for real analytics. */
+async function loadProgressRows() {
+    try {
+        return await sbSelect('student_progress', '?select=session_id,topic_key,phase,score,total,passed,created_at');
+    } catch (err) {
+        console.warn('loadProgressRows error:', err.message);
+        return [];
+    }
+}
+
+async function renderAnalytics() {
+    const rows = await loadProgressRows();
+    const postRows = rows.filter(r => r.phase === 'post' && CURRICULUM_TOPICS.includes(r.topic_key));
+
+    // Daily active users: distinct students with any activity today
+    const todayStr = new Date().toDateString();
+    const dau = new Set(rows.filter(r => new Date(r.created_at).toDateString() === todayStr).map(r => r.session_id)).size;
+    setText('a-dau', dau);
+
+    // Platform-wide average pre-test and post-test scores
+    const avgOfPhase = phase => {
+        const scored = rows.filter(r => r.phase === phase && CURRICULUM_TOPICS.includes(r.topic_key) && r.total > 0);
+        return scored.length
+            ? Math.round(scored.reduce((sum, r) => sum + (r.score / r.total) * 100, 0) / scored.length)
+            : null;
+    };
+    const avgPre  = avgOfPhase('pre');
+    const avgPost = avgOfPhase('post');
+    setText('a-score-pre', avgPre  === null ? '—' : avgPre + '%');
+    setText('a-score',     avgPost === null ? '—' : avgPost + '%');
+    setText('a-improvement', (avgPre === null || avgPost === null) ? '—' : `${avgPost - avgPre >= 0 ? '+' : ''}${avgPost - avgPre}%`);
+
+    // Total real topic completions across the platform
+    setText('a-completions', postRows.length);
 
     const chartEl = document.getElementById('reg-chart');
     if (!users.length) {
         chartEl.innerHTML = '<div class="empty-state"><div class="empty-icon">📊</div><h4>No registration data yet</h4><p>Charts will populate as users join.</p></div>';
     } else {
         const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-        const base = Math.max(1, Math.floor(users.length / 7));
-        const vals = days.map(() => Math.max(0, base + Math.floor(Math.random() * 3)));
-        const maxV = Math.max(...vals, 1);
+        const counts = new Array(7).fill(0);
+        users.forEach(u => {
+            const d = new Date(u.joined);
+            if (!isNaN(d)) counts[(d.getDay() + 6) % 7]++;
+        });
+        const maxV = Math.max(...counts, 1);
         chartEl.innerHTML = `<div class="bar-chart">` + days.map((d, i) => `
             <div class="bar-group">
-                <div class="bar-val">${vals[i]}</div>
-                <div class="bar" style="height:${Math.round((vals[i]/maxV)*120)}px;background:linear-gradient(180deg,#60a5fa,#2563eb)"></div>
+                <div class="bar-val">${counts[i]}</div>
+                <div class="bar" style="height:${Math.round((counts[i]/maxV)*120)}px;background:linear-gradient(180deg,#60a5fa,#2563eb)"></div>
                 <div class="bar-label">${d}</div>
             </div>`).join('') + `</div>`;
     }
 
-    document.getElementById('subject-progress').innerHTML =
-        '<div class="empty-state"><div class="empty-icon">📈</div><h4>No progress data yet</h4><p>Data appears as students complete modules.</p></div>';
+    document.getElementById('subject-progress').innerHTML = postRows.length
+        ? '<div class="empty-state"><div class="empty-icon">📈</div><h4>Per-subject breakdown coming soon</h4><p>Topic-level data is tracked; a subject grouping view is planned.</p></div>'
+        : '<div class="empty-state"><div class="empty-icon">📈</div><h4>No progress data yet</h4><p>Data appears as students complete modules.</p></div>';
 
     const donutEl = document.getElementById('donut-row');
     if (!users.length) {
@@ -871,18 +888,36 @@ function renderAnalytics() {
             </div>`).join('') + `</div>`;
     }
 
+    // Real top-performing students, ranked by average post-test score
     const tbody = document.getElementById('top-students-tbody');
-    const studs = users.filter(u => u.role === 'student');
-    if (!studs.length) {
-        tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><div class="empty-icon">🏆</div><h4>No students yet</h4></div></td></tr>`;
+    const byStudent = new Map();
+    postRows.forEach(r => {
+        if (!byStudent.has(r.session_id)) byStudent.set(r.session_id, { scores: [], topics: new Set() });
+        const entry = byStudent.get(r.session_id);
+        if (r.total > 0) entry.scores.push((r.score / r.total) * 100);
+        entry.topics.add(r.topic_key);
+    });
+
+    const ranked = users
+        .filter(u => u.role === 'student')
+        .map(s => {
+            const entry = byStudent.get(String(s.id));
+            const avg = entry?.scores.length ? Math.round(entry.scores.reduce((a, b) => a + b, 0) / entry.scores.length) : null;
+            return { name: s.name, avg, modules: entry?.topics.size ?? 0 };
+        })
+        .filter(s => s.avg !== null)
+        .sort((a, b) => b.avg - a.avg);
+
+    if (!ranked.length) {
+        tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><div class="empty-icon">🏆</div><h4>No completed quizzes yet</h4></div></td></tr>`;
     } else {
         const medals = ['🥇','🥈','🥉'];
-        tbody.innerHTML = studs.slice(0, 5).map((s, i) => `
+        tbody.innerHTML = ranked.slice(0, 5).map((s, i) => `
             <tr>
                 <td>${medals[i] || (i + 1)}</td>
                 <td><b>${Security.escape(s.name)}</b></td>
-                <td style="color:var(--green);font-weight:700">—</td>
-                <td>0</td><td>—</td>
+                <td style="color:var(--green);font-weight:700">${s.avg}%</td>
+                <td>${s.modules}/${CURRICULUM_TOPICS.length}</td><td>—</td>
             </tr>`).join('');
     }
 }
@@ -978,7 +1013,7 @@ function toast(icon, title) { Swal.fire({ icon, title, timer:2000, timerProgress
    ============================================================ */
 Object.assign(window, {
     navigate,
-    filterUsers, openAddUser, editUser, saveUser, deleteUser,
+    filterUsers, editUser, saveUser, deleteUser,
     filterContent, loadAndRenderContent,
     approveContent, rejectContent, resetContentStatus, deleteContent,
     filterActivity,

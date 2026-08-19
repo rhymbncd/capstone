@@ -5,10 +5,13 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\Section;
 use App\Models\User;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Session;
+use Laravel\Socialite\Facades\Socialite;
 
 class AuthController extends Controller
 {
@@ -34,7 +37,9 @@ class AuthController extends Controller
 
         $userExists = User::where('email', $request->email)->exists();
         if (! $userExists) {
-            return back()->withErrors(['email' => 'No account found with this email. Please register first.'])->onlyInput('email');
+            return redirect()->route('student.login')
+                ->withErrors(['email' => 'No account found with this email. Please register first.'])
+                ->onlyInput('email');
         }
 
         if (Auth::attempt($request->only('email', 'password'))) {
@@ -43,7 +48,7 @@ class AuthController extends Controller
             if ($user->role !== 'student') {
                 Auth::logout();
 
-                return back()->withErrors([
+                return redirect()->route('student.login')->withErrors([
                     'email' => "This account is registered as a {$user->role}. Please use the {$user->role} login portal.",
                 ]);
             }
@@ -61,7 +66,9 @@ class AuthController extends Controller
             return redirect()->route('student.dashboard');
         }
 
-        return back()->withErrors(['email' => 'Invalid email or password.'])->onlyInput('email');
+        return redirect()->route('student.login')
+            ->withErrors(['email' => 'Invalid email or password.'])
+            ->onlyInput('email');
     }
 
     public function studentRegister(Request $request)
@@ -148,7 +155,7 @@ class AuthController extends Controller
         return view('login.signin', ['portalType' => 'teacher']);
     }
 
-    public function teacherLogin(Request $request): \Illuminate\Http\Response|\Illuminate\Http\RedirectResponse
+    public function teacherLogin(Request $request): Response|RedirectResponse
     {
         $request->validate([
             'email' => 'required|email',
@@ -157,7 +164,9 @@ class AuthController extends Controller
 
         $userExists = User::where('email', $request->email)->exists();
         if (! $userExists) {
-            return back()->withErrors(['email' => 'No account found with this email. Please register first.'])->onlyInput('email');
+            return redirect()->route('teacher.login')
+                ->withErrors(['email' => 'No account found with this email. Please register first.'])
+                ->onlyInput('email');
         }
 
         if (Auth::attempt($request->only('email', 'password'))) {
@@ -167,7 +176,7 @@ class AuthController extends Controller
             if ($user->role !== 'teacher') {
                 Auth::logout();
 
-                return back()->withErrors([
+                return redirect()->route('teacher.login')->withErrors([
                     'email' => "This account is registered as a {$user->role}. Please use the {$user->role} login portal.",
                 ]);
             }
@@ -185,7 +194,9 @@ class AuthController extends Controller
             return redirect()->route('teacher.dashboard');
         }
 
-        return back()->withErrors(['email' => 'Invalid email or password.'])->onlyInput('email');
+        return redirect()->route('teacher.login')
+            ->withErrors(['email' => 'Invalid email or password.'])
+            ->onlyInput('email');
     }
 
     public function teacherRegister(Request $request)
@@ -226,7 +237,9 @@ class AuthController extends Controller
 
         $userExists = User::where('email', $request->email)->exists();
         if (! $userExists) {
-            return back()->withErrors(['email' => 'No account found with this email. Please register first.'])->onlyInput('email');
+            return redirect()->route('admin.login')
+                ->withErrors(['email' => 'No account found with this email. Please register first.'])
+                ->onlyInput('email');
         }
 
         if (Auth::attempt($request->only('email', 'password'))) {
@@ -235,7 +248,7 @@ class AuthController extends Controller
             if ($user->role !== 'admin') {
                 Auth::logout();
 
-                return back()->withErrors([
+                return redirect()->route('admin.login')->withErrors([
                     'email' => "This account is registered as a {$user->role}. Please use the {$user->role} login portal.",
                 ]);
             }
@@ -245,7 +258,9 @@ class AuthController extends Controller
             return redirect()->route('admin.dashboard');
         }
 
-        return back()->withErrors(['email' => 'Invalid email or password.'])->onlyInput('email');
+        return redirect()->route('admin.login')
+            ->withErrors(['email' => 'Invalid email or password.'])
+            ->onlyInput('email');
     }
 
     public function adminRegister(Request $request)
@@ -316,7 +331,7 @@ class AuthController extends Controller
             return $this->mockGoogleLogin();
         }
 
-        $redirect = \Laravel\Socialite\Facades\Socialite::driver('google')->redirect();
+        $redirect = Socialite::driver('google')->redirect();
         $url = $redirect->getTargetUrl();
         $separator = strpos($url, '?') ? '&' : '?';
 
@@ -326,7 +341,7 @@ class AuthController extends Controller
     public function handleGoogleCallback()
     {
         try {
-            $googleUser = \Laravel\Socialite\Facades\Socialite::driver('google')->user();
+            $googleUser = Socialite::driver('google')->user();
         } catch (\Exception $e) {
             return redirect()->route('student.login')
                 ->withErrors(['error' => 'Failed to authenticate with Google.'])

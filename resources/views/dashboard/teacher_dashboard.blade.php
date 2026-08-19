@@ -334,7 +334,7 @@
                 <div class="modules-container">
                     @if ($pendingStudents->count() > 0)
                     <div class="section-label">⚠️ Pending Student Approvals</div>
-                    <div class="section-sub">{{ $pendingStudents->count() }} student(s) awaiting your approval</div>
+                    <div class="section-sub">{{ $pendingStudents->count() }} student(s) awaiting your approval &middot; <a href="{{ route('teacher.student-approvals') }}" style="color:#1e88e5;font-weight:600;">Manage all &rarr;</a></div>
                     <div class="pending-teachers-list" style="margin-bottom: 2rem;">
                         @foreach ($pendingStudents as $student)
                         <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 1rem; margin-bottom: 0.75rem; border-radius: 0.5rem; display: flex; justify-content: space-between; align-items: center;">
@@ -457,6 +457,33 @@
                             </div>
                             <div class="metric-value" id="r-feedback">0</div>
                             <div class="metric-sub">feedbacks sent</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-header"><span class="metric-label">Avg. Pre-Test</span>
+                                <div class="icon-container blue-theme">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+                                </div>
+                            </div>
+                            <div class="metric-value" id="r-avg-pre">—</div>
+                            <div class="metric-sub">class average</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-header"><span class="metric-label">Avg. Post-Test</span>
+                                <div class="icon-container purple-theme">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                                </div>
+                            </div>
+                            <div class="metric-value" id="r-avg-post">—</div>
+                            <div class="metric-sub">class average</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-header"><span class="metric-label">Improvement</span>
+                                <div class="icon-container green-theme">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                                </div>
+                            </div>
+                            <div class="metric-value" id="r-improvement">—</div>
+                            <div class="metric-sub">post-test vs pre-test</div>
                         </div>
                     </div>
                 </div>

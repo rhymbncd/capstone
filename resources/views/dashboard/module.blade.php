@@ -275,7 +275,15 @@ html,body { min-height:100%; font-family:'Plus Jakarta Sans',sans-serif; backgro
       SUPABASE_URL:      "{{ config('services.supabase.url') }}",
       SUPABASE_ANON_KEY: "{{ config('services.supabase.anon_key') }}",
     };
-    
+
+    // Expose authenticated user so quiz progress can be tied to a real account
+    window.__USER__ = {
+      id:    "{{ auth()->user()->id }}",
+      name:  "{{ auth()->user()->name }}",
+      email: "{{ auth()->user()->email }}",
+      role:  "{{ auth()->user()->role ?? 'student' }}",
+    };
+
     // Wait for supabase CDN to load
     window.addEventListener('load', function() {
       if (typeof supabase !== 'undefined') {
@@ -834,6 +842,105 @@ function injectCustomTopicsIntoPage() {
 const mqState = { topicKey:null, phase:'pre', questions:[], current:0, score:0, answered:false, completed:{} };
 let mqTimerInterval=null, mqTimeLeft=POST_TIMER_SECS;
 
+/* ════════════════════════════════════════════════════════════
+   PROGRESS PERSISTENCE — student_progress table
+   Ties each pre/post-test attempt to the authenticated student
+   (session_id = user id) so completion survives page reloads.
+   ════════════════════════════════════════════════════════════ */
+
+/**
+ * Save one pre/post-test attempt for the current student.
+ * Upserts on the table's (session_id, topic_key, phase) unique key.
+ */
+async function mqSaveProgress(topicKey, phase, score, total, passed) {
+    if (!SUPABASE_URL_M || !SUPABASE_ANON_KEY_M || !window.__USER__?.id) return;
+    try {
+        await fetch(
+            `${SUPABASE_URL_M}/rest/v1/student_progress?on_conflict=session_id,topic_key,phase`,
+            {
+                method: 'POST',
+                headers: {
+                    'apikey':        SUPABASE_ANON_KEY_M,
+                    'Authorization': `Bearer ${SUPABASE_ANON_KEY_M}`,
+                    'Content-Type':  'application/json',
+                    'Prefer':        'resolution=merge-duplicates,return=minimal',
+                },
+                body: JSON.stringify({
+                    session_id:   String(window.__USER__.id),
+                    student_name: window.__USER__.name,
+                    topic_key:    topicKey,
+                    phase,
+                    score,
+                    total,
+                    passed,
+                }),
+            }
+        );
+    } catch (e) {
+        console.warn('Could not save progress:', e.message);
+    }
+}
+
+/**
+ * Load this student's completed topics (passed post-tests) from
+ * student_progress and rehydrate mqState.completed + stateFlags.
+ */
+async function mqLoadProgress() {
+    if (!SUPABASE_URL_M || !SUPABASE_ANON_KEY_M || !window.__USER__?.id) return;
+    try {
+        const res = await fetch(
+            `${SUPABASE_URL_M}/rest/v1/student_progress?select=topic_key,phase&session_id=eq.${encodeURIComponent(String(window.__USER__.id))}&phase=eq.post`,
+            {
+                headers: {
+                    'apikey':        SUPABASE_ANON_KEY_M,
+                    'Authorization': `Bearer ${SUPABASE_ANON_KEY_M}`,
+                },
+            }
+        );
+        if (!res.ok) return;
+        const rows = await res.json();
+        rows.forEach(r => {
+            mqState.completed[r.topic_key] = true;
+            if (stateFlags[r.topic_key]) {
+                stateFlags[r.topic_key].pre = true;
+                stateFlags[r.topic_key].activity = true;
+                stateFlags[r.topic_key].post = true;
+            }
+        });
+    } catch (e) {
+        console.warn('Could not load progress:', e.message);
+    }
+}
+
+/**
+ * Reflect mqState.completed (loaded from the database) onto the topic
+ * list: mark finished topics done and unlock the next topic in order.
+ */
+function applyCompletedTopicsToUI() {
+    Object.keys(mqState.completed).forEach(key => {
+        document.querySelectorAll('.topic-item[data-topic="' + key + '"]').forEach(li => {
+            li.classList.remove('mq-topic--locked', 'mq-topic--active-unlock');
+            li.classList.add('mq-topic--done');
+            const lock = li.querySelector('.lock-icon');
+            if (lock) lock.remove();
+        });
+    });
+
+    for (const key of TOPIC_ORDER) {
+        if (mqState.completed[key]) continue;
+        const el = document.querySelector('.topic-item[data-topic="' + key + '"]');
+        if (el && !el.classList.contains('mq-topic--done')) {
+            el.classList.remove('mq-topic--locked');
+            el.classList.add('mq-topic--active-unlock');
+            const lock = el.querySelector('.lock-icon');
+            if (lock) lock.remove();
+        }
+        break;
+    }
+
+    updateModuleSubtitles();
+}
+
 function mqStartTimer() {
   mqStopTimer(); mqTimeLeft=POST_TIMER_SECS; mqUpdateTimerUI();
   mqTimerInterval = setInterval(() => {
@@ -1032,7 +1139,12 @@ function mqSelectChoice(idx) {
 function mqNext() {
   mqStopTimer(); mqState.current++;
   if(mqState.current>=mqState.questions.length){
-    if(mqState.phase==='pre'){stateFlags[mqState.topicKey].pre=true;mqState.phase='lesson';}
+    if(mqState.phase==='pre'){
+      stateFlags[mqState.topicKey].pre=true;
+      const total=mqState.questions.length;
+      mqSaveProgress(mqState.topicKey,'pre',mqState.score,total,mqState.score>=Math.ceil(total*0.6));
+      mqState.phase='lesson';
+    }
     else{mqState.phase='result';mqMarkDone();}
     mqRender(); return;
   }
@@ -1173,6 +1285,9 @@ function mqMarkDone() {
     stateFlags[key].post = true;
     mqState.completed[key] = true;
 
+    const total = mqState.questions.length;
+    mqSaveProgress(key, 'post', mqState.score, total, mqState.score >= Math.ceil(total * 0.6));
+
     // Mark current as done
     document.querySelectorAll('.topic-item[data-topic="' + key + '"]').forEach(li => {
         li.classList.remove('mq-topic--locked', 'mq-topic--active-unlock');
@@ -1247,6 +1362,14 @@ document.addEventListener('DOMContentLoaded', async function () {
 
     // ── Inject any custom topics into the topic lists ──
     injectCustomTopicsIntoPage();
+
+    // ── Restore this student's completed topics from Supabase ──
+    try {
+        await mqLoadProgress();
+        applyCompletedTopicsToUI();
+    } catch (e) {
+        console.warn('Progress restore failed:', e.message);
+    }
 });
 
 /* ── View Module: maps each topic key to its download PDF ── */

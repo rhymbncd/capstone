@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Section;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -222,7 +223,7 @@ class TeacherApprovalTest extends TestCase
     public function test_student_registration_creates_pending_approval_status(): void
     {
         // Create a section first
-        $section = \App\Models\Section::factory()->create();
+        $section = Section::factory()->create();
 
         $response = $this->post(route('student.register'), [
             'firstName' => 'Jane',
@@ -245,7 +246,7 @@ class TeacherApprovalTest extends TestCase
 
     public function test_prevents_pending_students_from_logging_in(): void
     {
-        $section = \App\Models\Section::factory()->create();
+        $section = Section::factory()->create();
         $student = User::factory()->create([
             'role' => 'student',
             'approval_status' => 'pending',
@@ -265,8 +266,8 @@ class TeacherApprovalTest extends TestCase
 
     public function test_teacher_can_approve_a_pending_student(): void
     {
-        $section = \App\Models\Section::factory()->create();
         $teacher = User::factory()->teacher()->create(['approval_status' => 'approved']);
+        $section = Section::factory()->create(['teacher_id' => $teacher->id]);
         $student = User::factory()->create([
             'role' => 'student',
             'approval_status' => 'pending',
@@ -285,8 +286,8 @@ class TeacherApprovalTest extends TestCase
 
     public function test_teacher_can_reject_a_pending_student(): void
     {
-        $section = \App\Models\Section::factory()->create();
         $teacher = User::factory()->teacher()->create(['approval_status' => 'approved']);
+        $section = Section::factory()->create(['teacher_id' => $teacher->id]);
         $student = User::factory()->create([
             'role' => 'student',
             'approval_status' => 'pending',
@@ -303,9 +304,30 @@ class TeacherApprovalTest extends TestCase
         $this->assertEquals('rejected', $student->approval_status);
     }
 
+    public function test_teacher_cannot_approve_a_student_from_another_teachers_section(): void
+    {
+        $teacherA = User::factory()->teacher()->create(['approval_status' => 'approved']);
+        $teacherB = User::factory()->teacher()->create(['approval_status' => 'approved']);
+        $sectionB = Section::factory()->create(['teacher_id' => $teacherB->id]);
+        $student = User::factory()->create([
+            'role' => 'student',
+            'approval_status' => 'pending',
+            'section_id' => $sectionB->id,
+        ]);
+
+        $response = $this->actingAs($teacherA)
+            ->post(route('teacher.student.approve', $student->id));
+
+        $response->assertRedirect();
+        $response->assertSessionHasErrors('error');
+
+        $student->refresh();
+        $this->assertEquals('pending', $student->approval_status);
+    }
+
     public function test_allows_approved_students_to_log_in(): void
     {
-        $section = \App\Models\Section::factory()->create();
+        $section = Section::factory()->create();
         $student = User::factory()->create([
             'role' => 'student',
             'approval_status' => 'approved',
@@ -324,7 +346,7 @@ class TeacherApprovalTest extends TestCase
 
     public function test_prevents_rejected_students_from_logging_in(): void
     {
-        $section = \App\Models\Section::factory()->create();
+        $section = Section::factory()->create();
         $student = User::factory()->create([
             'role' => 'student',
             'approval_status' => 'rejected',
@@ -345,7 +367,7 @@ class TeacherApprovalTest extends TestCase
     public function test_teacher_student_approvals_index_shows_pending_students(): void
     {
         $teacher = User::factory()->teacher()->create(['approval_status' => 'approved']);
-        $section = \App\Models\Section::factory()->create(['teacher_id' => $teacher->id]);
+        $section = Section::factory()->create(['teacher_id' => $teacher->id]);
         $pendingStudents = User::factory(3)->create([
             'role' => 'student',
             'approval_status' => 'pending',
@@ -364,7 +386,7 @@ class TeacherApprovalTest extends TestCase
 
     public function test_google_oauth_creates_student_with_pending_status(): void
     {
-        $section = \App\Models\Section::factory()->create();
+        $section = Section::factory()->create();
         $newStudent = [
             'id' => 'google_123456',
             'name' => 'Google Student',
@@ -389,7 +411,7 @@ class TeacherApprovalTest extends TestCase
 
     public function test_pending_google_student_cannot_access_student_dashboard(): void
     {
-        $section = \App\Models\Section::factory()->create();
+        $section = Section::factory()->create();
         /** @var User $student */
         $student = User::factory()->create([
             'role' => 'student',
@@ -408,7 +430,7 @@ class TeacherApprovalTest extends TestCase
 
     public function test_approved_google_student_can_access_dashboard(): void
     {
-        $section = \App\Models\Section::factory()->create();
+        $section = Section::factory()->create();
         /** @var User $student */
         $student = User::factory()->create([
             'role' => 'student',
@@ -425,8 +447,8 @@ class TeacherApprovalTest extends TestCase
 
     public function test_teacher_can_reset_student_approval_status_to_pending(): void
     {
-        $section = \App\Models\Section::factory()->create();
         $teacher = User::factory()->teacher()->create(['approval_status' => 'approved']);
+        $section = Section::factory()->create(['teacher_id' => $teacher->id]);
         $student = User::factory()->create([
             'role' => 'student',
             'approval_status' => 'approved',

@@ -43,7 +43,7 @@ class SectionController extends Controller
         }
 
         // Unassign students from this section
-        $section->users()->update(['section_id' => null]);
+        $section->students()->update(['section_id' => null]);
 
         $section->delete();
 

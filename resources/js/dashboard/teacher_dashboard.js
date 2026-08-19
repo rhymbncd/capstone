@@ -285,6 +285,29 @@ const Security = {
    STATE
    ============================================================ */
 let students    = [];
+
+/**
+ * Load the authenticated teacher's students (with real completion
+ * progress computed server-side from student_progress).
+ */
+async function loadStudents() {
+    try {
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+        const res = await fetch('/teacher/students', {
+            headers: {
+                'Accept': 'application/json',
+                ...(csrfToken && { 'X-CSRF-TOKEN': csrfToken }),
+            },
+            credentials: 'same-origin',
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        students = Array.isArray(data.students) ? data.students : [];
+    } catch (e) {
+        console.warn('Could not load students:', e.message);
+        students = [];
+    }
+}
 let feedbacks   = [];
 let activity    = [];
 let modulesData = [];
@@ -318,12 +341,12 @@ function navigate(page) {
     document.querySelectorAll(`[data-page="${page}"]`).forEach(b => b.classList.add('active'));
     window.scrollTo(0, 0);
 
-    if (page === 'home')     renderHome();
-    if (page === 'students') renderStudents();
-    if (page === 'progress') renderProgress();
+    if (page === 'home')     loadStudents().then(renderHome);
+    if (page === 'students') loadStudents().then(renderStudents);
+    if (page === 'progress') loadStudents().then(renderProgress);
     if (page === 'reports')  {
         loadSectionsForReports();
-        renderReports();
+        loadStudents().then(renderReports);
     }
     if (page === 'modules')  loadAndRenderModules();  // always re-fetches
     if (page === 'profile')  renderProfile();
@@ -537,6 +560,15 @@ function renderReports() {
     setText('r-total',    students.length);
     setText('r-avg',      avgProgress() + '%');
     setText('r-feedback', feedbacks.length);
+
+    const withPre  = students.filter(s => s.avgPre  !== null && s.avgPre  !== undefined);
+    const withPost = students.filter(s => s.avgPost !== null && s.avgPost !== undefined);
+    const avgPre   = withPre.length  ? Math.round(withPre.reduce((sum, s) => sum + s.avgPre, 0) / withPre.length) : null;
+    const avgPost  = withPost.length ? Math.round(withPost.reduce((sum, s) => sum + s.avgPost, 0) / withPost.length) : null;
+
+    setText('r-avg-pre',  avgPre  === null ? '—' : avgPre + '%');
+    setText('r-avg-post', avgPost === null ? '—' : avgPost + '%');
+    setText('r-improvement', (avgPre === null || avgPost === null) ? '—' : `${avgPost - avgPre >= 0 ? '+' : ''}${avgPost - avgPre}%`);
 
     // Display sections in the sections-container for management
     renderSectionsContainer();
@@ -1045,6 +1077,14 @@ async function saveModule() {
             if (pendingFile.size > MAX_BYTES) {
                 if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save Module'; }
                 return warn('File too large', 'Please select a file smaller than 20 MB.');
+            }
+            const ALLOWED_EXTENSIONS = ['pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'txt', 'png', 'jpg', 'jpeg'];
+            const ext = pendingFile.name.split('.').pop()?.toLowerCase();
+            // The <input accept> attribute is advisory only — drag-and-drop
+            // bypasses it entirely, so re-check the extension here too.
+            if (!ext || !ALLOWED_EXTENSIONS.includes(ext)) {
+                if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save Module'; }
+                return warn('Unsupported file type', `Allowed types: ${ALLOWED_EXTENSIONS.join(', ')}`);
             }
             if (saveBtn) saveBtn.textContent = 'Uploading…';
             
@@ -1743,32 +1783,7 @@ Rules:
 ------------------------------------------------------------------ */
 async function generateQuizWithRetry(prompt, maxRetries = 3) {
     let lastError = null;
-    const OPENROUTER_ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
-    let apiKey = null;
-
-    // Fetch API key once outside the retry loop
-    try {
-        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
-        const keyResponse = await fetch('/api/get-groq-key', {
-            method: 'GET',
-            headers: {
-                'Accept': 'application/json',
-                ...(csrfToken && { 'X-CSRF-Token': csrfToken }),
-            },
-            credentials: 'same-origin',
-        });
-        if (!keyResponse.ok) {
-            const errText = await keyResponse.text();
-            console.error('Failed to get API key. Status:', keyResponse.status, 'Response:', errText);
-            throw new Error('Failed to retrieve API key from server.');
-        }
-        const data = await keyResponse.json();
-        apiKey = data.key;
-        if (!apiKey) throw new Error('No API key provided by server.');
-    } catch (err) {
-        console.error('Error fetching API key:', err);
-        throw err;
-    }
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
 
     for (let attempt = 0; attempt < maxRetries; attempt++) {
         try {
@@ -1780,26 +1795,17 @@ async function generateQuizWithRetry(prompt, maxRetries = 3) {
                 await new Promise(resolve => setTimeout(resolve, delay));
             }
 
-            const response = await fetch(OPENROUTER_ENDPOINT, {
+            // The AI call itself happens server-side; the API key never
+            // reaches the browser. See QuizController::generateText().
+            const response = await fetch('/teacher/quiz/generate-text', {
                 method: 'POST',
                 headers: {
-                    'Content-Type':  'application/json',
-                    'Authorization': `Bearer ${apiKey}`,
-                    'HTTP-Referer':  'https://pansit.local',
-                    'X-Title':       'Pansit Capstone',
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    ...(csrfToken && { 'X-CSRF-TOKEN': csrfToken }),
                 },
-                body: JSON.stringify({
-                    model:       'openai/gpt-3.5-turbo',
-                    temperature: 0.7,
-                    max_tokens:  3500,   // kept under free credit limit (~3935)
-                    messages: [
-                        {
-                            role:    'system',
-                            content: 'You are a Philippine mathematics teacher. Respond ONLY with a valid JSON array. No markdown, no backticks, no explanation.',
-                        },
-                        { role: 'user', content: prompt },
-                    ],
-                }),
+                credentials: 'same-origin',
+                body: JSON.stringify({ prompt }),
             });
 
             if (response.status === 429) {
@@ -1808,17 +1814,15 @@ async function generateQuizWithRetry(prompt, maxRetries = 3) {
             }
             if (!response.ok) {
                 const errBody = await response.json().catch(() => ({}));
-                if (response.status === 401) throw new Error('Invalid API key from server.');
-                if (response.status === 403) throw new Error('API key not authorized.');
                 if (response.status >= 500) {
                     lastError = new Error(`Server error (${response.status})`);
                     continue;
                 }
-                throw new Error(errBody.error?.message || `API error ${response.status}`);
+                throw new Error(errBody.message || `API error ${response.status}`);
             }
 
             const data = await response.json();
-            const raw  = data.choices?.[0]?.message?.content || '';
+            const raw  = data.content || '';
             if (!raw.trim()) { lastError = new Error('Empty response from API.'); continue; }
 
             return raw;
@@ -2505,14 +2509,19 @@ function injectQuizEditStyles() {
    updateQuizMetrics
 ------------------------------------------------------------------ */
 function updateQuizMetrics() {
-    const total = savedQuizzes.length + (currentQuiz ? 1 : 0);
-    const pre   = savedQuizzes.filter(q => q.type === 'pretest').length;
-    const post  = savedQuizzes.filter(q => q.type === 'posttest').length;
+    const all   = currentQuiz ? [...savedQuizzes, currentQuiz] : savedQuizzes;
+    const total = all.length;
+    // Every saved quiz row stores its own pretest/posttest/activity arrays,
+    // so count quizzes that actually have items in each section rather than
+    // relying on the unused/always-'pretest' `type` tag.
+    const pre   = all.filter(q => (q.pretest?.length   ?? 0) > 0).length;
+    const post  = all.filter(q => (q.posttest?.length  ?? 0) > 0).length;
+    const acts  = all.filter(q => (q.activity?.length  ?? 0) > 0).length;
 
     setText('qz-total',      total);
-    setText('qz-pre',        pre + (currentQuiz ? 1 : 0));
-    setText('qz-post',       post + (currentQuiz ? 1 : 0));
-    setText('qz-activities', 5);
+    setText('qz-pre',        pre);
+    setText('qz-post',       post);
+    setText('qz-activities', acts);
     setText('m-quizzes',     total);  // home page counter
 }
 
@@ -2989,7 +2998,7 @@ async function publishQuizToStudents(topicKey, quiz) {
         published_at: new Date().toISOString(),
     };
 
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/quiz_published`, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/quiz_published?on_conflict=topic_key`, {
         method:  'POST',
         headers: {
             'apikey':        SUPABASE_ANON_KEY,
@@ -3445,9 +3454,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Initial modules load
     await loadAndRenderModules();
-    
+
     // Load sections from database
     await loadSections();
+
+    // Load real students + progress from the server
+    await loadStudents();
 
     renderHome();
     renderStudents();

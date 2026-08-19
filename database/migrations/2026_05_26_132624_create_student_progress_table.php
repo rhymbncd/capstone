@@ -8,19 +8,31 @@ return new class extends Migration
 {
     /**
      * Run the migrations.
+     *
+     * Guarded with hasTable() because this table already exists on the
+     * production Supabase database (created outside Laravel's migration
+     * history); this only creates it for a fresh environment.
      */
     public function up(): void
     {
+        if (Schema::hasTable('student_progress')) {
+            return;
+        }
+
         Schema::create('student_progress', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
-            $table->integer('module_number')->comment('1, 2, or 3');
-            $table->boolean('module_completed')->default(false);
-            $table->integer('quiz_score')->nullable();
-            $table->timestamp('module_completed_at')->nullable();
+            $table->string('session_id')->nullable();
+            $table->string('topic_key')->nullable();
+            $table->string('phase')->nullable();
+            $table->integer('score')->nullable();
+            $table->integer('total')->nullable();
+            $table->boolean('passed')->nullable();
+            $table->text('student_name')->nullable();
+            $table->integer('module_1_pct')->nullable();
+            $table->integer('module_2_pct')->nullable();
+            $table->integer('module_3_pct')->nullable();
+            $table->integer('overall_pct')->nullable();
             $table->timestamps();
-
-            $table->unique(['user_id', 'module_number']);
         });
     }
 

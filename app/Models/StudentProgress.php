@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class StudentProgress extends Model
 {
@@ -13,20 +12,29 @@ class StudentProgress extends Model
     protected $table = 'student_progress';
 
     protected $fillable = [
-        'user_id',
-        'module_number',
-        'module_completed',
-        'quiz_score',
-        'module_completed_at',
+        'session_id',
+        'topic_key',
+        'phase',
+        'score',
+        'total',
+        'passed',
+        'student_name',
+        'module_1_pct',
+        'module_2_pct',
+        'module_3_pct',
+        'overall_pct',
     ];
 
-    protected $casts = [
-        'module_completed' => 'boolean',
-        'module_completed_at' => 'datetime',
-    ];
-
-    public function user(): BelongsTo
+    protected function casts(): array
     {
-        return $this->belongsTo(User::class);
+        return [
+            'passed' => 'boolean',
+            'score' => 'integer',
+            'total' => 'integer',
+            'module_1_pct' => 'integer',
+            'module_2_pct' => 'integer',
+            'module_3_pct' => 'integer',
+            'overall_pct' => 'integer',
+        ];
     }
 }
