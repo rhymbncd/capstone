@@ -16,6 +16,7 @@ const SUPABASE_URL      = window.__ENV__?.SUPABASE_URL      ?? '';
 const SUPABASE_ANON_KEY = window.__ENV__?.SUPABASE_ANON_KEY ?? '';
 const BUCKET_NAME    = 'modules';
 const STATUS_TABLE   = 'module_status';
+const ACTIVITY_TABLE = 'activity_logs';
 
 /* ---------------------------------------------------------------
    Supabase REST helper — read all rows from a table
@@ -31,6 +32,27 @@ async function sbSelect(table, params = '') {
     if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.message || `DB read failed (${res.status})`);
+    }
+    return res.json();
+}
+
+/* ---------------------------------------------------------------
+   Supabase REST helper — insert a row
+--------------------------------------------------------------- */
+async function sbInsert(table, data) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+        method: 'POST',
+        headers: {
+            'apikey':        SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+            'Content-Type':  'application/json',
+            'Prefer':        'return=representation',
+        },
+        body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || `DB insert failed (${res.status})`);
     }
     return res.json();
 }
@@ -1870,9 +1892,30 @@ function saveProfile() {
 /* ============================================================
    ACTIVITY LOG
    ============================================================ */
+
+/** This teacher's local activity `type` values → the admin dashboard's shared taxonomy. */
+const ADMIN_ACTIVITY_TYPE = {
+    settings: 'system',
+    success:  'content',
+    report:   'content',
+    module:   'content',
+    quiz:     'content',
+};
+
 function logActivity(title, sub, type) {
     activity.unshift({ title, sub, type: type || 'general', time: 'just now', ts: Date.now() });
     if (activity.length > 30) activity.pop();
+
+    // Best-effort: also post to the shared activity_logs table so this
+    // shows up on the admin dashboard's Activity tab. Never block the
+    // teacher's own UI on this — it's observability, not a requirement.
+    const teacherName = window.__USER__?.name || 'A teacher';
+    sbInsert(ACTIVITY_TABLE, {
+        type:  ADMIN_ACTIVITY_TYPE[type] || 'system',
+        title: `${title} (Teacher)`,
+        sub:   `${sub} — by ${teacherName}`,
+        badge: 'Teacher',
+    }).catch(e => console.warn('Could not sync activity to admin log:', e.message));
 }
 
 /* ============================================================

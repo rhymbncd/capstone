@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Teacher;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
@@ -45,6 +46,8 @@ class StudentApprovalController extends Controller
 
         $user->update(['approval_status' => 'approved']);
 
+        ActivityLog::record('system', 'Student Approved', "{$user->name} was approved by their teacher");
+
         return back()->with('success', "{$user->name} has been approved and can now log in.");
     }
 
@@ -55,6 +58,8 @@ class StudentApprovalController extends Controller
         }
 
         $user->update(['approval_status' => 'rejected']);
+
+        ActivityLog::record('system', 'Student Rejected', "{$user->name} was rejected by their teacher");
 
         return back()->with('success', "{$user->name} has been rejected.");
     }
