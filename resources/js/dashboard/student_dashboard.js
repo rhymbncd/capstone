@@ -49,6 +49,11 @@ document.addEventListener('DOMContentLoaded', function () {
                 loadDownloads();
             }
 
+            // ✅ Load feedback when the feedback page is opened
+            if (page === 'feedback') {
+                loadFeedback();
+            }
+
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }, 150);
     }
@@ -615,8 +620,81 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    /* ================================
+       FEEDBACK — messages sent by the teacher
+       ================================ */
+    const FEEDBACK_ICONS = { encouragement: '💪', improvement: '📈', praise: '🌟', reminder: '⏰' };
+
+    async function loadFeedback({ silent = false } = {}) {
+        let items = [];
+        try {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+            const res = await fetch('/student/feedback', {
+                headers: { 'Accept': 'application/json', ...(csrfToken && { 'X-CSRF-TOKEN': csrfToken }) },
+                credentials: 'same-origin',
+            });
+            if (res.ok) {
+                const data = await res.json();
+                items = Array.isArray(data.feedback) ? data.feedback : [];
+            }
+        } catch (e) {
+            console.warn('Could not load feedback:', e.message);
+        }
+
+        const unreadCount = items.filter(f => !f.read).length;
+        [document.getElementById('feedback-unread-badge'), document.getElementById('feedback-unread-badge-mobile')].forEach(badge => {
+            if (!badge) return;
+            if (unreadCount > 0) { badge.textContent = unreadCount; badge.style.display = ''; }
+            else { badge.style.display = 'none'; }
+        });
+
+        if (silent) return; // don't touch the page content unless the tab is actually open
+
+        const emptyEl = document.getElementById('feedback-empty');
+        const listEl  = document.getElementById('feedback-list');
+        if (!emptyEl || !listEl) return;
+
+        if (items.length === 0) {
+            emptyEl.style.display = '';
+            listEl.style.display  = 'none';
+        } else {
+            emptyEl.style.display = 'none';
+            listEl.style.display  = '';
+            listEl.innerHTML = items.map(f => `
+                <div class="module-item">
+                    <div class="module-title-row">
+                        <span class="module-name">${FEEDBACK_ICONS[f.type] || '💬'} ${f.teacherName}</span>
+                        ${f.read ? '' : '<span class="status-badge badge-warn">New</span>'}
+                    </div>
+                    <p style="margin:6px 0 4px;font-size:14px;color:var(--text-2)">${escapeHtml(f.message)}</p>
+                    <div class="section-sub" style="margin:0">${f.date}</div>
+                </div>`).join('');
+        }
+
+        // Mark everything as read now that the student has actually seen the list.
+        if (unreadCount > 0) {
+            try {
+                await fetch('/student/feedback/read-all', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? '',
+                    },
+                    credentials: 'same-origin',
+                });
+                [document.getElementById('feedback-unread-badge'), document.getElementById('feedback-unread-badge-mobile')]
+                    .forEach(b => { if (b) b.style.display = 'none'; });
+            } catch (e) {
+                console.warn('Could not mark feedback as read:', e.message);
+            }
+        }
+    }
+
     // Initialize progress tracking + analytics on page load
     Progress.init().then(loadDashboardAnalytics);
+
+    // Load feedback quietly on page load so the unread badge is accurate
+    // even before the student opens the Feedback tab.
+    loadFeedback({ silent: true });
 
     /* ================================
        SUMMATIVE TEST LOCKING LOGIC

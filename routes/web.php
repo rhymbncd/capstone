@@ -8,9 +8,11 @@ use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\ChatbotController;
 use App\Http\Controllers\QuizController;
 use App\Http\Controllers\SectionController;
+use App\Http\Controllers\Student\FeedbackController as StudentFeedbackController;
 use App\Http\Controllers\StudentController;
 use App\Http\Controllers\StudentDashboardController;
 use App\Http\Controllers\SupabaseController;
+use App\Http\Controllers\Teacher\FeedbackController as TeacherFeedbackController;
 use App\Http\Controllers\Teacher\SectionController as TeacherSectionController;
 use App\Http\Controllers\Teacher\StudentApprovalController;
 use App\Http\Controllers\TeacherDashboardController;
@@ -54,6 +56,11 @@ Route::prefix('student')->group(function () {
         })->name('student.modules');
         Route::post('/logout', [AuthController::class, 'logout'])->name('student.logout');
 
+        // Feedback from teachers
+        Route::prefix('feedback')->group(function () {
+            Route::get('/', [StudentFeedbackController::class, 'index'])->name('student.feedback.index');
+            Route::post('/read-all', [StudentFeedbackController::class, 'markAllRead'])->name('student.feedback.read-all');
+        });
     });
 });
 
@@ -89,6 +96,12 @@ Route::prefix('teacher')->group(function () {
             Route::put('/{section}', [TeacherSectionController::class, 'update'])->name('teacher.section.update');
             Route::delete('/{section}', [TeacherSectionController::class, 'destroy'])->name('teacher.section.destroy');
             Route::get('/list', [TeacherSectionController::class, 'list'])->name('teacher.section.list');
+        });
+
+        // Feedback to students
+        Route::prefix('feedback')->group(function () {
+            Route::get('/', [TeacherFeedbackController::class, 'index'])->name('teacher.feedback.index');
+            Route::post('/', [TeacherFeedbackController::class, 'store'])->name('teacher.feedback.store');
         });
     });
 });

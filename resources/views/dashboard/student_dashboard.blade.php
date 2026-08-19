@@ -153,6 +153,11 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
                 Progress
             </button>
+            <button class="sidebar-item" data-page="feedback" style="position:relative">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                Feedback
+                <span id="feedback-unread-badge" style="display:none;position:absolute;top:6px;left:26px;background:#ef4444;color:#fff;font-size:10px;font-weight:700;border-radius:999px;min-width:16px;height:16px;line-height:16px;text-align:center;padding:0 4px;"></span>
+            </button>
             <button class="sidebar-item" data-page="profile">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                 Profile
@@ -395,6 +400,23 @@
                         <p>Start a module to track your progress here.</p>
                     </div>
                     <div id="recent-activity-list" style="display:none"></div>
+                </section>
+            </div>
+
+            <!-- ===== FEEDBACK PAGE ===== -->
+            <div class="page" id="page-feedback">
+                <div class="hero-section">
+                    <h1 class="welcome-title">Feedback</h1>
+                    <p class="welcome-subtitle">Messages from your teacher</p>
+                </div>
+
+                <section class="modules-container">
+                    <div class="empty-state" id="feedback-empty">
+                        <div class="empty-icon">💬</div>
+                        <h4>No feedback yet</h4>
+                        <p>Your teacher's feedback will appear here.</p>
+                    </div>
+                    <div id="feedback-list" style="display:none"></div>
                 </section>
             </div>
 
@@ -734,6 +756,12 @@
     <button class="nav-item" data-page="progress">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
         <span>Progress</span>
+        <div class="nav-dot"></div>
+    </button>
+    <button class="nav-item" data-page="feedback" style="position:relative">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <span>Feedback</span>
+        <span id="feedback-unread-badge-mobile" style="display:none;position:absolute;top:2px;right:14px;background:#ef4444;color:#fff;font-size:9px;font-weight:700;border-radius:999px;min-width:14px;height:14px;line-height:14px;text-align:center;padding:0 3px;"></span>
         <div class="nav-dot"></div>
     </button>
     <button class="nav-item" data-page="profile">

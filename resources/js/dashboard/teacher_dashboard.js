@@ -286,6 +286,24 @@ const Security = {
    ============================================================ */
 let students    = [];
 
+/** Fetch helper for Laravel-backed endpoints (CSRF + JSON, same-origin). */
+async function apiFetch(url, options = {}) {
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+    const res = await fetch(url, {
+        credentials: 'same-origin',
+        ...options,
+        headers: {
+            'Accept': 'application/json',
+            ...(csrfToken && { 'X-CSRF-TOKEN': csrfToken }),
+            ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+            ...options.headers,
+        },
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.message || `Request failed (${res.status})`);
+    return data;
+}
+
 /**
  * Load the authenticated teacher's students (with real completion
  * progress computed server-side from student_progress).
@@ -341,12 +359,12 @@ function navigate(page) {
     document.querySelectorAll(`[data-page="${page}"]`).forEach(b => b.classList.add('active'));
     window.scrollTo(0, 0);
 
-    if (page === 'home')     loadStudents().then(renderHome);
+    if (page === 'home')     Promise.all([loadStudents(), loadFeedbacks()]).then(renderHome);
     if (page === 'students') loadStudents().then(renderStudents);
     if (page === 'progress') loadStudents().then(renderProgress);
     if (page === 'reports')  {
         loadSectionsForReports();
-        loadStudents().then(renderReports);
+        Promise.all([loadStudents(), loadFeedbacks()]).then(renderReports);
     }
     if (page === 'modules')  loadAndRenderModules();  // always re-fetches
     if (page === 'profile')  renderProfile();
@@ -359,7 +377,7 @@ function navigate(page) {
 function renderHome() {
     setText('m-total',    students.length);
     setText('m-avg',      avgProgress() + '%');
-    setText('m-pending',  feedbacks.filter(f => !f.sent).length);
+    setText('m-pending',  feedbacks.filter(f => !f.read).length);
     setText('m-messages', 0);
 
     const listEl = document.getElementById('home-student-list');
@@ -486,6 +504,18 @@ function viewStudent(id) {
 /* ============================================================
    FEEDBACK
    ============================================================ */
+
+/** Load real feedback this teacher has sent (from the database). */
+async function loadFeedbacks() {
+    try {
+        const data = await apiFetch('/teacher/feedback');
+        feedbacks = Array.isArray(data.feedback) ? data.feedback : [];
+    } catch (e) {
+        console.warn('Could not load feedback:', e.message);
+        feedbacks = [];
+    }
+}
+
 function openFeedback(id) {
     const s = students.find(x => x.id === id);
     if (!s) return;
@@ -496,7 +526,7 @@ function openFeedback(id) {
     openModal('modal-feedback');
 }
 
-function saveFeedback() {
+async function saveFeedback() {
     const message = Security.sanitize(document.getElementById('fb-message').value);
     const type    = document.getElementById('fb-type').value;
     const s       = students.find(x => x.id === feedbackTargetId);
@@ -505,11 +535,24 @@ function saveFeedback() {
     if (!message || message.length < 5)
         return warn('Message required', 'Please write a feedback message (at least 5 characters).');
 
-    feedbacks.push({ id: Date.now(), studentId: feedbackTargetId, studentName: s.name, message, type, sent: true, date: dateNow() });
-    logActivity('Feedback Sent', `Feedback sent to ${s.name}`, 'success');
-    closeModal('modal-feedback');
-    renderHome();
-    toast('success', `Feedback sent to ${Security.escape(s.name)}!`);
+    const saveBtn = document.querySelector('#modal-feedback .btn-save');
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Sending…'; }
+
+    try {
+        const data = await apiFetch('/teacher/feedback', {
+            method: 'POST',
+            body: JSON.stringify({ student_id: feedbackTargetId, type, message }),
+        });
+        feedbacks.unshift(data.feedback);
+        logActivity('Feedback Sent', `Feedback sent to ${s.name}`, 'success');
+        closeModal('modal-feedback');
+        renderHome();
+        toast('success', `Feedback sent to ${Security.escape(s.name)}!`);
+    } catch (err) {
+        warn('Send Failed', err.message || 'Could not send feedback. Please try again.');
+    } finally {
+        if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Send Feedback'; }
+    }
 }
 
 /* ============================================================
@@ -3460,6 +3503,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Load real students + progress from the server
     await loadStudents();
+
+    // Load real feedback history
+    await loadFeedbacks();
 
     renderHome();
     renderStudents();
