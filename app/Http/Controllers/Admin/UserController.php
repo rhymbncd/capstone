@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Models\StudentProgress;
 use App\Models\StudentQuizAnswer;
 use App\Models\User;
@@ -81,11 +82,18 @@ class UserController extends Controller
             // a plain session_id string, not a real foreign key, so their
             // rows would otherwise be orphaned forever — silently skewing
             // analytics like Subject Completion Rates with progress that
-            // belongs to a deleted account. teacher_feedback already
-            // cascades via a real FK constraint.
+            // belongs to a deleted account. teacher_feedback and sections
+            // already cascade via real FK constraints.
             $sessionId = (string) $user->id;
             StudentProgress::where('session_id', $sessionId)->delete();
             StudentQuizAnswer::where('session_id', $sessionId)->delete();
+
+            // activity_logs.user_id normally just gets nulled by its FK
+            // (SET NULL), keeping the entry as history. Deleting the account
+            // should erase every trace of it, so the entries themselves go
+            // too — must happen before $user->delete() while user_id is
+            // still set, since that's how we find them.
+            ActivityLog::where('user_id', $user->id)->delete();
 
             $user->delete();
         });

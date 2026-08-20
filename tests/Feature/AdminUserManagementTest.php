@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\ActivityLog;
 use App\Models\Section;
 use App\Models\StudentProgress;
 use App\Models\StudentQuizAnswer;
@@ -112,6 +113,7 @@ it('deletes a student\'s progress and quiz answers along with their account', fu
         'score' => 8,
         'total' => 10,
     ]);
+    ActivityLog::record('login', 'Student Logged In', "{$student->name} ({$student->email})", user: $student);
 
     $response = $this->actingAs($admin)->deleteJson(route('admin.users.destroy', $student));
 
@@ -119,6 +121,7 @@ it('deletes a student\'s progress and quiz answers along with their account', fu
     $this->assertDatabaseMissing('users', ['id' => $student->id]);
     $this->assertDatabaseMissing('student_progress', ['session_id' => (string) $student->id]);
     $this->assertDatabaseMissing('student_quiz_answers', ['session_id' => (string) $student->id]);
+    $this->assertDatabaseMissing('activity_logs', ['user_id' => $student->id]);
 });
 
 it('prevents an admin from deleting their own account', function () {
