@@ -45,19 +45,6 @@ async function sbSelect(table, params = '') {
     return res.json();
 }
 
-async function sbInsert(table, data) {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
-        method: 'POST',
-        headers: sbHeaders({ 'Prefer': 'return=representation' }),
-        body: JSON.stringify(data),
-    });
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || `DB insert failed (${res.status})`);
-    }
-    return res.json();
-}
-
 async function sbUpsert(table, data) {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
         method: 'POST',
@@ -1525,17 +1512,6 @@ function formatSize(bytes) {
     if (bytes < 1024)    return bytes + ' B';
     if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
     return (bytes / 1048576).toFixed(1) + ' MB';
-}
-function timeAgo(iso) {
-    if (!iso) return '—';
-    const diff = Date.now() - new Date(iso).getTime();
-    const m = Math.floor(diff / 60000);
-    if (m < 1)   return 'just now';
-    if (m < 60)  return `${m}m ago`;
-    const h = Math.floor(m / 60);
-    if (h < 24)  return `${h}h ago`;
-    const d = Math.floor(h / 24);
-    return `${d}d ago`;
 }
 function makePgBtn(label, disabled, handler) {
     const btn = document.createElement('button');
