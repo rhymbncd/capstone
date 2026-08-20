@@ -2709,6 +2709,142 @@ function insertQuizSymbol(symbol) {
 }
 
 /* ------------------------------------------------------------------
+   MATH SYMBOL PALETTE — categories, search, and per-teacher "recently
+   used", all rendered client-side into the #quiz-symbol-palette mount
+   point. Insertion itself is still handled by insertQuizSymbol() above.
+------------------------------------------------------------------ */
+const QUIZ_SYMBOL_GROUPS = [
+    { id: 'basic', label: 'Basic', symbols: [
+        { char: '+', name: 'plus add' }, { char: '−', name: 'minus subtract' }, { char: '×', name: 'times multiply' },
+        { char: '÷', name: 'divide division' }, { char: '=', name: 'equals' }, { char: '≠', name: 'not equal' },
+        { char: '±', name: 'plus minus' }, { char: '·', name: 'dot multiply' }, { char: '%', name: 'percent' },
+    ]},
+    { id: 'comparison', label: 'Comparison', symbols: [
+        { char: '<', name: 'less than' }, { char: '>', name: 'greater than' },
+        { char: '≤', name: 'less than or equal' }, { char: '≥', name: 'greater than or equal' },
+        { char: '≈', name: 'approximately equal' }, { char: '≡', name: 'equivalent identical' }, { char: '∝', name: 'proportional to' },
+    ]},
+    { id: 'powers', label: 'Powers & Roots', symbols: [
+        { char: '²', name: 'squared power 2' }, { char: '³', name: 'cubed power 3' }, { char: 'ⁿ', name: 'nth power exponent n' },
+        { char: '√', name: 'square root' }, { char: '∛', name: 'cube root' }, { char: 'ⁿ√', name: 'nth root' },
+    ]},
+    { id: 'fractions', label: 'Fractions', symbols: [
+        { char: '½', name: 'one half fraction' }, { char: '⅓', name: 'one third fraction' }, { char: '⅔', name: 'two thirds fraction' },
+        { char: '¼', name: 'one quarter fraction' }, { char: '¾', name: 'three quarters fraction' }, { char: '⅛', name: 'one eighth fraction' },
+    ]},
+    { id: 'greek', label: 'Greek', symbols: [
+        { char: 'π', name: 'pi' }, { char: 'α', name: 'alpha' }, { char: 'β', name: 'beta' }, { char: 'γ', name: 'gamma' },
+        { char: 'θ', name: 'theta' }, { char: 'λ', name: 'lambda' }, { char: 'μ', name: 'mu' }, { char: 'σ', name: 'sigma' },
+        { char: 'Δ', name: 'delta' }, { char: 'Ω', name: 'omega' },
+    ]},
+    { id: 'sets', label: 'Sets & Logic', symbols: [
+        { char: '∈', name: 'element of belongs to' }, { char: '∉', name: 'not element of' }, { char: '⊂', name: 'subset of' },
+        { char: '⊆', name: 'subset or equal' }, { char: '∪', name: 'union' }, { char: '∩', name: 'intersection' },
+        { char: '∅', name: 'empty set null' }, { char: '∀', name: 'for all' }, { char: '∃', name: 'there exists' },
+        { char: '∴', name: 'therefore' }, { char: '∵', name: 'because' },
+    ]},
+    { id: 'geometry', label: 'Geometry', symbols: [
+        { char: '°', name: 'degree' }, { char: '∠', name: 'angle' }, { char: '⊥', name: 'perpendicular' },
+        { char: '∥', name: 'parallel' }, { char: '△', name: 'triangle' }, { char: '≅', name: 'congruent' }, { char: '~', name: 'similar tilde' },
+    ]},
+    { id: 'calc', label: 'Calculus & Stats', symbols: [
+        { char: '∑', name: 'sum summation' }, { char: '∏', name: 'product' }, { char: '∫', name: 'integral' },
+        { char: '∞', name: 'infinity' }, { char: '∂', name: 'partial derivative' },
+        { char: 'x̄', name: 'x bar mean average' }, { char: 'σ²', name: 'variance' },
+    ]},
+];
+
+let quizSymbolActiveTab = QUIZ_SYMBOL_GROUPS[0].id;
+let quizSymbolSearch = '';
+
+function quizSymbolRecentsKey() {
+    return `mqQuizRecentSymbols_${window.__USER__?.id ?? 'guest'}`;
+}
+
+function getQuizSymbolRecents() {
+    try {
+        return JSON.parse(localStorage.getItem(quizSymbolRecentsKey()) || '[]');
+    } catch {
+        return [];
+    }
+}
+
+function pushQuizSymbolRecent(symbol) {
+    const recents = getQuizSymbolRecents().filter(s => s !== symbol);
+    recents.unshift(symbol);
+    localStorage.setItem(quizSymbolRecentsKey(), JSON.stringify(recents.slice(0, 12)));
+}
+
+function quizSymbolMatches(entry, query) {
+    const q = query.toLowerCase();
+    return entry.char.toLowerCase().includes(q) || entry.name.toLowerCase().includes(q);
+}
+
+function renderSymbolPalette() {
+    const mount = document.getElementById('quiz-symbol-palette');
+    if (!mount) return;
+
+    const query = quizSymbolSearch.trim();
+    const recents = getQuizSymbolRecents();
+
+    const tabsHtml = QUIZ_SYMBOL_GROUPS.map(g => `
+        <button type="button" class="quiz-symbol-tab ${g.id === quizSymbolActiveTab ? 'active' : ''}"
+                onclick="quizSymbolSwitchTab('${g.id}')">${Security.escape(g.label)}</button>
+    `).join('');
+
+    const gridEntries = query
+        ? QUIZ_SYMBOL_GROUPS.flatMap(g => g.symbols).filter(s => quizSymbolMatches(s, query))
+        : (QUIZ_SYMBOL_GROUPS.find(g => g.id === quizSymbolActiveTab)?.symbols ?? []);
+
+    const symbolBtn = s => `
+        <button type="button" class="quiz-symbol-btn" title="${Security.escape(s.name)}"
+                onmousedown="event.preventDefault(); handleQuizSymbolInsert('${s.char.replace(/'/g, "\\'")}')">${Security.escape(s.char)}</button>`;
+
+    const gridHtml = gridEntries.length
+        ? gridEntries.map(symbolBtn).join('')
+        : `<span class="quiz-symbol-empty">No symbols match "${Security.escape(query)}".</span>`;
+
+    const recentsHtml = (!query && recents.length) ? `
+        <div class="quiz-symbol-recents">
+            <span class="quiz-symbol-label">Recent:</span>
+            ${recents.map(char => symbolBtn({ char, name: 'recently used' })).join('')}
+        </div>` : '';
+
+    mount.innerHTML = `
+        <div class="quiz-symbol-palette">
+            <input type="text" class="quiz-symbol-search" placeholder="🔍 Search symbols by name (e.g. 'sum', 'pi', 'root')…"
+                   value="${Security.escape(query)}" oninput="quizSymbolSetSearch(this.value)"
+                   onkeydown="if(event.key==='Escape'){this.value='';quizSymbolSetSearch('');}" maxlength="40">
+            ${recentsHtml}
+            ${query ? '' : `<div class="quiz-symbol-tabs">${tabsHtml}</div>`}
+            <div class="quiz-symbol-grid">${gridHtml}</div>
+        </div>`;
+}
+
+function quizSymbolSwitchTab(id) {
+    quizSymbolActiveTab = id;
+    renderSymbolPalette();
+}
+
+function quizSymbolSetSearch(value) {
+    quizSymbolSearch = value;
+    renderSymbolPalette();
+    // A full re-render replaces the search input's DOM node, which drops
+    // focus/cursor — restore both so typing feels uninterrupted.
+    const el = document.querySelector('.quiz-symbol-search');
+    if (el) {
+        el.focus();
+        el.setSelectionRange(el.value.length, el.value.length);
+    }
+}
+
+function handleQuizSymbolInsert(symbol) {
+    insertQuizSymbol(symbol);
+    pushQuizSymbolRecent(symbol);
+    renderSymbolPalette();
+}
+
+/* ------------------------------------------------------------------
    quizMarkAnswer — called when a radio changes
    Updates currentQuiz.pretest/posttest[idx].answer
 ------------------------------------------------------------------ */
@@ -2882,12 +3018,8 @@ function injectQuizEditStyles() {
 }
 
 /* ── Math symbol palette ──────────────────────────────── */
-.quiz-symbol-row {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    flex-wrap: wrap;
-    padding: 10px 14px;
+.quiz-symbol-palette {
+    padding: 12px 14px 14px;
     margin-bottom: 14px;
     background: #f8faff;
     border: 1px solid #dbeafe;
@@ -2899,7 +3031,62 @@ function injectQuizEditStyles() {
     color: #6b7280;
     text-transform: uppercase;
     letter-spacing: .04em;
-    margin-right: 4px;
+    margin-right: 2px;
+}
+.quiz-symbol-search {
+    width: 100%;
+    padding: 8px 12px;
+    margin-bottom: 10px;
+    border: 1.5px solid #e5e7eb;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 12.5px;
+    color: #111827;
+    background: #fff;
+    outline: none;
+    transition: border-color .15s;
+}
+.quiz-symbol-search:focus { border-color: #2563eb; }
+.quiz-symbol-recents {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    padding-bottom: 10px;
+    margin-bottom: 10px;
+    border-bottom: 1px dashed #dbeafe;
+}
+.quiz-symbol-tabs {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+}
+.quiz-symbol-tab {
+    padding: 5px 10px;
+    border-radius: 999px;
+    border: 1px solid #e5e7eb;
+    background: #fff;
+    color: #6b7280;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all .15s;
+    white-space: nowrap;
+}
+.quiz-symbol-tab:hover { border-color: #bfdbfe; color: #2563eb; }
+.quiz-symbol-tab.active { background: #2563eb; border-color: #2563eb; color: #fff; }
+.quiz-symbol-grid {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+.quiz-symbol-empty {
+    font-size: 12px;
+    color: #9ca3af;
+    font-style: italic;
 }
 .quiz-symbol-btn {
     min-width: 30px;
@@ -3823,6 +4010,9 @@ Object.assign(window, {
     quizSaveEdit,
     quizMarkAnswer,
     insertQuizSymbol,
+    quizSymbolSwitchTab,
+    quizSymbolSetSearch,
+    handleQuizSymbolInsert,
     injectQuizEditStyles,
     publishCurrentQuiz,
     publishQuizToStudents,
@@ -3848,6 +4038,7 @@ Object.assign(window, {
    ============================================================ */
 document.addEventListener('DOMContentLoaded', async () => {
     injectQuizEditStyles();
+    renderSymbolPalette();
     
     document.querySelectorAll('[data-page]').forEach(btn => {
         btn.addEventListener('click', () => navigate(btn.dataset.page));

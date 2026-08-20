@@ -835,22 +835,10 @@
                         </div>
                     </div>
 
-                    <!-- Math Symbol Palette — inserts at the cursor in whichever question/option/instruction is focused -->
-                    <div class="quiz-symbol-row">
-                        <span class="quiz-symbol-label">Insert symbol:</span>
-                        <button type="button" class="quiz-symbol-btn" onmousedown="event.preventDefault(); insertQuizSymbol('√')">√</button>
-                        <button type="button" class="quiz-symbol-btn" onmousedown="event.preventDefault(); insertQuizSymbol('π')">π</button>
-                        <button type="button" class="quiz-symbol-btn" onmousedown="event.preventDefault(); insertQuizSymbol('×')">×</button>
-                        <button type="button" class="quiz-symbol-btn" onmousedown="event.preventDefault(); insertQuizSymbol('÷')">÷</button>
-                        <button type="button" class="quiz-symbol-btn" onmousedown="event.preventDefault(); insertQuizSymbol('±')">±</button>
-                        <button type="button" class="quiz-symbol-btn" onmousedown="event.preventDefault(); insertQuizSymbol('≤')">≤</button>
-                        <button type="button" class="quiz-symbol-btn" onmousedown="event.preventDefault(); insertQuizSymbol('≥')">≥</button>
-                        <button type="button" class="quiz-symbol-btn" onmousedown="event.preventDefault(); insertQuizSymbol('≠')">≠</button>
-                        <button type="button" class="quiz-symbol-btn" onmousedown="event.preventDefault(); insertQuizSymbol('∞')">∞</button>
-                        <button type="button" class="quiz-symbol-btn" onmousedown="event.preventDefault(); insertQuizSymbol('²')">x²</button>
-                        <button type="button" class="quiz-symbol-btn" onmousedown="event.preventDefault(); insertQuizSymbol('³')">x³</button>
-                        <button type="button" class="quiz-symbol-btn" onmousedown="event.preventDefault(); insertQuizSymbol('∑')">∑</button>
-                    </div>
+                    <!-- Math Symbol Palette — inserts at the cursor in whichever question/option/instruction is focused.
+                         Built entirely in JS (renderSymbolPalette in teacher_dashboard.js) since it covers ~60 symbols
+                         across categories plus search/recents; this is just the mount point. -->
+                    <div id="quiz-symbol-palette"></div>
 
                     <!-- Tab Switcher -->
                     <div class="quiz-tabs">
