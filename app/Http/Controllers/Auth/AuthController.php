@@ -10,6 +10,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Session;
 use Laravel\Socialite\Facades\Socialite;
@@ -24,7 +25,7 @@ class AuthController extends Controller
 
     public function showStudentRegisterForm()
     {
-        $sections = Section::all();
+        $sections = Cache::remember('sections.all', now()->addHours(6), fn () => Section::all());
 
         return view('login.signup', ['sections' => $sections, 'portalType' => 'student']);
     }
@@ -119,7 +120,7 @@ class AuthController extends Controller
             return redirect()->route('student.login');
         }
 
-        $sections = Section::all();
+        $sections = Cache::remember('sections.all', now()->addHours(6), fn () => Section::all());
 
         return view('login.google-signup-completion', ['sections' => $sections, 'user' => $user]);
     }

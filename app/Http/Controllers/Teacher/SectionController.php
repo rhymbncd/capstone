@@ -6,9 +6,21 @@ use App\Http\Controllers\Controller;
 use App\Models\Section;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 
 class SectionController extends Controller
 {
+    /**
+     * Sections are cached (see AuthController and the read-only
+     * SectionController@index) since they're slow-changing, admin-managed
+     * data. Any mutation here must invalidate both cache entries.
+     */
+    private function forgetSectionsCache(): void
+    {
+        Cache::forget('sections.all');
+        Cache::forget('sections.with_students');
+    }
+
     /**
      * Store a newly created section.
      */
@@ -22,6 +34,8 @@ class SectionController extends Controller
             'name' => $request->name,
             'teacher_id' => Auth::id(),
         ]);
+
+        $this->forgetSectionsCache();
 
         return response()->json([
             'success' => true,
@@ -47,6 +61,8 @@ class SectionController extends Controller
 
         $section->delete();
 
+        $this->forgetSectionsCache();
+
         return response()->json([
             'success' => true,
             'message' => 'Section deleted successfully!',
@@ -70,6 +86,8 @@ class SectionController extends Controller
         ]);
 
         $section->update(['name' => $request->name]);
+
+        $this->forgetSectionsCache();
 
         return response()->json([
             'success' => true,
