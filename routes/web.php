@@ -23,8 +23,13 @@ use App\Http\Controllers\TeacherDashboardController;
 use App\Models\PlatformSetting;
 use Illuminate\Support\Facades\Route;
 
-// Gawin itong ganito sa web.php
-Route::post('/chatbot/ask', [ChatbotController::class, 'ask'])->name('chatbot.ask');
+// AI chat assistant — students only, throttled since each call is a paid
+// OpenRouter request. Kept at this URL (not nested under /student) so the
+// existing frontend fetch('/chatbot/ask') call doesn't need to change.
+Route::post('/chatbot/ask', [ChatbotController::class, 'ask'])
+    ->middleware(['auth', 'student', 'throttle:20,1'])
+    ->name('chatbot.ask');
+
 /* ----------- Homepage ----------- */
 Route::get('/', function () {
     $platformDescription = PlatformSetting::get(

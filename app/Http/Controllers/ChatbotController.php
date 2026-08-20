@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Http\JsonResponse;
 
 class ChatbotController extends Controller
 {
@@ -17,28 +17,28 @@ class ChatbotController extends Controller
 
         $userMessage = $request->input('message');
 
-        $systemInstruction = "
+        $systemInstruction = '
             You are a Math Tutor.
             Answer only math-related questions.
             Use LaTeX formatting for equations.
-        ";
+        ';
 
         try {
 
-            $apiKey = env('OPENROUTER_API_KEY');
+            $apiKey = config('services.openrouter.key');
 
-            if (!$apiKey) {
+            if (! $apiKey) {
                 return response()->json([
                     'status' => 'error',
-                    'reply' => 'Missing API key.'
+                    'reply' => 'Missing API key.',
                 ], 500);
             }
 
             $response = Http::withHeaders([
-                'Authorization' => 'Bearer ' . $apiKey,
+                'Authorization' => 'Bearer '.$apiKey,
                 'Content-Type' => 'application/json',
                 'HTTP-Referer' => url('/'),
-                'X-Title' => 'Math Tutor AI'
+                'X-Title' => 'Math Tutor AI',
             ])->post('https://openrouter.ai/api/v1/chat/completions', [
 
                 'model' => 'openai/gpt-3.5-turbo',
@@ -46,16 +46,16 @@ class ChatbotController extends Controller
                 'messages' => [
                     [
                         'role' => 'system',
-                        'content' => $systemInstruction
+                        'content' => $systemInstruction,
                     ],
                     [
                         'role' => 'user',
-                        'content' => $userMessage
-                    ]
+                        'content' => $userMessage,
+                    ],
                 ],
 
                 'temperature' => 0.2,
-                'max_tokens' => 500
+                'max_tokens' => 500,
 
             ]);
 
@@ -68,24 +68,24 @@ class ChatbotController extends Controller
 
                 return response()->json([
                     'status' => 'success',
-                    'reply' => $reply
+                    'reply' => $reply,
                 ]);
             }
 
-            Log::error('OpenRouter Error: ' . $response->body());
+            Log::error('OpenRouter Error: '.$response->body());
 
             return response()->json([
                 'status' => 'error',
-                'reply' => 'AI service failed.'
+                'reply' => 'AI service failed.',
             ], 500);
 
         } catch (\Exception $e) {
 
-            Log::error('Chatbot Exception: ' . $e->getMessage());
+            Log::error('Chatbot Exception: '.$e->getMessage());
 
             return response()->json([
                 'status' => 'error',
-                'reply' => 'Server error.'
+                'reply' => 'Server error.',
             ], 500);
         }
     }
