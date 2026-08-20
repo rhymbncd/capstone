@@ -32,6 +32,7 @@
             id: {{ auth()->user()->id }},
             name: "{{ auth()->user()->name }}",
             role: "{{ auth()->user()->role }}",
+            email: "{{ auth()->user()->email }}",
         };
 
         window.getSupabaseClient = function(timeout = 3000) {

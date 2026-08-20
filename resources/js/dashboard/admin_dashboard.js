@@ -608,9 +608,10 @@ async function loadSettings() {
         const map  = {};
         rows.forEach(r => { map[r.key] = r.value; });
 
-        // Text fields
+        // Text fields — Admin Email defaults to the logged-in admin's real
+        // account email until someone explicitly saves a different value.
         setField('s-platform-name', map['platform_name'] || '');
-        setField('s-admin-email',   map['admin_email']   || '');
+        setField('s-admin-email',   map['admin_email']   || window.__USER__?.email || '');
         setField('s-desc',          map['platform_desc'] || '');
 
         // Notification toggles

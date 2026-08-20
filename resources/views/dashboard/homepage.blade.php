@@ -57,8 +57,7 @@
         <h2>Math Learning Assistant</h2>
 
         <p>
-            Interactive learning platform for Junior High School
-            Mathematics at Bubog National High School
+            {{ $platformDescription }}
         </p>
 
         <div class="hero-actions">

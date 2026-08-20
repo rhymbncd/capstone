@@ -20,13 +20,19 @@ use App\Http\Controllers\Teacher\SectionController as TeacherSectionController;
 use App\Http\Controllers\Teacher\StudentAnswersController;
 use App\Http\Controllers\Teacher\StudentApprovalController;
 use App\Http\Controllers\TeacherDashboardController;
+use App\Models\PlatformSetting;
 use Illuminate\Support\Facades\Route;
 
 // Gawin itong ganito sa web.php
 Route::post('/chatbot/ask', [ChatbotController::class, 'ask'])->name('chatbot.ask');
 /* ----------- Homepage ----------- */
 Route::get('/', function () {
-    return view('dashboard.homepage');
+    $platformDescription = PlatformSetting::get(
+        'platform_desc',
+        'Interactive learning platform for Junior High School Mathematics at Bubog National High School'
+    );
+
+    return view('dashboard.homepage', ['platformDescription' => $platformDescription]);
 })->name('homepage');
 
 /* ----------- Auth Portal ----------- */
