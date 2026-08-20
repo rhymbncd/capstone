@@ -835,6 +835,23 @@
                         </div>
                     </div>
 
+                    <!-- Math Symbol Palette — inserts at the cursor in whichever question/option/instruction is focused -->
+                    <div class="quiz-symbol-row">
+                        <span class="quiz-symbol-label">Insert symbol:</span>
+                        <button type="button" class="quiz-symbol-btn" onmousedown="event.preventDefault(); insertQuizSymbol('√')">√</button>
+                        <button type="button" class="quiz-symbol-btn" onmousedown="event.preventDefault(); insertQuizSymbol('π')">π</button>
+                        <button type="button" class="quiz-symbol-btn" onmousedown="event.preventDefault(); insertQuizSymbol('×')">×</button>
+                        <button type="button" class="quiz-symbol-btn" onmousedown="event.preventDefault(); insertQuizSymbol('÷')">÷</button>
+                        <button type="button" class="quiz-symbol-btn" onmousedown="event.preventDefault(); insertQuizSymbol('±')">±</button>
+                        <button type="button" class="quiz-symbol-btn" onmousedown="event.preventDefault(); insertQuizSymbol('≤')">≤</button>
+                        <button type="button" class="quiz-symbol-btn" onmousedown="event.preventDefault(); insertQuizSymbol('≥')">≥</button>
+                        <button type="button" class="quiz-symbol-btn" onmousedown="event.preventDefault(); insertQuizSymbol('≠')">≠</button>
+                        <button type="button" class="quiz-symbol-btn" onmousedown="event.preventDefault(); insertQuizSymbol('∞')">∞</button>
+                        <button type="button" class="quiz-symbol-btn" onmousedown="event.preventDefault(); insertQuizSymbol('²')">x²</button>
+                        <button type="button" class="quiz-symbol-btn" onmousedown="event.preventDefault(); insertQuizSymbol('³')">x³</button>
+                        <button type="button" class="quiz-symbol-btn" onmousedown="event.preventDefault(); insertQuizSymbol('∑')">∑</button>
+                    </div>
+
                     <!-- Tab Switcher -->
                     <div class="quiz-tabs">
                         <button class="quiz-tab active" id="tab-pretest" onclick="switchQuizTab('pretest')">

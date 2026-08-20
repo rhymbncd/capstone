@@ -2679,6 +2679,36 @@ function quizSaveEdit(el) {
 }
 
 /* ------------------------------------------------------------------
+   insertQuizSymbol — math symbol palette for question/option/instruction
+   fields. Those fields are contenteditable (not <input>), so insertion
+   uses the Selection/Range APIs. The palette buttons call this on
+   `mousedown` with preventDefault() so the browser never blurs the
+   field the teacher was just editing — document.activeElement and the
+   live selection are still that field when this runs.
+------------------------------------------------------------------ */
+function insertQuizSymbol(symbol) {
+    const active = document.activeElement;
+    if (!active?.classList?.contains('quiz-editable')) {
+        return warn('Click into a field first', 'Tap the question, option, or instruction text you want to edit, then tap a symbol to insert it there.');
+    }
+
+    const sel = window.getSelection();
+    if (!sel.rangeCount) return;
+
+    const range = sel.getRangeAt(0);
+    if (!active.contains(range.commonAncestorContainer)) return;
+
+    range.deleteContents();
+    const textNode = document.createTextNode(symbol);
+    range.insertNode(textNode);
+    range.setStartAfter(textNode);
+    range.setEndAfter(textNode);
+    sel.removeAllRanges();
+    sel.addRange(range);
+    active.focus();
+}
+
+/* ------------------------------------------------------------------
    quizMarkAnswer — called when a radio changes
    Updates currentQuiz.pretest/posttest[idx].answer
 ------------------------------------------------------------------ */
@@ -2850,6 +2880,43 @@ function injectQuizEditStyles() {
     color: #2563eb;
     font-weight: 600;
 }
+
+/* ── Math symbol palette ──────────────────────────────── */
+.quiz-symbol-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    padding: 10px 14px;
+    margin-bottom: 14px;
+    background: #f8faff;
+    border: 1px solid #dbeafe;
+    border-radius: 10px;
+}
+.quiz-symbol-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    margin-right: 4px;
+}
+.quiz-symbol-btn {
+    min-width: 30px;
+    height: 28px;
+    padding: 0 7px;
+    border-radius: 7px;
+    border: 1px solid #e5e7eb;
+    background: #fff;
+    color: #374151;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .15s;
+}
+.quiz-symbol-btn:hover { background: #eff6ff; border-color: #2563eb; color: #2563eb; }
+.quiz-symbol-btn:active { transform: scale(0.92); }
 `;
     document.head.appendChild(style);
 }
@@ -3755,6 +3822,7 @@ Object.assign(window, {
     getQuizCounts,
     quizSaveEdit,
     quizMarkAnswer,
+    insertQuizSymbol,
     injectQuizEditStyles,
     publishCurrentQuiz,
     publishQuizToStudents,
