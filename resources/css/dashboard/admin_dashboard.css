@@ -740,9 +740,13 @@ tr:hover td { background: #fafbff; }
 .tl-dot.orange { background: var(--orange); }
 .tl-dot.purple { background: var(--purple); }
 .tl-dot.red    { background: var(--red); }
+.tl-body  { width: 100%; }
+.tl-head  { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.tl-actions { display: flex; gap: 4px; flex-shrink: 0; }
 .tl-title { font-size: 13px; font-weight: 700; color: var(--text-2); }
 .tl-sub   { font-size: 11px; color: var(--text-4); margin-top: 2px; }
-.tl-time  { font-size: 11px; color: var(--text-4); margin-top: 2px; font-style: italic; }
+.tl-meta  { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+.tl-time  { font-size: 11px; color: var(--text-4); font-style: italic; }
 
 /* ================================
    SETTINGS

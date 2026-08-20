@@ -64,7 +64,7 @@ class AuthController extends Controller
 
             $request->session()->regenerate();
 
-            ActivityLog::record('login', 'Student Logged In', "{$user->name} ({$user->email})");
+            ActivityLog::record('login', 'Student Logged In', "{$user->name} ({$user->email})", user: $user);
 
             return redirect()->route('student.dashboard');
         }
@@ -87,7 +87,7 @@ class AuthController extends Controller
 
         $fullName = $validated['firstName'].' '.$validated['lastName'];
 
-        User::create([
+        $newStudent = User::create([
             'name' => $fullName,
             'email' => $validated['email'],
             'password' => Hash::make($validated['password']),
@@ -97,7 +97,7 @@ class AuthController extends Controller
             'approval_status' => 'pending',
         ]);
 
-        ActivityLog::record('registration', 'New Student Registered', "{$fullName} ({$validated['email']}) signed up");
+        ActivityLog::record('registration', 'New Student Registered', "{$fullName} ({$validated['email']}) signed up", user: $newStudent);
 
         // Do NOT auto-login
         return redirect()->route('student.login')
@@ -205,7 +205,7 @@ class AuthController extends Controller
 
             $request->session()->regenerate();
 
-            ActivityLog::record('login', 'Teacher Logged In', "{$user->name} ({$user->email})");
+            ActivityLog::record('login', 'Teacher Logged In', "{$user->name} ({$user->email})", user: $user);
 
             return redirect()->route('teacher.dashboard');
         }
@@ -226,7 +226,7 @@ class AuthController extends Controller
 
         $fullName = $validated['firstName'].' '.$validated['lastName'];
 
-        User::create([
+        $newTeacher = User::create([
             'name' => $fullName,
             'email' => $validated['email'],
             'password' => Hash::make($validated['password']),
@@ -234,7 +234,7 @@ class AuthController extends Controller
             'approval_status' => 'pending',
         ]);
 
-        ActivityLog::record('registration', 'New Teacher Registered', "{$fullName} ({$validated['email']}) signed up");
+        ActivityLog::record('registration', 'New Teacher Registered', "{$fullName} ({$validated['email']}) signed up", user: $newTeacher);
 
         return redirect()->route('teacher.login')
             ->with('success', 'Account created successfully! Please wait for admin approval before logging in.');
@@ -416,7 +416,7 @@ class AuthController extends Controller
                 'approval_status' => $role !== 'admin' ? 'pending' : 'approved',
             ]);
 
-            ActivityLog::record('registration', 'New '.ucfirst($role).' Registered (Google)', "{$user->name} ({$user->email}) signed up via Google");
+            ActivityLog::record('registration', 'New '.ucfirst($role).' Registered (Google)', "{$user->name} ({$user->email}) signed up via Google", user: $user);
         } elseif ($user->google_id === null) {
             // Existing password-based account signing in with Google for the
             // first time — link the accounts. Never touch role/approval_status
@@ -463,7 +463,7 @@ class AuthController extends Controller
         // Log the user in
         Auth::login($user);
 
-        ActivityLog::record('login', ucfirst($role).' Logged In (Google)', "{$user->name} ({$user->email})");
+        ActivityLog::record('login', ucfirst($role).' Logged In (Google)', "{$user->name} ({$user->email})", user: $user);
 
         // Clear session only after successful authentication
         Session::forget('oauth_role');

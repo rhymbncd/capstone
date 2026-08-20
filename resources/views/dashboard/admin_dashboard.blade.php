@@ -29,7 +29,9 @@
         };
 
         window.__USER__ = {
+            id: {{ auth()->user()->id }},
             name: "{{ auth()->user()->name }}",
+            role: "{{ auth()->user()->role }}",
         };
 
         window.getSupabaseClient = function(timeout = 3000) {
@@ -554,24 +556,47 @@
                     <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
                         <div>
                             <div class="section-label">Event Timeline</div>
-                            <div class="section-sub">Most recent system and user events</div>
+                            <div class="section-sub">Search, filter, and manage the platform's activity log</div>
                         </div>
-                        <button class="primary-btn" onclick="showExportPicker('activity')" style="display:flex;align-items:center;gap:6px;padding:10px 18px">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-                            </svg>
-                            Export
-                        </button>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap">
+                            <button class="primary-btn" onclick="openArchivedLogs()" style="display:flex;align-items:center;gap:6px;padding:10px 18px;background:#6b7280">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px">
+                                    <path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/>
+                                </svg>
+                                Archived Logs
+                            </button>
+                            <button class="primary-btn" onclick="openClearOldLogs()" style="display:flex;align-items:center;gap:6px;padding:10px 18px;background:#f97316">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px">
+                                    <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/>
+                                </svg>
+                                Clear Old Logs
+                            </button>
+                            <button class="primary-btn" onclick="showExportPicker('activity')" style="display:flex;align-items:center;gap:6px;padding:10px 18px">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                                </svg>
+                                Export
+                            </button>
+                        </div>
                     </div>
                     <div class="toolbar">
-                        <select class="filter-select" id="activity-filter" onchange="filterActivity()" style="flex:1">
-                            <option value="">All Events</option>
-                            <option value="registration">Registrations</option>
-                            <option value="login">Logins</option>
+                        <input type="text" class="search-input" id="activity-search" placeholder="🔍  Search by name, email, or activity…" oninput="debounceActivitySearch()" maxlength="255" autocomplete="off">
+                        <select class="filter-select" id="activity-type-filter" onchange="filterActivityLog()">
+                            <option value="">All Types</option>
+                            <option value="registration">Account Created</option>
+                            <option value="login">Login</option>
                             <option value="content">Content</option>
-                            <option value="system">System</option>
+                            <option value="system">System / Admin</option>
                             <option value="error">Errors</option>
                         </select>
+                        <select class="filter-select" id="activity-role-filter" onchange="filterActivityLog()">
+                            <option value="">All Users</option>
+                            <option value="student">Student</option>
+                            <option value="teacher">Teacher</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                        <input type="date" class="filter-select" id="activity-date-from" onchange="filterActivityLog()" title="From date">
+                        <input type="date" class="filter-select" id="activity-date-to" onchange="filterActivityLog()" title="To date">
                     </div>
                     <div class="activity-timeline" id="activity-timeline">
                         <div class="empty-state">
@@ -580,6 +605,7 @@
                             <p>Activity will appear here as users interact with the platform.</p>
                         </div>
                     </div>
+                    <div class="pagination" id="activity-pagination"></div>
                 </div>
             </div>
 
@@ -668,9 +694,8 @@
                 </div>
                 <div class="settings-section" style="border-color:#fca5a5">
                     <h3 style="color:var(--red)">Danger Zone</h3>
-                    <div class="desc">Irreversible actions — proceed with caution</div>
+                    <div class="desc">Irreversible actions — proceed with caution. To manage activity logs (delete individual entries, archive old ones, or export), see the <a href="javascript:void(0)" onclick="navigate('activity')" style="color:var(--blue);font-weight:600">Activity tab</a>.</div>
                     <div style="display:flex;gap:10px;flex-wrap:wrap">
-                        <button class="danger-btn" style="max-width:200px" onclick="confirmDanger('Clear All Logs','This will permanently delete all system activity logs.')">Clear All Logs</button>
                         <button class="danger-btn" style="max-width:200px" onclick="confirmDanger('Reset Platform','This will reset all settings to factory defaults.')">Reset Platform</button>
                     </div>
                 </div>
@@ -709,6 +734,25 @@
             <button class="btn-cancel" onclick="closeModal('modal-user')">Cancel</button>
             <button class="btn-save" onclick="saveUser()">Save User</button>
         </div>
+    </div>
+</div>
+
+<!-- ARCHIVED ACTIVITY LOGS MODAL -->
+<div class="modal-overlay" id="modal-archived-logs">
+    <div class="modal" style="max-width:640px;max-height:85vh;overflow-y:auto">
+        <div class="modal-header">
+            <span class="modal-title">Archived Activity Logs</span>
+            <button class="modal-close" onclick="closeModal('modal-archived-logs')">✕</button>
+        </div>
+        <p style="font-size:12.5px;color:var(--text-3);margin:-8px 0 14px">Logs archived via "Clear Old Logs" — restore them to the active timeline or delete them permanently.</p>
+        <div class="activity-timeline" id="archived-timeline">
+            <div class="empty-state">
+                <div class="empty-icon">🗄️</div>
+                <h4>No archived logs</h4>
+                <p>Logs you archive will appear here.</p>
+            </div>
+        </div>
+        <div class="pagination" id="archived-pagination"></div>
     </div>
 </div>
 

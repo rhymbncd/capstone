@@ -38,7 +38,7 @@ class TeacherApprovalController extends Controller
 
         $user->update(['approval_status' => 'approved']);
 
-        ActivityLog::record('system', 'Teacher Approved', "{$user->name} was approved by an admin");
+        ActivityLog::record('system', 'Teacher Approved', "{$user->name} was approved by an admin", user: $user);
 
         return back()->with('success', "{$user->name} has been approved and can now log in.");
     }
@@ -51,7 +51,7 @@ class TeacherApprovalController extends Controller
 
         $user->update(['approval_status' => 'rejected']);
 
-        ActivityLog::record('system', 'Teacher Rejected', "{$user->name} was rejected by an admin");
+        ActivityLog::record('system', 'Teacher Rejected', "{$user->name} was rejected by an admin", user: $user);
 
         return back()->with('success', "{$user->name} has been rejected.");
     }

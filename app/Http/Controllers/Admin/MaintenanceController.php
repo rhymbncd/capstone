@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Auth;
 
 class MaintenanceController extends Controller
 {
@@ -29,12 +31,15 @@ class MaintenanceController extends Controller
     {
         $enable = $request->boolean('enable');
 
+        /** @var User $admin */
+        $admin = Auth::user();
+
         if ($enable) {
             Artisan::call('down');
-            ActivityLog::record('system', 'Maintenance Mode Enabled', 'The site was put into maintenance mode by an admin');
+            ActivityLog::record('system', 'Maintenance Mode Enabled', 'The site was put into maintenance mode by an admin', user: $admin);
         } else {
             Artisan::call('up');
-            ActivityLog::record('system', 'Maintenance Mode Disabled', 'The site was taken out of maintenance mode by an admin');
+            ActivityLog::record('system', 'Maintenance Mode Disabled', 'The site was taken out of maintenance mode by an admin', user: $admin);
         }
 
         return response()->json(['down' => app()->isDownForMaintenance()]);

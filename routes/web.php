@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\ActivityLogController;
 use App\Http\Controllers\Admin\MaintenanceController;
 use App\Http\Controllers\Admin\TeacherApprovalController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
@@ -168,6 +169,15 @@ Route::prefix('admin')->group(function () {
         Route::prefix('maintenance')->group(function () {
             Route::get('/status', [MaintenanceController::class, 'status'])->name('admin.maintenance.status');
             Route::post('/toggle', [MaintenanceController::class, 'toggle'])->name('admin.maintenance.toggle');
+        });
+
+        // Activity Log
+        Route::prefix('activity')->group(function () {
+            Route::get('/', [ActivityLogController::class, 'index'])->name('admin.activity.index');
+            Route::get('/export-data', [ActivityLogController::class, 'exportData'])->name('admin.activity.export-data');
+            Route::post('/archive-old', [ActivityLogController::class, 'archiveOld'])->name('admin.activity.archive-old');
+            Route::delete('/{activityLog}', [ActivityLogController::class, 'destroy'])->name('admin.activity.destroy');
+            Route::post('/{activityLog}/restore', [ActivityLogController::class, 'restore'])->name('admin.activity.restore');
         });
     });
 });

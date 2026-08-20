@@ -324,72 +324,278 @@ async function deleteUser(id) {
    ACTIVITY LOGS — Supabase
    ============================================================ */
 
-/** Load last 50 activity logs from Supabase */
+/** Load the most recent activity logs (Home tab preview) from the authenticated backend. */
 async function loadActivity() {
     try {
-        const rows = await sbSelect(ACTIVITY_TABLE, '?select=*&order=created_at.desc&limit=50');
-        activity = rows.map(r => ({
+        const data = await apiFetch('/admin/activity');
+        activity = data.data.map(r => ({
             id:    r.id,
             type:  r.type,
             title: r.title,
             sub:   r.sub   || '',
             badge: r.badge || 'Event',
-            time:  timeAgo(r.created_at),
-            ts:    new Date(r.created_at).getTime(),
+            time:  r.time  || '',
         }));
     } catch (err) {
         console.warn('loadActivity error:', err.message);
     }
 }
 
-/** Insert a new activity log into Supabase and prepend to local array */
+/**
+ * Insert a new activity log into Supabase and prepend to the local
+ * Home-tab preview array. The frontend anon key only has INSERT on
+ * activity_logs (reading/deleting/archiving goes through the authenticated
+ * Laravel backend), so this writes with `return=minimal` — no row comes
+ * back, hence the client-generated local id below.
+ */
 async function logEvent(type, title, sub, badge) {
-    const entry = { type, title, sub, badge: badge || 'Event' };
+    const entry = {
+        type, title, sub, badge: badge || 'Event',
+        user_id:   window.__USER__?.id ?? null,
+        user_name: window.__USER__?.name ?? null,
+        user_role: window.__USER__?.role ?? 'admin',
+    };
     try {
-        const inserted = await sbInsert(ACTIVITY_TABLE, entry);
-        const row = Array.isArray(inserted) ? inserted[0] : inserted;
-        activity.unshift({
-            id:    row.id,
-            type:  row.type,
-            title: row.title,
-            sub:   row.sub   || '',
-            badge: row.badge || 'Event',
-            time:  'just now',
-            ts:    Date.now(),
+        await fetch(`${SUPABASE_URL}/rest/v1/${ACTIVITY_TABLE}`, {
+            method: 'POST',
+            headers: sbHeaders({ 'Prefer': 'return=minimal' }),
+            body: JSON.stringify(entry),
         });
-        if (activity.length > 50) activity.pop();
     } catch (err) {
-        // Log locally even if Supabase fails
         console.warn('logEvent failed:', err.message);
-        activity.unshift({ ...entry, time: 'just now', ts: Date.now() });
     }
+    activity.unshift({
+        id:    `local-${Date.now()}`,
+        type,  title,
+        sub:   sub   || '',
+        badge: badge || 'Event',
+        time:  'just now',
+        ts:    Date.now(),
+    });
+    if (activity.length > 50) activity.pop();
 }
 
-function renderActivity() {
-    const filter   = document.getElementById('activity-filter')?.value || '';
-    const filtered = filter ? activity.filter(a => a.type === filter) : activity;
+/* ============================================================
+   ACTIVITY LOG — search, filter, pagination, delete, archive
+   Backed entirely by the authenticated Laravel endpoints under
+   /admin/activity — the frontend anon key has no read/delete access to
+   activity_logs, so this is the only path to view or manage it.
+   ============================================================ */
+const ACTIVITY_DOT_COLOR = { registration: 'blue', login: 'green', content: 'green', system: 'orange', error: 'red' };
 
-    const today = activity.filter(a => (Date.now() - a.ts) < 86400000);
-    setText('ac-events', today.length);
-    setText('ac-logins', today.filter(a => a.type === 'login').length);
-    setText('ac-errors', today.filter(a => a.type === 'error').length);
+let activityLogState = {
+    data: [],
+    meta: { current_page: 1, last_page: 1, total: 0 },
+    filters: { q: '', type: '', role: '', from: '', to: '' },
+};
+let archivedLogState = {
+    data: [],
+    meta: { current_page: 1, last_page: 1, total: 0 },
+};
+let activityLogSearchTimer = null;
 
-    const tl = document.getElementById('activity-timeline');
-    if (!filtered.length) {
-        tl.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><h4>No events logged yet</h4><p>Activity will appear here as users interact with the platform.</p></div>';
-        return;
+async function loadActivityLog(page = 1) {
+    const f = activityLogState.filters;
+    const params = new URLSearchParams({ page });
+    if (f.q)    params.set('q', f.q);
+    if (f.type) params.set('type', f.type);
+    if (f.role) params.set('role', f.role);
+    if (f.from) params.set('from', f.from);
+    if (f.to)   params.set('to', f.to);
+
+    try {
+        const data = await apiFetch(`/admin/activity?${params.toString()}`);
+        activityLogState.data = data.data;
+        activityLogState.meta = data.meta;
+        setText('ac-events', data.counters.eventsToday);
+        setText('ac-logins', data.counters.loginsToday);
+        setText('ac-errors', data.counters.errorsToday);
+    } catch (err) {
+        console.warn('loadActivityLog error:', err.message);
+        activityLogState.data = [];
     }
-    const dotColor = { registration:'blue', login:'green', content:'green', system:'orange', error:'red' };
-    tl.innerHTML = filtered.map(a => `
+    renderActivityLog();
+}
+
+function renderTimelineRows(rows, { archived }) {
+    if (!rows.length) {
+        return `<div class="empty-state"><div class="empty-icon">📋</div><h4>No events found</h4><p>${archived ? 'No archived logs to show yet.' : 'Try a different search or filter.'}</p></div>`;
+    }
+    return rows.map(a => `
         <div class="tl-item">
-            <div class="tl-dot ${dotColor[a.type] || 'blue'}"></div>
-            <div class="tl-title">${Security.escape(a.title)}</div>
-            <div class="tl-sub">${Security.escape(a.sub)}</div>
-            <div class="tl-time">${Security.escape(a.time)}</div>
+            <div class="tl-dot ${ACTIVITY_DOT_COLOR[a.type] || 'blue'}"></div>
+            <div class="tl-body">
+                <div class="tl-head">
+                    <div class="tl-title">${Security.escape(a.title)}</div>
+                    <div class="tl-actions">
+                        ${archived ? `<button class="tbl-btn edit" onclick="restoreActivityLog('${Security.escape(a.id)}')">Restore</button>` : ''}
+                        <button class="tbl-btn del" onclick="deleteActivityLog('${Security.escape(a.id)}', ${archived})">Delete</button>
+                    </div>
+                </div>
+                <div class="tl-sub">${Security.escape(a.sub || '')}</div>
+                <div class="tl-meta">
+                    ${a.userRole ? `<span class="role-badge role-${Security.escape(a.userRole)}">${Security.escape(capitalize(a.userRole))}</span>` : ''}
+                    <span class="tl-time">${Security.escape(a.time || '')}</span>
+                </div>
+            </div>
         </div>`).join('');
 }
 
-function filterActivity() { renderActivity(); }
+function renderPaginationInto(elId, meta, onPage) {
+    const pg = document.getElementById(elId);
+    if (!pg) return;
+    pg.innerHTML = '';
+    const { current_page: current, last_page: last } = meta;
+    pg.appendChild(makePgBtn('‹ Prev', current <= 1, () => onPage(current - 1)));
+    for (let i = 1; i <= last; i++) {
+        const btn = makePgBtn(i, false, () => onPage(i));
+        if (i === current) btn.classList.add('active');
+        pg.appendChild(btn);
+    }
+    pg.appendChild(makePgBtn('Next ›', current >= last, () => onPage(current + 1)));
+}
+
+function renderActivityLog() {
+    const tl = document.getElementById('activity-timeline');
+    if (tl) tl.innerHTML = renderTimelineRows(activityLogState.data, { archived: false });
+    renderPaginationInto('activity-pagination', activityLogState.meta, loadActivityLog);
+}
+
+function filterActivityLog() {
+    activityLogState.filters.q    = Security.sanitize(document.getElementById('activity-search')?.value || '');
+    activityLogState.filters.type = document.getElementById('activity-type-filter')?.value || '';
+    activityLogState.filters.role = document.getElementById('activity-role-filter')?.value || '';
+    activityLogState.filters.from = document.getElementById('activity-date-from')?.value || '';
+    activityLogState.filters.to   = document.getElementById('activity-date-to')?.value || '';
+    loadActivityLog(1);
+}
+
+function debounceActivitySearch() {
+    clearTimeout(activityLogSearchTimer);
+    activityLogSearchTimer = setTimeout(filterActivityLog, 350);
+}
+
+async function deleteActivityLog(id, fromArchive) {
+    Swal.fire({
+        title: 'Delete this activity log?',
+        text: 'This action cannot be undone.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Delete',
+        cancelButtonText: 'Cancel',
+    }).then(async r => {
+        if (!r.isConfirmed) return;
+        try {
+            await apiFetch(`/admin/activity/${id}`, { method: 'DELETE' });
+            toast('success', 'Activity log deleted.');
+            if (fromArchive) loadArchivedLogs(archivedLogState.meta.current_page);
+            else loadActivityLog(activityLogState.meta.current_page);
+        } catch (err) {
+            warn('Delete Failed', err.message || 'Could not delete this log.');
+        }
+    });
+}
+
+async function restoreActivityLog(id) {
+    try {
+        await apiFetch(`/admin/activity/${id}/restore`, { method: 'POST' });
+        toast('success', 'Activity log restored.');
+        loadArchivedLogs(archivedLogState.meta.current_page);
+        loadActivityLog(activityLogState.meta.current_page);
+    } catch (err) {
+        warn('Restore Failed', err.message || 'Could not restore this log.');
+    }
+}
+
+const RETENTION_LABELS = { 30: '30 days', 60: '60 days', 90: '90 days', 365: '1 year' };
+
+function openClearOldLogs() {
+    Swal.fire({
+        title: 'Clear Old Logs',
+        html: '<p style="font-size:13px;color:#6b7280;text-align:left">Archives logs older than the period you choose. Archived logs are <b>not</b> deleted — view or restore them anytime from "Archived Logs".</p>',
+        input: 'select',
+        inputOptions: { 30: 'Older than 30 days', 60: 'Older than 60 days', 90: 'Older than 90 days', 365: 'Older than 1 year' },
+        inputPlaceholder: 'Select a retention period',
+        showCancelButton: true,
+        confirmButtonColor: '#f97316',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Continue',
+        cancelButtonText: 'Cancel',
+        inputValidator: v => !v ? 'Please select a retention period.' : undefined,
+    }).then(r => {
+        if (!r.isConfirmed) return;
+        const days = Number(r.value);
+        Swal.fire({
+            title: 'Are you sure?',
+            text: `This will remove all activity logs older than ${RETENTION_LABELS[days]} from the active timeline (archived, not deleted). This action cannot be undone.`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#f97316',
+            cancelButtonColor: '#6b7280',
+            confirmButtonText: 'Archive Old Logs',
+            cancelButtonText: 'Cancel',
+        }).then(async r2 => {
+            if (!r2.isConfirmed) return;
+            try {
+                const result = await apiFetch('/admin/activity/archive-old', {
+                    method: 'POST',
+                    body: JSON.stringify({ days }),
+                });
+                toast('success', result.message || 'Old logs archived.');
+                loadActivityLog(1);
+            } catch (err) {
+                warn('Archive Failed', err.message || 'Could not archive old logs.');
+            }
+        });
+    });
+}
+
+async function loadArchivedLogs(page = 1) {
+    try {
+        const data = await apiFetch(`/admin/activity?archived=1&page=${page}`);
+        archivedLogState.data = data.data;
+        archivedLogState.meta = data.meta;
+    } catch (err) {
+        console.warn('loadArchivedLogs error:', err.message);
+        archivedLogState.data = [];
+    }
+    const tl = document.getElementById('archived-timeline');
+    if (tl) tl.innerHTML = renderTimelineRows(archivedLogState.data, { archived: true });
+    renderPaginationInto('archived-pagination', archivedLogState.meta, loadArchivedLogs);
+}
+
+function openArchivedLogs() {
+    openModal('modal-archived-logs');
+    loadArchivedLogs(1);
+}
+
+/** Fetch every log matching the current Activity tab filters (unpaginated, capped) for export. */
+async function fetchActivityExportRows() {
+    const f = activityLogState.filters;
+    const params = new URLSearchParams();
+    if (f.q)    params.set('q', f.q);
+    if (f.type) params.set('type', f.type);
+    if (f.role) params.set('role', f.role);
+    if (f.from) params.set('from', f.from);
+    if (f.to)   params.set('to', f.to);
+    const data = await apiFetch(`/admin/activity/export-data?${params.toString()}`);
+    return data.data;
+}
+
+function activityExportRows(rows) {
+    return rows.map((a, i) => [
+        i + 1,
+        capitalize(a.type),
+        a.title,
+        a.sub || '—',
+        a.userName || '—',
+        a.userRole ? capitalize(a.userRole) : '—',
+        a.time || '—',
+    ]);
+}
+const ACTIVITY_EXPORT_HEADERS = ['#', 'Type', 'Title', 'Details', 'User', 'Role', 'Time'];
 
 /* ============================================================
    PLATFORM SETTINGS — Supabase key/value store
@@ -545,16 +751,6 @@ async function confirmDanger(action, desc) {
     }).then(async r => {
         if (!r.isConfirmed) return;
         try {
-            if (action === 'Clear All Logs') {
-                // Delete all rows from activity_logs in Supabase
-                // Supabase REST: DELETE without a filter deletes all when using neq trick
-                await fetch(`${SUPABASE_URL}/rest/v1/${ACTIVITY_TABLE}?id=neq.00000000-0000-0000-0000-000000000000`, {
-                    method: 'DELETE',
-                    headers: sbHeaders(),
-                });
-                activity = [];
-                renderActivity();
-            }
             toast('success', Security.escape(action) + ' complete.');
         } catch (err) {
             warn('Action Failed', err.message || 'Could not complete this action.');
@@ -1096,10 +1292,11 @@ function exportModulesExcel() {
     }
 }
 
-function exportActivityPdf() {
+/** Exports honor the Activity tab's currently applied search/filters. */
+async function exportActivityPdf() {
     try {
-        const rows = activity.map((a, i) => [i + 1, capitalize(a.type), a.title, a.sub || '—', a.badge, a.time]);
-        buildPdfTable('Activity Log Report', ['#', 'Type', 'Title', 'Details', 'Badge', 'Time'], rows, `activity-report-${new Date().toISOString().slice(0, 10)}.pdf`);
+        const rows = activityExportRows(await fetchActivityExportRows());
+        buildPdfTable('Activity Log Report', ACTIVITY_EXPORT_HEADERS, rows, `activity-report-${new Date().toISOString().slice(0, 10)}.pdf`);
         logEvent('content', 'Report Generated', 'Activity PDF report was downloaded', 'Exported');
         toast('success', 'PDF report downloaded!');
     } catch (err) {
@@ -1108,15 +1305,28 @@ function exportActivityPdf() {
     }
 }
 
-function exportActivityExcel() {
+function downloadTextFile(filename, mime, text) {
+    const blob = new Blob([text], { type: mime });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+}
+
+async function exportActivityCsv() {
     try {
-        const rows = activity.map((a, i) => [i + 1, capitalize(a.type), a.title, a.sub || '—', a.badge, a.time]);
-        buildExcelTable('Activity', ['#', 'Type', 'Title', 'Details', 'Badge', 'Time'], rows, `activity-report-${new Date().toISOString().slice(0, 10)}.xlsx`);
-        logEvent('content', 'Report Generated', 'Activity Excel report was downloaded', 'Exported');
-        toast('success', 'Excel report downloaded!');
+        if (!window.XLSX) throw new Error('Spreadsheet library failed to load. Check your connection and try again.');
+        const rows = activityExportRows(await fetchActivityExportRows());
+        const sheet = XLSX.utils.aoa_to_sheet([ACTIVITY_EXPORT_HEADERS, ...rows]);
+        downloadTextFile(`activity-report-${new Date().toISOString().slice(0, 10)}.csv`, 'text/csv;charset=utf-8;', XLSX.utils.sheet_to_csv(sheet));
+        logEvent('content', 'Report Generated', 'Activity CSV report was downloaded', 'Exported');
+        toast('success', 'CSV report downloaded!');
     } catch (err) {
-        console.error('Activity Excel export error:', err);
-        warn('Excel Generation Failed', err.message || 'Could not generate the spreadsheet. Please try again.');
+        console.error('Activity CSV export error:', err);
+        warn('CSV Generation Failed', err.message || 'Could not generate the CSV. Please try again.');
     }
 }
 
@@ -1246,13 +1456,13 @@ async function exportAnalyticsExcel() {
 }
 
 const EXPORTERS = {
-    users:     { pdf: exportUsersPdf,     excel: exportUsersExcel },
-    analytics: { pdf: exportAnalyticsPdf, excel: exportAnalyticsExcel },
-    modules:   { pdf: exportModulesPdf,   excel: exportModulesExcel },
-    activity:  { pdf: exportActivityPdf,  excel: exportActivityExcel },
+    users:     { pdf: exportUsersPdf,     secondary: exportUsersExcel,     secondaryLabel: 'Excel' },
+    analytics: { pdf: exportAnalyticsPdf, secondary: exportAnalyticsExcel, secondaryLabel: 'Excel' },
+    modules:   { pdf: exportModulesPdf,   secondary: exportModulesExcel,   secondaryLabel: 'Excel' },
+    activity:  { pdf: exportActivityPdf,  secondary: exportActivityCsv,    secondaryLabel: 'CSV' },
 };
 
-/** Single "Export" button entry point — lets the admin pick PDF or Excel. */
+/** Single "Export" button entry point — lets the admin pick a format. */
 function showExportPicker(section) {
     const exporter = EXPORTERS[section];
     if (!exporter) return;
@@ -1264,13 +1474,13 @@ function showExportPicker(section) {
         showDenyButton: true,
         showCancelButton: true,
         confirmButtonText: 'PDF',
-        denyButtonText: 'Excel',
+        denyButtonText: exporter.secondaryLabel,
         cancelButtonText: 'Cancel',
         confirmButtonColor: '#2563eb',
         denyButtonColor: '#16a34a',
     }).then(r => {
         if (r.isConfirmed) exporter.pdf();
-        else if (r.isDenied) exporter.excel();
+        else if (r.isDenied) exporter.secondary();
     });
 }
 
@@ -1294,7 +1504,7 @@ function navigate(page) {
     if (page === 'analytics') renderAnalytics();
     if (page === 'content')   loadAndRenderContent();
     if (page === 'modules')   loadAndRenderModules();
-    if (page === 'activity')  renderActivity();
+    if (page === 'activity')  loadActivityLog(1);
     if (page === 'settings')  loadSettings();   // re-load from Supabase when tab opens
 }
 
@@ -1951,7 +2161,8 @@ Object.assign(window, {
     approveContent, rejectContent, resetContentStatus, deleteContent,
     filterModules, loadAndRenderModules, openAddModule, cancelModule, saveModule,
     viewModule, editModule, deleteModule, clearFile,
-    filterActivity,
+    filterActivityLog, debounceActivitySearch, deleteActivityLog, restoreActivityLog,
+    openClearOldLogs, openArchivedLogs,
     savePlatformInfo, saveSettings, confirmDanger,
     openModal, closeModal, confirmLogout,
     showExportPicker,

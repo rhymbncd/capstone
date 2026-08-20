@@ -24,7 +24,9 @@
         };
 
         window.__USER__ = {
+            id: {{ auth()->user()->id }},
             name: "{{ auth()->user()->name }}",
+            role: "{{ auth()->user()->role }}",
         };
 
         // Provide safe Supabase init helper (used by module/teacher JS)
