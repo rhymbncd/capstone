@@ -419,6 +419,18 @@
                     </div>
                 </div>
 
+                <div class="chart-container">
+                    <div class="chart-title">Subject Completion Rates</div>
+                    <div class="chart-sub">How far your class has progressed in each module</div>
+                    <div id="subject-progress">
+                        <div class="empty-state">
+                            <div class="empty-icon">📈</div>
+                            <h4>No progress data yet</h4>
+                            <p>Data appears as students complete modules.</p>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="modules-container">
                     <div class="section-label">Individual Progress</div>
                     <div class="section-sub">How far each student has progressed</div>

@@ -23,6 +23,18 @@ class StudentController extends Controller
     ];
 
     /**
+     * Curriculum topics grouped by module, matching MODULE_TOPICS in
+     * resources/js/dashboard/student_dashboard.js.
+     *
+     * @var array<string, list<string>>
+     */
+    private const MODULE_GROUPS = [
+        'Module 1: Sequences and Series' => ['ari', 'geo', 'har', 'fib', 'fin'],
+        'Module 2: Polynomials' => ['div', 'rem', 'poly'],
+        'Module 3: Advanced Equations' => ['rat', 'rad', 'exp', 'log'],
+    ];
+
+    /**
      * Get all students enrolled in the authenticated teacher's sections,
      * with real completion progress computed from student_progress.
      */
@@ -43,12 +55,13 @@ class StudentController extends Controller
 
         $studentIds = $students->pluck('id')->map(fn ($id) => (string) $id)->all();
 
-        $progressRows = StudentProgress::query()
+        $allProgressRows = StudentProgress::query()
             ->whereIn('session_id', $studentIds)
             ->whereIn('phase', ['pre', 'post'])
             ->whereIn('topic_key', self::CURRICULUM_TOPICS)
-            ->get(['session_id', 'topic_key', 'phase', 'score', 'total'])
-            ->groupBy('session_id');
+            ->get(['session_id', 'topic_key', 'phase', 'score', 'total']);
+
+        $progressRows = $allProgressRows->groupBy('session_id');
 
         $totalTopics = count(self::CURRICULUM_TOPICS);
 
@@ -73,7 +86,35 @@ class StudentController extends Controller
             ];
         });
 
-        return response()->json(['students' => $studentData]);
+        return response()->json([
+            'students' => $studentData,
+            'subjectCompletion' => $this->subjectCompletion($allProgressRows, $students->count()),
+        ]);
+    }
+
+    /**
+     * Per-module completion rate across this teacher's own students: what
+     * fraction of (student, topic) pairs in each module have a post-test
+     * result, out of every pair that's possible for this class.
+     *
+     * @return list<array{label: string, pct: int}>
+     */
+    private function subjectCompletion(Collection $progressRows, int $studentCount): array
+    {
+        $postRows = $progressRows->where('phase', 'post');
+
+        return collect(self::MODULE_GROUPS)->map(function (array $topics, string $label) use ($postRows, $studentCount) {
+            $completedPairs = $postRows
+                ->whereIn('topic_key', $topics)
+                ->map(fn ($row) => $row->session_id.':'.$row->topic_key)
+                ->unique()
+                ->count();
+
+            $possiblePairs = $studentCount * count($topics);
+            $pct = $possiblePairs > 0 ? (int) round(($completedPairs / $possiblePairs) * 100) : 0;
+
+            return ['label' => $label, 'pct' => $pct];
+        })->values()->all();
     }
 
     /**

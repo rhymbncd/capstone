@@ -62,6 +62,45 @@ it('returns the teacher\'s students with real progress computed from student_pro
     expect($freshData['avgPost'])->toBeNull();
 });
 
+it('computes per-module subject completion rates for the teacher\'s class', function () {
+    $teacher = User::factory()->teacher()->create(['approval_status' => 'approved']);
+    $section = Section::factory()->create(['teacher_id' => $teacher->id]);
+
+    $halfway = User::factory()->create([
+        'role' => 'student',
+        'approval_status' => 'approved',
+        'section_id' => $section->id,
+    ]);
+    User::factory()->create([
+        'role' => 'student',
+        'approval_status' => 'approved',
+        'section_id' => $section->id,
+    ]);
+
+    // Completes all of Module 1 (5 topics) plus 'div' from Module 2.
+    foreach (['ari', 'geo', 'har', 'fib', 'fin', 'div'] as $topic) {
+        StudentProgress::create([
+            'session_id' => (string) $halfway->id,
+            'topic_key' => $topic,
+            'phase' => 'post',
+            'score' => 8,
+            'total' => 10,
+            'passed' => true,
+            'student_name' => $halfway->name,
+        ]);
+    }
+
+    $response = $this->actingAs($teacher)->getJson(route('teacher.students.index'));
+
+    $response->assertOk();
+    $subjects = collect($response->json('subjectCompletion'))->keyBy('label');
+
+    // 2 students total in the class; only $halfway completed anything.
+    expect($subjects['Module 1: Sequences and Series']['pct'])->toBe(50); // 5/(2*5)
+    expect($subjects['Module 2: Polynomials']['pct'])->toBe(17);          // 1/(2*3), rounded
+    expect($subjects['Module 3: Advanced Equations']['pct'])->toBe(0);    // 0/(2*4)
+});
+
 it('includes each student\'s student ID', function () {
     $teacher = User::factory()->teacher()->create(['approval_status' => 'approved']);
     $section = Section::factory()->create(['teacher_id' => $teacher->id]);

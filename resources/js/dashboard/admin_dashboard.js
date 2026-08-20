@@ -872,6 +872,13 @@ function renderHome() {
    ============================================================ */
 const CURRICULUM_TOPICS = ['ari','geo','har','fib','fin','div','rem','poly','rat','rad','exp','log'];
 
+// Matches MODULE_TOPICS in student_dashboard.js / module.blade.php's TOPIC_ORDER.
+const MODULE_GROUPS = [
+    { label: 'Module 1: Sequences and Series', topics: ['ari', 'geo', 'har', 'fib', 'fin'] },
+    { label: 'Module 2: Polynomials',          topics: ['div', 'rem', 'poly'] },
+    { label: 'Module 3: Advanced Equations',   topics: ['rat', 'rad', 'exp', 'log'] },
+];
+
 /** Load every student_progress row (platform-wide) for real analytics. */
 async function loadProgressRows() {
     try {
@@ -926,9 +933,29 @@ async function renderAnalytics() {
             </div>`).join('') + `</div>`;
     }
 
-    document.getElementById('subject-progress').innerHTML = postRows.length
-        ? '<div class="empty-state"><div class="empty-icon">📈</div><h4>Per-subject breakdown coming soon</h4><p>Topic-level data is tracked; a subject grouping view is planned.</p></div>'
-        : '<div class="empty-state"><div class="empty-icon">📈</div><h4>No progress data yet</h4><p>Data appears as students complete modules.</p></div>';
+    const subjectEl = document.getElementById('subject-progress');
+    if (!postRows.length) {
+        subjectEl.innerHTML = '<div class="empty-state"><div class="empty-icon">📈</div><h4>No progress data yet</h4><p>Data appears as students complete modules.</p></div>';
+    } else {
+        const activeStudents = new Set(rows.map(r => r.session_id)).size;
+        subjectEl.innerHTML = MODULE_GROUPS.map(group => {
+            const completedPairs = new Set(
+                postRows.filter(r => group.topics.includes(r.topic_key)).map(r => `${r.session_id}:${r.topic_key}`)
+            ).size;
+            const possiblePairs = activeStudents * group.topics.length;
+            const pct = possiblePairs ? Math.round((completedPairs / possiblePairs) * 100) : 0;
+            return `
+                <div class="progress-row">
+                    <div class="progress-label">
+                        <span>${Security.escape(group.label)}</span>
+                        <span style="font-weight:800;color:${progressColor(pct)}">${pct}%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width:${pct}%;background:${progressColor(pct)}"></div>
+                    </div>
+                </div>`;
+        }).join('');
+    }
 
     const donutEl = document.getElementById('donut-row');
     if (!users.length) {

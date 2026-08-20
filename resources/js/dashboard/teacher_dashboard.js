@@ -343,11 +343,14 @@ async function loadStudents() {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         students = Array.isArray(data.students) ? data.students : [];
+        subjectCompletion = Array.isArray(data.subjectCompletion) ? data.subjectCompletion : [];
     } catch (e) {
         console.warn('Could not load students:', e.message);
         students = [];
+        subjectCompletion = [];
     }
 }
+let subjectCompletion = [];
 let feedbacks   = [];
 let activity    = [];
 let modulesData = [];
@@ -714,6 +717,22 @@ function renderProgress() {
             <div class="bar" style="height:${Math.round((g.count / maxV) * 120)}px;background:${g.color}"></div>
             <div class="bar-label">${g.label}</div>
         </div>`).join('') + `</div>`;
+
+    const subjectEl = document.getElementById('subject-progress');
+    if (!subjectCompletion.length || !subjectCompletion.some(s => s.pct > 0)) {
+        subjectEl.innerHTML = '<div class="empty-state"><div class="empty-icon">📈</div><h4>No progress data yet</h4><p>Data appears as students complete modules.</p></div>';
+    } else {
+        subjectEl.innerHTML = subjectCompletion.map(s => `
+            <div class="progress-row">
+                <div class="progress-label">
+                    <span>${Security.escape(s.label)}</span>
+                    <span style="font-weight:800;color:${progressColor(s.pct)}">${s.pct}%</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width:${s.pct}%;background:${progressColor(s.pct)}"></div>
+                </div>
+            </div>`).join('');
+    }
 }
 
 /* ============================================================
