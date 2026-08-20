@@ -619,11 +619,6 @@ async function loadSettings() {
         setToggle('notif-errors',       map['notif_errors']       === 'true');
         setToggle('notif-weekly',       map['notif_weekly']       === 'true');
 
-        // Feature flag toggles
-        setToggle('feat-ai-tutor',      map['feat_ai_tutor']      === 'true');
-        setToggle('feat-leaderboard',   map['feat_leaderboard']   === 'true');
-        setToggle('feat-registration',  map['feat_registration']  === 'true');
-
     } catch (err) {
         console.warn('loadSettings error:', err.message);
     }
@@ -667,30 +662,15 @@ async function savePlatformInfo() {
 }
 
 async function saveSettings(label) {
-    let pairs = {};
-
-    if (label === 'Notification') {
-        pairs = {
-            notif_registration: getToggle('notif-registration'),
-            notif_content:      getToggle('notif-content'),
-            notif_errors:       getToggle('notif-errors'),
-            notif_weekly:       getToggle('notif-weekly'),
-        };
-    } else if (label === 'Feature Flags') {
-        // Maintenance Mode is excluded here — it takes effect immediately
-        // when toggled (see initMaintenanceToggle), not on "Save Features".
-        pairs = {
-            feat_ai_tutor:     getToggle('feat-ai-tutor'),
-            feat_leaderboard:  getToggle('feat-leaderboard'),
-            feat_registration: getToggle('feat-registration'),
-        };
-    } else if (label === 'Roles & Permissions') {
-        // Roles table is static in this version; just log the action
-        pairs = { roles_last_saved: new Date().toISOString() };
-    }
+    const pairs = {
+        notif_registration: getToggle('notif-registration'),
+        notif_content:      getToggle('notif-content'),
+        notif_errors:       getToggle('notif-errors'),
+        notif_weekly:       getToggle('notif-weekly'),
+    };
 
     try {
-        if (Object.keys(pairs).length) await saveSettingsToSupabase(pairs);
+        await saveSettingsToSupabase(pairs);
         await logEvent('system', 'Settings Updated', `${label} preferences saved`, 'System');
         toast('success', `${Security.sanitize(label)} saved!`);
     } catch (err) {
