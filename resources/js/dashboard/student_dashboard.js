@@ -163,6 +163,37 @@ document.addEventListener('DOMContentLoaded', function () {
         return text.replace(/[&<>"']/g, char => map[char]);
     }
 
+    // Utility: student_progress.created_at is a Postgres `timestamp without
+    // time zone` column, so PostgREST returns it with no zone suffix (e.g.
+    // "2026-08-20T10:26:06.554052"). JS's Date parser treats a zone-less
+    // date-time string as LOCAL time, not UTC — which is what the value
+    // actually is (written via toISOString() elsewhere in this file) — so
+    // without this, every relative/absolute time shown here would be wrong
+    // by the viewer's UTC offset. Append Z so it's always parsed as UTC.
+    function parseUtcDate(dateLike) {
+        if (!dateLike) return null;
+        const str = String(dateLike);
+        const hasZone = /[Zz]|[+-]\d{2}:?\d{2}$/.test(str);
+        const date = new Date(hasZone ? str : `${str}Z`);
+        return isNaN(date.getTime()) ? null : date;
+    }
+
+    // Utility: relative "time ago" label for a timestamp; falls back to a
+    // plain date once it's more than a week old, and to '—' for missing data.
+    function timeAgo(dateLike) {
+        const date = parseUtcDate(dateLike);
+        if (!date) return '—';
+        const diffMs = Date.now() - date.getTime();
+        const minutes = Math.floor(diffMs / 60000);
+        if (minutes < 1) return 'Just now';
+        if (minutes < 60) return `${minutes}m ago`;
+        const hours = Math.floor(minutes / 60);
+        if (hours < 24) return `${hours}h ago`;
+        const days = Math.floor(hours / 24);
+        if (days < 7) return `${days}d ago`;
+        return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+
     async function loadDownloads() {
         const SUPABASE_URL      = window.__ENV__?.SUPABASE_URL ?? '';
         const SUPABASE_ANON_KEY = window.__ENV__?.SUPABASE_ANON_KEY ?? '';
@@ -413,6 +444,22 @@ document.addEventListener('DOMContentLoaded', function () {
     };
     const ALL_TOPICS = [...MODULE_TOPICS.mod1, ...MODULE_TOPICS.mod2, ...MODULE_TOPICS.mod3];
 
+    // Short topic_key -> full display name, matching module.blade.php's topic list.
+    const TOPIC_NAMES = {
+        ari:  'Arithmetic Sequence',
+        geo:  'Geometric Sequence',
+        har:  'Harmonic Sequence',
+        fib:  'Fibonacci Sequence',
+        fin:  'Finite and Infinite Sequence',
+        div:  'Division of Polynomials',
+        rem:  'Remainder & Factor Theorem',
+        poly: 'Polynomial Equations',
+        rat:  'Rational Equations',
+        rad:  'Radical Equations',
+        exp:  'Exponential Functions',
+        log:  'Logarithmic Functions',
+    };
+
     const Progress = {
         userId: window.__USER__?.id ?? null,
         _rowsCache: null,
@@ -484,6 +531,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     score,
                     total,
                     passed: score >= Math.ceil(total * 0.6),
+                    created_at: new Date().toISOString(),
                 }, 'session_id,topic_key,phase');
                 this._rowsCache = null; // invalidate cache
                 console.log('Quiz score saved:', score, '/', total);
@@ -516,7 +564,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const improvement = (avgPre === null || avgPost === null) ? null : avgPost - avgPre;
 
             // Streak: consecutive calendar days (ending today or yesterday) with at least one attempt
-            const days = new Set(rows.map(r => new Date(r.created_at).toDateString()));
+            const days = new Set(rows.map(r => parseUtcDate(r.created_at)?.toDateString()).filter(Boolean));
             let streak = 0;
             const cursor = new Date();
             if (!days.has(cursor.toDateString())) cursor.setDate(cursor.getDate() - 1);
@@ -525,8 +573,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 cursor.setDate(cursor.getDate() - 1);
             }
 
-            const recent = [...rows]
-                .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+            // Reading-progress rows (phase 'reading') track scroll %, not a graded
+            // attempt — showing them here would mislabel as "Post-Test" with a
+            // nonsensical score, so only real pre/post-test attempts are listed.
+            const recent = rows
+                .filter(r => r.phase === 'pre' || r.phase === 'post')
+                .sort((a, b) => (parseUtcDate(b.created_at)?.getTime() ?? 0) - (parseUtcDate(a.created_at)?.getTime() ?? 0))
                 .slice(0, 5);
 
             return { completedTopics, perModule, overallPct, attempts: rows.length, streak, recent, avgPre, avgPost, improvement };
@@ -588,16 +640,30 @@ document.addEventListener('DOMContentLoaded', function () {
                 emptyEl.style.display = 'none';
                 listEl.style.display  = '';
                 listEl.innerHTML = stats.recent.map(r => {
-                    const when  = new Date(r.created_at).toLocaleString();
-                    const label = r.topic_key === 'summative' ? 'Summative Test' : `Topic "${r.topic_key}"`;
+                    const relative = timeAgo(r.created_at);
+                    const parsedDate = parseUtcDate(r.created_at);
+                    const absolute = parsedDate ? parsedDate.toLocaleString() : '';
+                    const label = r.topic_key === 'summative' ? 'Summative Test' : (TOPIC_NAMES[r.topic_key] || `Topic "${r.topic_key}"`);
                     const phase = r.phase === 'pre' ? 'Pre-Test' : 'Post-Test';
-                    const badge = r.passed ? 'badge-good' : 'badge-warn';
+                    const passed = !!r.passed;
+                    const badge  = passed ? 'badge-good' : 'badge-warn';
+                    const theme  = passed ? 'green-theme' : 'orange-theme';
+                    const icon   = passed
+                        ? '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>'
+                        : '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>';
                     return `<div class="module-item">
-                        <div class="module-title-row">
-                            <span class="module-name">${label} — ${phase}</span>
-                            <span class="status-badge ${badge}">${r.score}/${r.total}</span>
+                        <div class="activity-row">
+                            <div class="icon-container ${theme}">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${icon}</svg>
+                            </div>
+                            <div class="activity-info">
+                                <div class="module-title-row" style="margin-bottom:2px">
+                                    <span class="module-name">${escapeHtml(label)} — ${phase}</span>
+                                    <span class="status-badge ${badge}">${r.score}/${r.total}</span>
+                                </div>
+                                <div class="section-sub" style="margin:0" title="${escapeHtml(absolute)}">${relative}</div>
+                            </div>
                         </div>
-                        <div class="section-sub" style="margin:2px 0 0">${when}</div>
                     </div>`;
                 }).join('');
             }

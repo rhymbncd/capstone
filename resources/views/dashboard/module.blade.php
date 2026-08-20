@@ -919,6 +919,7 @@ async function mqSaveProgress(topicKey, phase, score, total, passed) {
                     score,
                     total,
                     passed,
+                    created_at:   new Date().toISOString(),
                 }),
             }
         );
@@ -1654,6 +1655,7 @@ async function mqSaveReadingProgress(topicKey, pct) {
           score:        pct,
           total:        100,
           passed:       pct >= 100,
+          created_at:   new Date().toISOString(),
         }),
       }
     );

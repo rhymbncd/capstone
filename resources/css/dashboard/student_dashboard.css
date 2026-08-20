@@ -270,6 +270,16 @@ html, body {
 .module-name { flex: 1; font-weight: 600; font-size: 13px; color: var(--text-2); line-height: 1.3; }
 @media (min-width: 1024px) { .module-name { font-size: 14px; } }
 
+/* Pass/fail and "new" pill badges — used on Recent Activity scores, the
+   Offline Materials "Teacher" upload tag, and the Feedback "New" tag. */
+.status-badge { padding: 4px 10px; border-radius: 99px; font-size: 11px; font-weight: 700; flex-shrink: 0; letter-spacing: 0.2px; }
+.badge-good   { background: var(--green-light); color: var(--green); }
+.badge-warn   { background: var(--orange-light); color: var(--orange); }
+
+/* Recent Activity list rows: icon avatar + title/badge/time stack. */
+.activity-row { display: flex; align-items: flex-start; gap: 12px; }
+.activity-info { flex: 1; min-width: 0; }
+
 .percentage      { font-size: 12px; font-weight: 700; color: var(--green); flex-shrink: 0; }
 .percentage.blue { color: var(--blue); }
 
