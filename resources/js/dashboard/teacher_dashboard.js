@@ -767,24 +767,41 @@ function sectionAvgProgress(sectionStudents) {
 }
 const pctOrDash = v => (v === null || v === undefined ? '—' : `${v}%`);
 
-function generatePDFReport() {
+/** Single "Export" button entry point — lets the teacher pick PDF or Excel. */
+function showReportExportPicker() {
     const reportSections = getReportSections();
     if (!reportSections.length) return Swal.fire({ icon: 'warning', title: 'No Sections', text: 'Create at least one section first.', confirmButtonColor: '#2563eb' });
 
     Swal.fire({
-        icon: 'info', title: 'Generate PDF Report',
-        html: '<p style="color:#6b7280;font-size:14px">Downloads a report of every section and its students (name, status, progress, and test averages).</p>',
-        showCancelButton: true, confirmButtonColor: '#2563eb', cancelButtonColor: '#6b7280',
-        confirmButtonText: 'Generate Report', cancelButtonText: 'Cancel',
+        title: 'Export Report',
+        text: 'Choose a format to download.',
+        icon: 'question',
+        showDenyButton: true,
+        showCancelButton: true,
+        confirmButtonText: 'PDF',
+        denyButtonText: 'Excel',
+        cancelButtonText: 'Cancel',
+        confirmButtonColor: '#2563eb',
+        denyButtonColor: '#16a34a',
     }).then(r => {
-        if (!r.isConfirmed) return;
-        try {
-            buildAndDownloadPdfReport(reportSections);
-            logActivity('Report Generated', 'PDF report was downloaded', 'report');
-            toast('success', 'PDF report downloaded!');
-        } catch (err) {
-            console.error('PDF generation error:', err);
-            warn('PDF Generation Failed', 'Could not generate the PDF. Please try again.');
+        if (r.isConfirmed) {
+            try {
+                buildAndDownloadPdfReport(reportSections);
+                logActivity('Report Generated', 'PDF report was downloaded', 'report');
+                toast('success', 'PDF report downloaded!');
+            } catch (err) {
+                console.error('PDF generation error:', err);
+                warn('PDF Generation Failed', 'Could not generate the PDF. Please try again.');
+            }
+        } else if (r.isDenied) {
+            try {
+                buildAndDownloadExcelReport(reportSections);
+                logActivity('Report Generated', 'Excel report was downloaded', 'report');
+                toast('success', 'Excel report downloaded!');
+            } catch (err) {
+                console.error('Excel generation error:', err);
+                warn('Excel Generation Failed', 'Could not generate the spreadsheet. Please try again.');
+            }
         }
     });
 }
@@ -832,28 +849,6 @@ function buildAndDownloadPdfReport(reportSections) {
     });
 
     doc.save(`student-report-${new Date().toISOString().slice(0, 10)}.pdf`);
-}
-
-function generateExcelReport() {
-    const reportSections = getReportSections();
-    if (!reportSections.length) return Swal.fire({ icon: 'warning', title: 'No Sections', text: 'Create at least one section first.', confirmButtonColor: '#2563eb' });
-
-    Swal.fire({
-        icon: 'info', title: 'Generate Excel Report',
-        html: '<p style="color:#6b7280;font-size:14px">Downloads a workbook with one sheet per section (name, status, progress, and test averages).</p>',
-        showCancelButton: true, confirmButtonColor: '#16a34a', cancelButtonColor: '#6b7280',
-        confirmButtonText: 'Generate Report', cancelButtonText: 'Cancel',
-    }).then(r => {
-        if (!r.isConfirmed) return;
-        try {
-            buildAndDownloadExcelReport(reportSections);
-            logActivity('Report Generated', 'Excel report was downloaded', 'report');
-            toast('success', 'Excel report downloaded!');
-        } catch (err) {
-            console.error('Excel generation error:', err);
-            warn('Excel Generation Failed', 'Could not generate the spreadsheet. Please try again.');
-        }
-    });
 }
 
 /** Build a real .xlsx workbook from the teacher's real sections + students and trigger a download. */
@@ -3739,7 +3734,7 @@ Object.assign(window, {
     loadAndRenderModules, cancelModule, clearFile, resetModuleForm,
 
     // Reports / Sections
-    openAddSection, editSection, deleteSection, generatePDFReport, generateExcelReport,
+    openAddSection, editSection, deleteSection, showReportExportPicker,
 
     // Profile
     saveProfile,

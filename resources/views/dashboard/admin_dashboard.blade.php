@@ -307,20 +307,12 @@
                             <div class="section-label">All Users</div>
                             <div class="section-sub">Search, filter, and manage user accounts</div>
                         </div>
-                        <div style="display:flex;gap:8px">
-                            <button class="primary-btn" onclick="exportUsersPdf()" style="display:flex;align-items:center;gap:6px;padding:10px 18px">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px">
-                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-                                </svg>
-                                PDF
-                            </button>
-                            <button class="primary-btn" onclick="exportUsersExcel()" style="display:flex;align-items:center;gap:6px;padding:10px 18px;background:#16a34a">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px">
-                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-                                </svg>
-                                Excel
-                            </button>
-                        </div>
+                        <button class="primary-btn" onclick="showExportPicker('users')" style="display:flex;align-items:center;gap:6px;padding:10px 18px">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                            </svg>
+                            Export
+                        </button>
                     </div>
                     <div class="toolbar">
                         <input type="text" class="search-input" id="user-search" placeholder="🔍  Search by name or email…" oninput="filterUsers()" maxlength="100" autocomplete="off">
@@ -348,20 +340,12 @@
                         <h1 class="welcome-title">Analytics</h1>
                         <p class="welcome-subtitle">Platform usage, engagement, and performance metrics</p>
                     </div>
-                    <div style="display:flex;gap:8px">
-                        <button class="primary-btn" onclick="exportAnalyticsPdf()" style="display:flex;align-items:center;gap:6px;padding:10px 18px">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-                            </svg>
-                            PDF
-                        </button>
-                        <button class="primary-btn" onclick="exportAnalyticsExcel()" style="display:flex;align-items:center;gap:6px;padding:10px 18px;background:#16a34a">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-                            </svg>
-                            Excel
-                        </button>
-                    </div>
+                    <button class="primary-btn" onclick="showExportPicker('analytics')" style="display:flex;align-items:center;gap:6px;padding:10px 18px">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        Export
+                    </button>
                 </div>
                 <div class="metrics-scroll-wrap">
                     <div class="metrics-grid">
@@ -524,20 +508,12 @@
                             <div class="section-label">All Modules</div>
                             <div class="section-sub">Browse, add, and manage learning modules — same library teachers upload to</div>
                         </div>
-                        <div style="display:flex;gap:8px">
-                            <button class="primary-btn" onclick="exportModulesPdf()" style="display:flex;align-items:center;gap:6px;padding:10px 18px">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px">
-                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-                                </svg>
-                                PDF
-                            </button>
-                            <button class="primary-btn" onclick="exportModulesExcel()" style="display:flex;align-items:center;gap:6px;padding:10px 18px;background:#16a34a">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px">
-                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-                                </svg>
-                                Excel
-                            </button>
-                        </div>
+                        <button class="primary-btn" onclick="showExportPicker('modules')" style="display:flex;align-items:center;gap:6px;padding:10px 18px">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                            </svg>
+                            Export
+                        </button>
                     </div>
                     <div class="toolbar">
                         <input type="text" class="search-input" id="module-search"
@@ -580,20 +556,12 @@
                             <div class="section-label">Event Timeline</div>
                             <div class="section-sub">Most recent system and user events</div>
                         </div>
-                        <div style="display:flex;gap:8px">
-                            <button class="primary-btn" onclick="exportActivityPdf()" style="display:flex;align-items:center;gap:6px;padding:10px 18px">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px">
-                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-                                </svg>
-                                PDF
-                            </button>
-                            <button class="primary-btn" onclick="exportActivityExcel()" style="display:flex;align-items:center;gap:6px;padding:10px 18px;background:#16a34a">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px">
-                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-                                </svg>
-                                Excel
-                            </button>
-                        </div>
+                        <button class="primary-btn" onclick="showExportPicker('activity')" style="display:flex;align-items:center;gap:6px;padding:10px 18px">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                            </svg>
+                            Export
+                        </button>
                     </div>
                     <div class="toolbar">
                         <select class="filter-select" id="activity-filter" onchange="filterActivity()" style="flex:1">

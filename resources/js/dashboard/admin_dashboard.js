@@ -1245,6 +1245,35 @@ async function exportAnalyticsExcel() {
     }
 }
 
+const EXPORTERS = {
+    users:     { pdf: exportUsersPdf,     excel: exportUsersExcel },
+    analytics: { pdf: exportAnalyticsPdf, excel: exportAnalyticsExcel },
+    modules:   { pdf: exportModulesPdf,   excel: exportModulesExcel },
+    activity:  { pdf: exportActivityPdf,  excel: exportActivityExcel },
+};
+
+/** Single "Export" button entry point — lets the admin pick PDF or Excel. */
+function showExportPicker(section) {
+    const exporter = EXPORTERS[section];
+    if (!exporter) return;
+
+    Swal.fire({
+        title: 'Export Report',
+        text: 'Choose a format to download.',
+        icon: 'question',
+        showDenyButton: true,
+        showCancelButton: true,
+        confirmButtonText: 'PDF',
+        denyButtonText: 'Excel',
+        cancelButtonText: 'Cancel',
+        confirmButtonColor: '#2563eb',
+        denyButtonColor: '#16a34a',
+    }).then(r => {
+        if (r.isConfirmed) exporter.pdf();
+        else if (r.isDenied) exporter.excel();
+    });
+}
+
 /* ============================================================
    NAVIGATION
    ============================================================ */
@@ -1925,10 +1954,7 @@ Object.assign(window, {
     filterActivity,
     savePlatformInfo, saveSettings, confirmDanger,
     openModal, closeModal, confirmLogout,
-    exportUsersPdf, exportUsersExcel,
-    exportModulesPdf, exportModulesExcel,
-    exportActivityPdf, exportActivityExcel,
-    exportAnalyticsPdf, exportAnalyticsExcel,
+    showExportPicker,
 });
 
 /* ============================================================

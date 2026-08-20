@@ -523,17 +523,11 @@
                                 </svg>
                                 Add Section
                             </button>
-                            <button class="primary-btn" onclick="generatePDFReport()" style="display:flex;align-items:center;gap:6px;padding:10px 18px">
+                            <button class="primary-btn" onclick="showReportExportPicker()" style="display:flex;align-items:center;gap:6px;padding:10px 18px">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px">
                                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
                                 </svg>
-                                Download PDF Report
-                            </button>
-                            <button class="primary-btn" onclick="generateExcelReport()" style="display:flex;align-items:center;gap:6px;padding:10px 18px;background:#16a34a">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px">
-                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-                                </svg>
-                                Download Excel Report
+                                Export
                             </button>
                         </div>
                     </div>
