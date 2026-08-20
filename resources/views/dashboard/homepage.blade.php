@@ -14,26 +14,6 @@
     <link rel="stylesheet"
           href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-    <!-- ================= MATHJAX ================= -->
-    <script>
-        window.MathJax = {
-            tex: {
-                inlineMath: [['\\(', '\\)']],
-                displayMath: [['\\[', '\\]']],
-                processEscapes: true
-            },
-            svg: {
-                fontCache: 'global'
-            }
-        };
-    </script>
-
-    <script
-        id="MathJax-script"
-        async
-        src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js">
-    </script>
-
     <!-- ================= CSS / JS ================= -->
     @vite([
         'resources/css/homepage.css',
@@ -189,10 +169,6 @@
 
 </section>
 
-<!-- ================= CHATBOX SAMPLE ================= -->
-<!-- OPTIONAL SAMPLE -->
-<div id="chat-box"></div>
-
 <!-- ================= FOOTER ================= -->
 <footer class="footer">
 
@@ -211,47 +187,6 @@
     window.Laravel = {
         csrfToken: '{{ csrf_token() }}'
     };
-</script>
-
-<!-- ================= MATH RENDER FUNCTION ================= -->
-<script>
-
-    function renderMath(element) {
-
-        if (window.MathJax) {
-
-            MathJax.typesetPromise([element])
-                .catch(function (err) {
-                    console.log(err.message);
-                });
-
-        }
-
-    }
-
-</script>
-
-<!-- ================= CHATBOT SAMPLE ================= -->
-<script>
-
-    function appendBotMessage(message) {
-
-        const chatBox = document.getElementById('chat-box');
-
-        const div = document.createElement('div');
-
-        div.className = 'bot-message';
-
-        // IMPORTANT
-        // Use innerHTML for LaTeX rendering
-        div.innerHTML = message;
-
-        chatBox.appendChild(div);
-
-        // RENDER LATEX
-        renderMath(div);
-    }
-
 </script>
 
 </body>
