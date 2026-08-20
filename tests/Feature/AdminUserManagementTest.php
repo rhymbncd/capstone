@@ -1,6 +1,8 @@
 <?php
 
 use App\Models\Section;
+use App\Models\StudentProgress;
+use App\Models\StudentQuizAnswer;
 use App\Models\User;
 
 it('lists real registered users for the admin', function () {
@@ -81,6 +83,42 @@ it('lets an admin delete another user', function () {
 
     $response->assertOk();
     $this->assertDatabaseMissing('users', ['id' => $teacher->id]);
+});
+
+it('deletes a student\'s progress and quiz answers along with their account', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $section = Section::factory()->create();
+    $student = User::factory()->create([
+        'role' => 'student',
+        'approval_status' => 'approved',
+        'section_id' => $section->id,
+    ]);
+
+    StudentProgress::create([
+        'session_id' => (string) $student->id,
+        'topic_key' => 'ari',
+        'phase' => 'post',
+        'score' => 8,
+        'total' => 10,
+        'passed' => true,
+        'student_name' => $student->name,
+    ]);
+    StudentQuizAnswer::create([
+        'session_id' => (string) $student->id,
+        'student_name' => $student->name,
+        'topic_key' => 'ari',
+        'phase' => 'post',
+        'answers' => [['question' => '1+1', 'selected' => '2', 'correct' => '2', 'isCorrect' => true]],
+        'score' => 8,
+        'total' => 10,
+    ]);
+
+    $response = $this->actingAs($admin)->deleteJson(route('admin.users.destroy', $student));
+
+    $response->assertOk();
+    $this->assertDatabaseMissing('users', ['id' => $student->id]);
+    $this->assertDatabaseMissing('student_progress', ['session_id' => (string) $student->id]);
+    $this->assertDatabaseMissing('student_quiz_answers', ['session_id' => (string) $student->id]);
 });
 
 it('prevents an admin from deleting their own account', function () {

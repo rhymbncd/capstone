@@ -3,10 +3,13 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\StudentProgress;
+use App\Models\StudentQuizAnswer;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class UserController extends Controller
@@ -73,7 +76,19 @@ class UserController extends Controller
             ], 422);
         }
 
-        $user->delete();
+        DB::transaction(function () use ($user) {
+            // student_progress / student_quiz_answers reference the user via
+            // a plain session_id string, not a real foreign key, so their
+            // rows would otherwise be orphaned forever — silently skewing
+            // analytics like Subject Completion Rates with progress that
+            // belongs to a deleted account. teacher_feedback already
+            // cascades via a real FK constraint.
+            $sessionId = (string) $user->id;
+            StudentProgress::where('session_id', $sessionId)->delete();
+            StudentQuizAnswer::where('session_id', $sessionId)->delete();
+
+            $user->delete();
+        });
 
         return response()->json(['message' => 'User deleted successfully.']);
     }
