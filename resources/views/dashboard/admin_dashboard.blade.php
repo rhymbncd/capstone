@@ -598,8 +598,7 @@
                             <option value="teacher">Teacher</option>
                             <option value="admin">Admin</option>
                         </select>
-                        <input type="date" class="filter-select" id="activity-date-from" onchange="filterActivityLog()" title="From date">
-                        <input type="date" class="filter-select" id="activity-date-to" onchange="filterActivityLog()" title="To date">
+                        <input type="date" class="filter-select" id="activity-date" onchange="filterActivityLog()" title="Filter by date">
                     </div>
                     <div class="activity-timeline" id="activity-timeline">
                         <div class="empty-state">

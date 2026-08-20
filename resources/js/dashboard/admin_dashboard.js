@@ -386,7 +386,7 @@ const ACTIVITY_DOT_COLOR = { registration: 'blue', login: 'green', content: 'gre
 let activityLogState = {
     data: [],
     meta: { current_page: 1, last_page: 1, total: 0 },
-    filters: { q: '', type: '', role: '', from: '', to: '' },
+    filters: { q: '', type: '', role: '', date: '' },
 };
 let archivedLogState = {
     data: [],
@@ -400,8 +400,7 @@ async function loadActivityLog(page = 1) {
     if (f.q)    params.set('q', f.q);
     if (f.type) params.set('type', f.type);
     if (f.role) params.set('role', f.role);
-    if (f.from) params.set('from', f.from);
-    if (f.to)   params.set('to', f.to);
+    if (f.date) params.set('date', f.date);
 
     try {
         const data = await apiFetch(`/admin/activity?${params.toString()}`);
@@ -465,8 +464,7 @@ function filterActivityLog() {
     activityLogState.filters.q    = Security.sanitize(document.getElementById('activity-search')?.value || '');
     activityLogState.filters.type = document.getElementById('activity-type-filter')?.value || '';
     activityLogState.filters.role = document.getElementById('activity-role-filter')?.value || '';
-    activityLogState.filters.from = document.getElementById('activity-date-from')?.value || '';
-    activityLogState.filters.to   = document.getElementById('activity-date-to')?.value || '';
+    activityLogState.filters.date = document.getElementById('activity-date')?.value || '';
     loadActivityLog(1);
 }
 
@@ -578,8 +576,7 @@ async function fetchActivityExportRows() {
     if (f.q)    params.set('q', f.q);
     if (f.type) params.set('type', f.type);
     if (f.role) params.set('role', f.role);
-    if (f.from) params.set('from', f.from);
-    if (f.to)   params.set('to', f.to);
+    if (f.date) params.set('date', f.date);
     const data = await apiFetch(`/admin/activity/export-data?${params.toString()}`);
     return data.data;
 }
