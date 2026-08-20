@@ -608,10 +608,10 @@ async function loadSettings() {
         const map  = {};
         rows.forEach(r => { map[r.key] = r.value; });
 
-        // Text fields — Admin Email defaults to the logged-in admin's real
-        // account email until someone explicitly saves a different value.
+        // Text fields — Admin Email is server-rendered from the logged-in
+        // account (see the Blade template) and read-only, so it's not
+        // touched here.
         setField('s-platform-name', map['platform_name'] || '');
-        setField('s-admin-email',   map['admin_email']   || window.__USER__?.email || '');
         setField('s-desc',          map['platform_desc'] || '');
 
         // Notification toggles
@@ -642,17 +642,14 @@ async function saveSettingsToSupabase(pairs) {
 }
 
 async function savePlatformInfo() {
-    const name  = Security.sanitize(document.getElementById('s-platform-name').value);
-    const email = Security.sanitize(document.getElementById('s-admin-email').value);
-    const desc  = Security.sanitize(document.getElementById('s-desc').value);
+    const name = Security.sanitize(document.getElementById('s-platform-name').value);
+    const desc = Security.sanitize(document.getElementById('s-desc').value);
 
-    if (!name || name.length < 2)              return warn('Platform name required', 'Please enter a platform name.');
-    if (email && !Security.isValidEmail(email)) return warn('Invalid email', 'Please enter a valid admin email.');
+    if (!name || name.length < 2) return warn('Platform name required', 'Please enter a platform name.');
 
     try {
         await saveSettingsToSupabase({
             platform_name: name,
-            admin_email:   email,
             platform_desc: desc,
         });
         await logEvent('system', 'Settings Updated', 'Platform info was saved', 'System');

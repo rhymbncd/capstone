@@ -622,7 +622,7 @@
                     <h3>Platform Info</h3>
                     <div class="desc">Basic information about your Math Learning platform</div>
                     <div class="field-row"><label>Platform Name</label><input type="text" id="s-platform-name" placeholder="Math Learning Assistant" maxlength="80" autocomplete="off"></div>
-                    <div class="field-row"><label>Admin Email</label><input type="email" id="s-admin-email" placeholder="admin@mathlearn.edu" maxlength="120" autocomplete="off"></div>
+                    <div class="field-row"><label>Admin Email</label><input type="email" id="s-admin-email" value="{{ auth()->user()->email }}" readonly></div>
                     <div class="field-row"><label>Platform Description</label><textarea id="s-desc" rows="3" placeholder="Describe your platform…" maxlength="500"></textarea></div>
                     <div class="save-row">
                         <button class="btn-cancel">Cancel</button>
