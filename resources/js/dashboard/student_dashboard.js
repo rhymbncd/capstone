@@ -2,6 +2,8 @@
    resources/js/dashboard/student_dashboard.js
    ================================ */
 
+import Swal from 'sweetalert2';
+
 document.addEventListener('DOMContentLoaded', function () {
 
     /* ================================

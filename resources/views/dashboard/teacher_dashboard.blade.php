@@ -9,10 +9,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
 
-    <!-- PDF/Excel export (Reports tab) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/4.2.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    {{-- PDF/Excel export (Reports tab) is lazy-loaded by loadExportLibs() in
+         teacher_dashboard.js on first use, not loaded here. --}}
 
     <!-- Expose environment variables to frontend -->
     <script>
@@ -1102,6 +1100,7 @@
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.js"></script>
+{{-- SweetAlert2 JS is bundled through Vite (teacher_dashboard.js imports it
+     directly), so no CDN script here. --}}
 </body>
 </html>

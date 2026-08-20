@@ -46,7 +46,10 @@ async function sbInsert(table, data) {
             'apikey':        SUPABASE_ANON_KEY,
             'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
             'Content-Type':  'application/json',
-            'Prefer':        'return=representation',
+            // Tables like activity_logs are intentionally locked down to
+            // INSERT-only for the anon key (no SELECT), so this must not ask
+            // PostgREST to hand the row back — that requires SELECT too.
+            'Prefer':        'return=minimal',
         },
         body: JSON.stringify(data),
     });
@@ -54,7 +57,8 @@ async function sbInsert(table, data) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.message || `DB insert failed (${res.status})`);
     }
-    return res.json();
+    const text = await res.text();
+    return text ? JSON.parse(text) : null;
 }
 
 /* ---------------------------------------------------------------
@@ -772,6 +776,10 @@ function showReportExportPicker() {
     const reportSections = getReportSections();
     if (!reportSections.length) return Swal.fire({ icon: 'warning', title: 'No Sections', text: 'Create at least one section first.', confirmButtonColor: '#2563eb' });
 
+    // Kick off the export library download now so it's ready (or nearly so) by the
+    // time the teacher actually picks a format below.
+    loadExportLibs().catch(() => {});
+
     Swal.fire({
         title: 'Export Report',
         text: 'Choose a format to download.',
@@ -783,10 +791,10 @@ function showReportExportPicker() {
         cancelButtonText: 'Cancel',
         confirmButtonColor: '#2563eb',
         denyButtonColor: '#16a34a',
-    }).then(r => {
+    }).then(async r => {
         if (r.isConfirmed) {
             try {
-                buildAndDownloadPdfReport(reportSections);
+                await buildAndDownloadPdfReport(reportSections);
                 logActivity('Report Generated', 'PDF report was downloaded', 'report');
                 toast('success', 'PDF report downloaded!');
             } catch (err) {
@@ -795,7 +803,7 @@ function showReportExportPicker() {
             }
         } else if (r.isDenied) {
             try {
-                buildAndDownloadExcelReport(reportSections);
+                await buildAndDownloadExcelReport(reportSections);
                 logActivity('Report Generated', 'Excel report was downloaded', 'report');
                 toast('success', 'Excel report downloaded!');
             } catch (err) {
@@ -806,8 +814,30 @@ function showReportExportPicker() {
     });
 }
 
+/** Loads jsPDF, jspdf-autotable, and SheetJS from CDN on first use instead of
+ *  eagerly on every page load. autoTable must load after jsPDF since it
+ *  attaches to the jsPDF prototype, so the scripts load sequentially. */
+let exportLibsPromise = null;
+function loadExportLibs() {
+    if (exportLibsPromise) return exportLibsPromise;
+    const sources = [
+        'https://cdnjs.cloudflare.com/ajax/libs/jspdf/4.2.1/jspdf.umd.min.js',
+        'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js',
+        'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
+    ];
+    exportLibsPromise = sources.reduce((chain, src) => chain.then(() => new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = src;
+        script.onload = resolve;
+        script.onerror = () => reject(new Error(`Failed to load ${src}`));
+        document.head.appendChild(script);
+    })), Promise.resolve());
+    return exportLibsPromise;
+}
+
 /** Build a real PDF from the teacher's real sections + students and trigger a download. */
-function buildAndDownloadPdfReport(reportSections) {
+async function buildAndDownloadPdfReport(reportSections) {
+    await loadExportLibs();
     if (!window.jspdf || !window.jspdf.jsPDF) {
         throw new Error('PDF library failed to load. Check your connection and try again.');
     }
@@ -852,7 +882,8 @@ function buildAndDownloadPdfReport(reportSections) {
 }
 
 /** Build a real .xlsx workbook from the teacher's real sections + students and trigger a download. */
-function buildAndDownloadExcelReport(reportSections) {
+async function buildAndDownloadExcelReport(reportSections) {
+    await loadExportLibs();
     if (!window.XLSX) {
         throw new Error('Spreadsheet library failed to load. Check your connection and try again.');
     }

@@ -9,14 +9,12 @@
     <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-    <!-- SweetAlert2 CSS via CDN (reliable fallback) -->
+    <!-- SweetAlert2 CSS via CDN (reliable fallback). The JS is bundled through
+         Vite (admin_dashboard.js imports it directly), so no CDN script here. -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.js"></script>
 
-    <!-- PDF/Excel export (Users, Analytics, Modules, Activity) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/4.2.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    {{-- PDF/Excel export (Users, Analytics, Modules, Activity) is lazy-loaded by
+         loadExportLibs() in admin_dashboard.js on first use, not loaded here. --}}
 
     {{-- Vite: compiles admin_dashboard.css + admin_dashboard.js --}}
     <!-- Expose environment variables to frontend -->

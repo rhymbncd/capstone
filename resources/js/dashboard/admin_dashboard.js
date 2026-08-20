@@ -1170,7 +1170,30 @@ async function renderAnalytics() {
 /* ============================================================
    PDF / EXCEL EXPORTS
    ============================================================ */
-function buildPdfTable(title, headers, rows, filename) {
+
+/** Loads jsPDF, jspdf-autotable, and SheetJS from CDN on first use instead of
+ *  eagerly on every page load. autoTable must load after jsPDF since it
+ *  attaches to the jsPDF prototype, so the scripts load sequentially. */
+let exportLibsPromise = null;
+function loadExportLibs() {
+    if (exportLibsPromise) return exportLibsPromise;
+    const sources = [
+        'https://cdnjs.cloudflare.com/ajax/libs/jspdf/4.2.1/jspdf.umd.min.js',
+        'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js',
+        'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
+    ];
+    exportLibsPromise = sources.reduce((chain, src) => chain.then(() => new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = src;
+        script.onload = resolve;
+        script.onerror = () => reject(new Error(`Failed to load ${src}`));
+        document.head.appendChild(script);
+    })), Promise.resolve());
+    return exportLibsPromise;
+}
+
+async function buildPdfTable(title, headers, rows, filename) {
+    await loadExportLibs();
     if (!window.jspdf || !window.jspdf.jsPDF) {
         throw new Error('PDF library failed to load. Check your connection and try again.');
     }
@@ -1196,7 +1219,8 @@ function buildPdfTable(title, headers, rows, filename) {
     doc.save(filename);
 }
 
-function buildExcelTable(sheetName, headers, rows, filename) {
+async function buildExcelTable(sheetName, headers, rows, filename) {
+    await loadExportLibs();
     if (!window.XLSX) {
         throw new Error('Spreadsheet library failed to load. Check your connection and try again.');
     }
@@ -1206,10 +1230,10 @@ function buildExcelTable(sheetName, headers, rows, filename) {
     XLSX.writeFile(wb, filename);
 }
 
-function exportUsersPdf() {
+async function exportUsersPdf() {
     try {
         const rows = users.map((u, i) => [i + 1, u.name, u.email, u.studentId || '—', capitalize(u.role), u.joined, u.status]);
-        buildPdfTable('User Management Report', ['#', 'Name', 'Email', 'Student ID', 'Role', 'Joined', 'Status'], rows, `users-report-${new Date().toISOString().slice(0, 10)}.pdf`);
+        await buildPdfTable('User Management Report', ['#', 'Name', 'Email', 'Student ID', 'Role', 'Joined', 'Status'], rows, `users-report-${new Date().toISOString().slice(0, 10)}.pdf`);
         logEvent('content', 'Report Generated', 'Users PDF report was downloaded', 'Exported');
         toast('success', 'PDF report downloaded!');
     } catch (err) {
@@ -1218,10 +1242,10 @@ function exportUsersPdf() {
     }
 }
 
-function exportUsersExcel() {
+async function exportUsersExcel() {
     try {
         const rows = users.map((u, i) => [i + 1, u.name, u.email, u.studentId || '—', capitalize(u.role), u.joined, u.status]);
-        buildExcelTable('Users', ['#', 'Name', 'Email', 'Student ID', 'Role', 'Joined', 'Status'], rows, `users-report-${new Date().toISOString().slice(0, 10)}.xlsx`);
+        await buildExcelTable('Users', ['#', 'Name', 'Email', 'Student ID', 'Role', 'Joined', 'Status'], rows, `users-report-${new Date().toISOString().slice(0, 10)}.xlsx`);
         logEvent('content', 'Report Generated', 'Users Excel report was downloaded', 'Exported');
         toast('success', 'Excel report downloaded!');
     } catch (err) {
@@ -1230,10 +1254,10 @@ function exportUsersExcel() {
     }
 }
 
-function exportModulesPdf() {
+async function exportModulesPdf() {
     try {
         const rows = modulesData.map((m, i) => [i + 1, m.title, m.topic, m.status, `${m.completion || 0}%`, m.date]);
-        buildPdfTable('Modules Report', ['#', 'Title', 'Topic', 'Status', 'Completion', 'Date'], rows, `modules-report-${new Date().toISOString().slice(0, 10)}.pdf`);
+        await buildPdfTable('Modules Report', ['#', 'Title', 'Topic', 'Status', 'Completion', 'Date'], rows, `modules-report-${new Date().toISOString().slice(0, 10)}.pdf`);
         logEvent('content', 'Report Generated', 'Modules PDF report was downloaded', 'Exported');
         toast('success', 'PDF report downloaded!');
     } catch (err) {
@@ -1242,10 +1266,10 @@ function exportModulesPdf() {
     }
 }
 
-function exportModulesExcel() {
+async function exportModulesExcel() {
     try {
         const rows = modulesData.map((m, i) => [i + 1, m.title, m.topic, m.status, `${m.completion || 0}%`, m.date]);
-        buildExcelTable('Modules', ['#', 'Title', 'Topic', 'Status', 'Completion', 'Date'], rows, `modules-report-${new Date().toISOString().slice(0, 10)}.xlsx`);
+        await buildExcelTable('Modules', ['#', 'Title', 'Topic', 'Status', 'Completion', 'Date'], rows, `modules-report-${new Date().toISOString().slice(0, 10)}.xlsx`);
         logEvent('content', 'Report Generated', 'Modules Excel report was downloaded', 'Exported');
         toast('success', 'Excel report downloaded!');
     } catch (err) {
@@ -1258,7 +1282,7 @@ function exportModulesExcel() {
 async function exportActivityPdf() {
     try {
         const rows = activityExportRows(await fetchActivityExportRows());
-        buildPdfTable('Activity Log Report', ACTIVITY_EXPORT_HEADERS, rows, `activity-report-${new Date().toISOString().slice(0, 10)}.pdf`);
+        await buildPdfTable('Activity Log Report', ACTIVITY_EXPORT_HEADERS, rows, `activity-report-${new Date().toISOString().slice(0, 10)}.pdf`);
         logEvent('content', 'Report Generated', 'Activity PDF report was downloaded', 'Exported');
         toast('success', 'PDF report downloaded!');
     } catch (err) {
@@ -1280,6 +1304,7 @@ function downloadTextFile(filename, mime, text) {
 
 async function exportActivityCsv() {
     try {
+        await loadExportLibs();
         if (!window.XLSX) throw new Error('Spreadsheet library failed to load. Check your connection and try again.');
         const rows = activityExportRows(await fetchActivityExportRows());
         const sheet = XLSX.utils.aoa_to_sheet([ACTIVITY_EXPORT_HEADERS, ...rows]);
@@ -1329,6 +1354,7 @@ async function computeAnalyticsSummary() {
 async function exportAnalyticsPdf() {
     try {
         const s = await computeAnalyticsSummary();
+        await loadExportLibs();
         if (!window.jspdf || !window.jspdf.jsPDF) {
             throw new Error('PDF library failed to load. Check your connection and try again.');
         }
@@ -1387,6 +1413,7 @@ async function exportAnalyticsPdf() {
 async function exportAnalyticsExcel() {
     try {
         const s = await computeAnalyticsSummary();
+        await loadExportLibs();
         if (!window.XLSX) {
             throw new Error('Spreadsheet library failed to load. Check your connection and try again.');
         }
@@ -1428,6 +1455,10 @@ const EXPORTERS = {
 function showExportPicker(section) {
     const exporter = EXPORTERS[section];
     if (!exporter) return;
+
+    // Kick off the export library download now so it's ready (or nearly so) by the
+    // time the admin actually picks a format below.
+    loadExportLibs().catch(() => {});
 
     Swal.fire({
         title: 'Export Report',

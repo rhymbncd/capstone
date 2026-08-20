@@ -771,7 +771,8 @@
     </button>
 </nav>
 
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.js"></script>
+{{-- SweetAlert2 JS is bundled through Vite (student_dashboard.js imports it
+     directly), so no CDN script here. --}}
 
 <form id="logout-form" method="POST" action="{{ route('student.logout') }}" style="display:none;">
     @csrf
