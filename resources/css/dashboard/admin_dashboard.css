@@ -525,6 +525,13 @@ html, body {
 .nav-item.active .nav-dot { width: 4px; }
 
 .table-wrap { overflow-x: auto; border-radius: 10px; border: 1px solid var(--border); }
+@media (max-width: 639px) {
+    /* Below the breakpoint where the table switches to a fixed 3-column grid,
+       these tables (Users, Top Performing Students) scroll horizontally with
+       no visible cue that Role/Joined/Status/Actions exist off-screen — this
+       inset shadow hints there's more to scroll to. */
+    .table-wrap { position: relative; box-shadow: inset -16px 0 12px -12px rgba(15, 23, 42, 0.14); }
+}
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
 thead { background: var(--bg); }
 th {
