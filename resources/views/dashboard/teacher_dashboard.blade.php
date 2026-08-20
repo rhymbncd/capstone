@@ -519,13 +519,13 @@
                             <div class="section-sub">Overview of students grouped by their registered sections</div>
                         </div>
                         <div style="display:flex;gap:8px">
-                            <button class="success-btn" onclick="openAddSection()" style="display:flex;align-items:center;gap:6px;padding:10px 18px">
+                            <button class="success-btn" onclick="openAddSection()" style="display:flex;align-items:center;gap:6px;padding:10px 18px;width:auto">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px">
                                     <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
                                 </svg>
                                 Add Section
                             </button>
-                            <button class="primary-btn" onclick="showReportExportPicker()" style="display:flex;align-items:center;gap:6px;padding:10px 18px">
+                            <button class="primary-btn" onclick="showReportExportPicker()" style="display:flex;align-items:center;gap:6px;padding:10px 18px;width:auto">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px">
                                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
                                 </svg>

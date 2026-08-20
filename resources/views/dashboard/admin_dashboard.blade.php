@@ -309,7 +309,7 @@
                             <div class="section-label">All Users</div>
                             <div class="section-sub">Search, filter, and manage user accounts</div>
                         </div>
-                        <button class="primary-btn" onclick="showExportPicker('users')" style="display:flex;align-items:center;gap:6px;padding:10px 18px">
+                        <button class="primary-btn" onclick="showExportPicker('users')" style="display:flex;align-items:center;gap:6px;padding:10px 18px;width:auto">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px">
                                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
                             </svg>
@@ -337,17 +337,9 @@
 
             <!-- ANALYTICS PAGE -->
             <div class="page" id="page-analytics">
-                <div class="hero-section" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
-                    <div>
-                        <h1 class="welcome-title">Analytics</h1>
-                        <p class="welcome-subtitle">Platform usage, engagement, and performance metrics</p>
-                    </div>
-                    <button class="primary-btn" onclick="showExportPicker('analytics')" style="display:flex;align-items:center;gap:6px;padding:10px 18px">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-                        </svg>
-                        Export
-                    </button>
+                <div class="hero-section">
+                    <h1 class="welcome-title">Analytics</h1>
+                    <p class="welcome-subtitle">Platform usage, engagement, and performance metrics</p>
                 </div>
                 <div class="metrics-scroll-wrap">
                     <div class="metrics-grid">
@@ -359,8 +351,18 @@
                     </div>
                 </div>
                 <div class="chart-container">
-                    <div class="chart-title">Weekly User Registrations</div>
-                    <div class="chart-sub">New signups per day over the last 7 days</div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+                        <div>
+                            <div class="chart-title">Weekly User Registrations</div>
+                            <div class="chart-sub">New signups per day over the last 7 days</div>
+                        </div>
+                        <button class="primary-btn" onclick="showExportPicker('analytics')" style="display:flex;align-items:center;gap:6px;padding:10px 18px;width:auto">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                            </svg>
+                            Export
+                        </button>
+                    </div>
                     <div id="reg-chart">
                         <div class="empty-state"><div class="empty-icon">📊</div><h4>No registration data yet</h4><p>Charts will populate as users join.</p></div>
                     </div>
@@ -510,7 +512,7 @@
                             <div class="section-label">All Modules</div>
                             <div class="section-sub">Browse, add, and manage learning modules — same library teachers upload to</div>
                         </div>
-                        <button class="primary-btn" onclick="showExportPicker('modules')" style="display:flex;align-items:center;gap:6px;padding:10px 18px">
+                        <button class="primary-btn" onclick="showExportPicker('modules')" style="display:flex;align-items:center;gap:6px;padding:10px 18px;width:auto">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px">
                                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
                             </svg>
@@ -559,19 +561,19 @@
                             <div class="section-sub">Search, filter, and manage the platform's activity log</div>
                         </div>
                         <div style="display:flex;gap:8px;flex-wrap:wrap">
-                            <button class="primary-btn" onclick="openArchivedLogs()" style="display:flex;align-items:center;gap:6px;padding:10px 18px;background:#6b7280">
+                            <button class="primary-btn" onclick="openArchivedLogs()" style="display:flex;align-items:center;gap:6px;padding:10px 18px;width:auto;background:#6b7280">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px">
                                     <path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/>
                                 </svg>
                                 Archived Logs
                             </button>
-                            <button class="primary-btn" onclick="openClearOldLogs()" style="display:flex;align-items:center;gap:6px;padding:10px 18px;background:#f97316">
+                            <button class="primary-btn" onclick="openClearOldLogs()" style="display:flex;align-items:center;gap:6px;padding:10px 18px;width:auto;background:#f97316">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px">
                                     <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/>
                                 </svg>
                                 Clear Old Logs
                             </button>
-                            <button class="primary-btn" onclick="showExportPicker('activity')" style="display:flex;align-items:center;gap:6px;padding:10px 18px">
+                            <button class="primary-btn" onclick="showExportPicker('activity')" style="display:flex;align-items:center;gap:6px;padding:10px 18px;width:auto">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px">
                                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
                                 </svg>
