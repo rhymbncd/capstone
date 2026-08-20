@@ -14,7 +14,6 @@ use App\Http\Controllers\SectionController;
 use App\Http\Controllers\Student\FeedbackController as StudentFeedbackController;
 use App\Http\Controllers\StudentController;
 use App\Http\Controllers\StudentDashboardController;
-use App\Http\Controllers\SupabaseController;
 use App\Http\Controllers\Teacher\FeedbackController as TeacherFeedbackController;
 use App\Http\Controllers\Teacher\SectionController as TeacherSectionController;
 use App\Http\Controllers\Teacher\StudentAnswersController;
@@ -139,12 +138,6 @@ Route::prefix('teacher')->group(function () {
 // teacher dashboard. Writes are handled exclusively by the ownership-checked
 // Teacher\SectionController routes under /teacher/sections/*.
 Route::get('/api/sections', [SectionController::class, 'index'])->name('api.sections');
-Route::get('/api/test', function () {
-    return response()->json(['message' => 'API routing works']);
-})->name('api.test');
-
-// Supabase connection test route
-Route::get('/supabase-test', [SupabaseController::class, 'test'])->name('supabase.test');
 
 // ============ ADMIN ROUTES ============
 Route::prefix('admin')->group(function () {

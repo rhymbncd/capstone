@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\PreventRequestsDuringMaintenance;
 use App\Http\Middleware\RoleMiddleware;
+use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\StudentMiddleware;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -35,6 +36,11 @@ return Application::configure(basePath: dirname(__DIR__))
         // Keep the admin portal reachable during maintenance mode, so the
         // admin who enabled it isn't locked out of turning it back off.
         $middleware->replace(FrameworkPreventRequestsDuringMaintenance::class, PreventRequestsDuringMaintenance::class);
+
+        // Real X-Frame-Options/X-Content-Type-Options/Referrer-Policy
+        // headers on every response, replacing the <meta http-equiv> tags
+        // that browsers never actually enforced for those header names.
+        $middleware->append(SecurityHeaders::class);
     })
 
     ->withExceptions(function (Exceptions $exceptions) {
