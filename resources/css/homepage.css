@@ -16,6 +16,7 @@ body {
     position: relative;
     height: 600px;
     background: url('/image/pexels-photo-6344238.jpeg') center/cover no-repeat;
+    background: image-set(url('/image/pexels-photo-6344238.webp') 1x) center/cover no-repeat;
     display: flex;
     justify-content: center;
     align-items: center;
