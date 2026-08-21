@@ -51,3 +51,14 @@
 /* @import './login/student_login.css'; */
 /* @import './login/teacher_login.css'; */
 /* @import './login/admin_login.css'; */
+
+/* Sign-in/sign-up backdrop only — a deep blue-to-emerald gradient with two
+   soft glow highlights for depth. Deliberately not a design token: this is
+   a one-off backdrop behind a white/primary card, not a reusable accent. */
+.auth-gradient-bg {
+    background:
+        radial-gradient(1000px 700px at 8% -5%, rgba(56, 189, 248, 0.4), transparent 55%),
+        radial-gradient(950px 700px at 105% 108%, rgba(16, 185, 129, 0.45), transparent 55%),
+        linear-gradient(135deg, #0a1c34 0%, #0e3c5c 28%, #106157 60%, #0e7a5c 100%);
+    background-attachment: fixed;
+}

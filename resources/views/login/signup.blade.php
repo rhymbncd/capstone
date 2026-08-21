@@ -9,14 +9,14 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   @vite(['resources/css/app.css', 'resources/js/auth.js'])
 </head>
-<body class="flex min-h-screen flex-col items-center justify-center bg-neutral-50 p-4 font-sans sm:p-6">
+<body class="auth-gradient-bg flex min-h-screen flex-col items-center justify-center p-4 font-sans sm:p-6">
 
-  <a href="{{ route('homepage') }}" class="mb-4 inline-flex w-full max-w-4xl items-center gap-1.5 text-[13px] font-semibold text-neutral-500 transition-colors duration-150 hover:text-neutral-900">
+  <a href="{{ route('homepage') }}" class="mb-4 inline-flex w-full max-w-4xl items-center gap-1.5 text-[13px] font-semibold text-white/70 transition-colors duration-150 hover:text-white">
     <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
     Back to Homepage
   </a>
 
-  <div class="flex w-full max-w-4xl flex-col overflow-hidden rounded-lg shadow-overlay sm:flex-row">
+  <div class="flex w-full max-w-4xl flex-col overflow-hidden rounded-lg shadow-overlay ring-1 ring-white/10 sm:flex-row">
 
     <!-- Branding panel -->
     <div class="flex flex-col items-center justify-center gap-4 bg-primary px-6 py-8 sm:flex-[0_0_36%] sm:py-12">
