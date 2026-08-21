@@ -16,15 +16,35 @@ use Illuminate\Validation\Rule;
 class UserController extends Controller
 {
     /**
-     * List every registered user for the admin "User Management" page.
+     * List every registered user for the admin "User Management" page
+     * (also the source of the Home tab's user-count tiles).
+     *
+     * Supports HTTP conditional requests (ETag/If-None-Match) so a client
+     * polling this on an interval gets a cheap 304 with no body when
+     * nothing has actually changed.
      */
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        $users = User::orderByDesc('created_at')
-            ->get(['id', 'name', 'email', 'student_id', 'role', 'approval_status', 'created_at'])
-            ->map(fn (User $user) => $this->toPayload($user));
+        $rows = User::orderByDesc('created_at')
+            ->get(['id', 'name', 'email', 'student_id', 'role', 'approval_status', 'created_at', 'updated_at']);
 
-        return response()->json(['users' => $users]);
+        $payload = $rows->map(fn (User $user) => $this->toPayload($user));
+
+        // Fingerprinted from id + role + approval status + updated_at, not
+        // the rendered payload, since that's everything the Home tab tiles
+        // and the Users table actually depend on.
+        $fingerprint = $rows
+            ->map(fn (User $user) => $user->id.':'.$user->role.':'.$user->approval_status.':'.$user->updated_at->timestamp)
+            ->implode('|');
+
+        $response = response()->json(['users' => $payload]);
+        $response->setEtag(md5($fingerprint));
+
+        if ($response->isNotModified($request)) {
+            return $response;
+        }
+
+        return $response;
     }
 
     /**

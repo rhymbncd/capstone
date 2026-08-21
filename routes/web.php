@@ -111,6 +111,7 @@ Route::prefix('teacher')->group(function () {
         Route::prefix('students')->group(function () {
             Route::get('/', [StudentController::class, 'getTeacherStudents'])->name('teacher.students.index');
             Route::get('/approvals', [StudentApprovalController::class, 'index'])->name('teacher.student-approvals');
+            Route::get('/approvals-data', [StudentApprovalController::class, 'approvalsData'])->name('teacher.student-approvals.data');
             Route::post('/approve/{user}', [StudentApprovalController::class, 'approve'])->name('teacher.student.approve');
             Route::post('/reject/{user}', [StudentApprovalController::class, 'reject'])->name('teacher.student.reject');
             Route::post('/reset/{user}', [StudentApprovalController::class, 'reset'])->name('teacher.student.reset');
@@ -157,6 +158,7 @@ Route::prefix('admin')->group(function () {
         // Teacher Approvals
         Route::prefix('teachers')->group(function () {
             Route::get('/approvals', [TeacherApprovalController::class, 'index'])->name('admin.teacher-approvals');
+            Route::get('/approvals-data', [TeacherApprovalController::class, 'approvalsData'])->name('admin.teacher-approvals.data');
             Route::post('/approve/{user}', [TeacherApprovalController::class, 'approve'])->name('admin.teacher.approve');
             Route::post('/reject/{user}', [TeacherApprovalController::class, 'reject'])->name('admin.teacher.reject');
             Route::post('/reset/{user}', [TeacherApprovalController::class, 'reset'])->name('admin.teacher.reset');

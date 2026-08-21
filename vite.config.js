@@ -13,6 +13,14 @@ export default defineConfig({
                 // e.g. the password-visibility toggle used by x-input.
                 'resources/js/auth.js',
 
+                // Shared interval-poller used by dashboards to auto-refresh
+                // data without a manual page reload — see startPolling()/
+                // pollJson() in this file for how it works.
+                'resources/js/polling.js',
+
+                // Shared live-poller for the Teacher/Student approval-queue pages.
+                'resources/js/approval-queue.js',
+
                 'resources/css/homepage.css',
                 'resources/js/homepage.js',
 

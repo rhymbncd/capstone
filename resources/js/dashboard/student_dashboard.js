@@ -675,22 +675,24 @@ document.addEventListener('DOMContentLoaded', function () {
        ================================ */
     const FEEDBACK_ICONS = { encouragement: '💪', improvement: '📈', praise: '🌟', reminder: '⏰' };
 
+    // Last-known feedback list, reused when a poll comes back 304 (nothing
+    // changed) so every call below has real data to work with regardless of
+    // whether this particular tick actually hit the network.
+    let lastFeedbackItems = [];
+
     async function loadFeedback({ silent = false } = {}) {
-        let items = [];
         try {
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
-            const res = await fetch('/student/feedback', {
-                headers: { 'Accept': 'application/json', ...(csrfToken && { 'X-CSRF-TOKEN': csrfToken }) },
-                credentials: 'same-origin',
-            });
-            if (res.ok) {
-                const data = await res.json();
-                items = Array.isArray(data.feedback) ? data.feedback : [];
+            const data = await pollJson('/student/feedback');
+            if (data !== null) {
+                lastFeedbackItems = Array.isArray(data.feedback) ? data.feedback : [];
             }
+            // data === null means 304 Not Modified — lastFeedbackItems is already current.
         } catch (e) {
             console.warn('Could not load feedback:', e.message);
+            return; // keep showing whatever was last loaded rather than clearing the UI
         }
 
+        const items = lastFeedbackItems;
         const unreadCount = items.filter(f => !f.read).length;
         [document.getElementById('feedback-unread-badge'), document.getElementById('feedback-unread-badge-mobile')].forEach(badge => {
             if (!badge) return;
@@ -731,6 +733,10 @@ document.addEventListener('DOMContentLoaded', function () {
                     },
                     credentials: 'same-origin',
                 });
+                // Reflect the read state locally too, so the next poll tick
+                // (which may come back 304, i.e. no fresh data at all) doesn't
+                // think these are still unread and re-send this request.
+                items.forEach(f => { f.read = true; });
                 [document.getElementById('feedback-unread-badge'), document.getElementById('feedback-unread-badge-mobile')]
                     .forEach(b => { if (b) b.style.display = 'none'; });
             } catch (e) {
@@ -745,6 +751,17 @@ document.addEventListener('DOMContentLoaded', function () {
     // Load feedback quietly on page load so the unread badge is accurate
     // even before the student opens the Feedback tab.
     loadFeedback({ silent: true });
+
+    // Keep feedback fresh without a manual reload: every 30s, check for new
+    // messages. When the Feedback tab isn't the one currently open, this is
+    // a silent badge-only check (mirrors the initial load above); when it
+    // IS open, a poll tick behaves exactly like opening the tab — render
+    // any new messages and mark them read. Pauses automatically while the
+    // browser tab is hidden (see resources/js/polling.js).
+    startPolling(() => {
+        const feedbackTabOpen = document.getElementById('page-feedback')?.classList.contains('active');
+        return loadFeedback({ silent: !feedbackTabOpen });
+    }, 30000);
 
     /* ================================
        SUMMATIVE TEST LOCKING LOGIC

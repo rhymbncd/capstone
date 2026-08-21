@@ -20,6 +20,11 @@ class ActivityLogController extends Controller
     /**
      * Paginated, searchable, filterable activity log listing for the admin
      * dashboard's Activity tab. Active (non-archived) logs by default.
+     *
+     * Supports HTTP conditional requests (ETag/If-None-Match) so a client
+     * polling this on an interval — watching for new platform events —
+     * gets a cheap 304 with no body when nothing on this exact page/filter
+     * combination has actually changed.
      */
     public function index(Request $request): JsonResponse
     {
@@ -44,8 +49,19 @@ class ActivityLogController extends Controller
         $query = ($validated['archived'] ?? false) ? $query->archived() : $query->active();
 
         $logs = $query->orderByDesc('created_at')->paginate(self::PER_PAGE)->withQueryString();
+        $counters = $this->todayCounters();
 
-        return response()->json([
+        // Fingerprinted from what can actually change this exact page's
+        // meaning — the id/created_at/archived_at of the rows actually
+        // returned, the total match count, and today's counters — not the
+        // rendered payload (which includes "X minutes ago" style text that
+        // drifts on its own and would defeat 304 caching entirely).
+        $rowFingerprint = collect($logs->items())
+            ->map(fn (ActivityLog $log) => $log->id.':'.$log->created_at?->timestamp.':'.($log->archived_at?->timestamp ?? 'active'))
+            ->implode('|');
+        $fingerprint = $rowFingerprint.'#'.$logs->total().'#'.implode(',', $counters);
+
+        $response = response()->json([
             'data' => collect($logs->items())->map(fn (ActivityLog $log) => $this->toPayload($log)),
             'meta' => [
                 'current_page' => $logs->currentPage(),
@@ -53,8 +69,15 @@ class ActivityLogController extends Controller
                 'total' => $logs->total(),
                 'per_page' => $logs->perPage(),
             ],
-            'counters' => $this->todayCounters(),
+            'counters' => $counters,
         ]);
+        $response->setEtag(md5($fingerprint));
+
+        if ($response->isNotModified($request)) {
+            return $response;
+        }
+
+        return $response;
     }
 
     /**

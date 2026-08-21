@@ -13,16 +13,36 @@ class FeedbackController extends Controller
 {
     /**
      * List feedback this teacher has sent.
+     *
+     * Supports HTTP conditional requests (ETag/If-None-Match) so a client
+     * polling this on an interval gets a cheap 304 with no body when
+     * nothing has actually changed.
      */
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        $feedback = TeacherFeedback::where('teacher_id', Auth::id())
+        $rows = TeacherFeedback::where('teacher_id', Auth::id())
             ->with('student:id,name')
             ->latest()
-            ->get()
-            ->map(fn (TeacherFeedback $f) => $this->toPayload($f));
+            ->get();
 
-        return response()->json(['feedback' => $feedback]);
+        $payload = $rows->map(fn (TeacherFeedback $f) => $this->toPayload($f));
+
+        // Fingerprinted from id + read-state only — not the rendered
+        // payload — because `date` ("3 minutes ago") changes every minute
+        // on its own and would otherwise defeat 304 caching entirely even
+        // when nothing about the feedback itself actually changed.
+        $fingerprint = $rows
+            ->map(fn (TeacherFeedback $f) => $f->id.':'.($f->read_at?->timestamp ?? 'unread'))
+            ->implode('|');
+
+        $response = response()->json(['feedback' => $payload]);
+        $response->setEtag(md5($fingerprint));
+
+        if ($response->isNotModified($request)) {
+            return $response;
+        }
+
+        return $response;
     }
 
     /**

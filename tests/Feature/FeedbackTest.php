@@ -149,6 +149,23 @@ it('marks all of a student\'s feedback as read', function () {
     expect(TeacherFeedback::where('student_id', $student->id)->whereNull('read_at')->count())->toBe(0);
 });
 
+it('returns 304 for a teacher polling their feedback list with an unchanged ETag', function () {
+    $teacher = User::factory()->teacher()->create(['approval_status' => 'approved']);
+    $section = Section::factory()->create(['teacher_id' => $teacher->id]);
+    $student = User::factory()->create(['role' => 'student', 'approval_status' => 'approved', 'section_id' => $section->id]);
+    TeacherFeedback::factory()->create(['teacher_id' => $teacher->id, 'student_id' => $student->id]);
+
+    $first = $this->actingAs($teacher)->getJson(route('teacher.feedback.index'));
+    $first->assertOk();
+    $etag = $first->headers->get('ETag');
+    expect($etag)->not->toBeNull();
+
+    $second = $this->actingAs($teacher)->getJson(route('teacher.feedback.index'), ['If-None-Match' => $etag]);
+
+    $second->assertStatus(304);
+    expect($second->getContent())->toBe('');
+});
+
 it('does not let a student mark another student\'s feedback as read via mismatched ownership', function () {
     $teacher = User::factory()->teacher()->create(['approval_status' => 'approved']);
     $section = Section::factory()->create(['teacher_id' => $teacher->id]);

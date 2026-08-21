@@ -584,7 +584,12 @@ tr:hover td { background: #fafbff; }
     transition: all 0.15s; margin-right: 4px;
 }
 .tbl-btn.edit:hover { background: var(--blue-light); border-color: var(--blue-mid); color: var(--blue); }
-.tbl-btn.del:hover  { background: var(--red-light);  border-color: #fca5a5; color: var(--red); }
+.tbl-btn.view       { color: var(--blue); }
+.tbl-btn.view:hover { background: var(--blue-light); border-color: var(--blue-mid); }
+/* Destructive at rest, not just on hover — a user scanning the table
+   without hovering couldn't previously tell this apart from Edit/View. */
+.tbl-btn.del       { background: var(--red-light); border-color: #fca5a5; color: var(--red); }
+.tbl-btn.del:hover { background: #fee2e2; }
 
 .chart-container {
     background: var(--card);
@@ -693,8 +698,8 @@ tr:hover td { background: #fafbff; }
     font-weight: 700;
     cursor: pointer;
     border: none;
-    background: #fef2f2;
-    color: #ef4444;
+    background: var(--red-light);
+    color: var(--red);
     transition: background 0.15s;
 }
 .btn-delete:hover {

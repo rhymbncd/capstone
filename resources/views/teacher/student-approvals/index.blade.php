@@ -59,11 +59,11 @@
 
         <div class="card">
             <div class="card-header">
-                <h2>Pending <span class="badge badge-pending">{{ $pendingStudents->total() }}</span></h2>
+                <h2>Pending <span class="badge badge-pending" id="badge-pending">{{ $pendingStudents->total() }}</span></h2>
             </div>
             <table>
                 <thead><tr><th>Name</th><th>Email</th><th>Student ID</th><th>Requested</th><th>Actions</th></tr></thead>
-                <tbody>
+                <tbody id="pending-tbody" data-page="{{ $pendingStudents->currentPage() }}">
                     @forelse ($pendingStudents as $student)
                         <tr>
                             <td>{{ $student->name }}</td>
@@ -91,7 +91,7 @@
 
         <div class="card">
             <div class="card-header">
-                <h2>Approved <span class="badge badge-approved">{{ $approvedStudents->total() }}</span></h2>
+                <h2>Approved <span class="badge badge-approved" id="badge-approved">{{ $approvedStudents->total() }}</span></h2>
             </div>
             <table>
                 <thead><tr><th>Name</th><th>Email</th><th>Student ID</th><th>Section</th><th>Actions</th></tr></thead>
@@ -119,7 +119,7 @@
 
         <div class="card">
             <div class="card-header">
-                <h2>Rejected <span class="badge badge-rejected">{{ $rejectedStudents->total() }}</span></h2>
+                <h2>Rejected <span class="badge badge-rejected" id="badge-rejected">{{ $rejectedStudents->total() }}</span></h2>
             </div>
             <table>
                 <thead><tr><th>Name</th><th>Email</th><th>Student ID</th><th>Actions</th></tr></thead>
@@ -144,5 +144,21 @@
             <div class="pagination">{{ $rejectedStudents->links() }}</div>
         </div>
     </div>
+
+    @vite(['resources/js/polling.js', 'resources/js/approval-queue.js'])
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            initApprovalQueuePolling({
+                dataUrl: @json(route('teacher.student-approvals.data')),
+                pendingBadgeId: 'badge-pending',
+                approvedBadgeId: 'badge-approved',
+                rejectedBadgeId: 'badge-rejected',
+                pendingTbodyId: 'pending-tbody',
+                columns: ['name', 'email', 'studentId', 'requestedAgo'],
+                emptyColspan: 5,
+                emptyMessage: 'No pending students.',
+            });
+        });
+    </script>
 </body>
 </html>

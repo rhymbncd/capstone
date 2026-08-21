@@ -53,6 +53,7 @@
 
     @vite([
         'resources/css/dashboard/teacher_dashboard.css',
+        'resources/js/polling.js',
         'resources/js/dashboard/teacher_dashboard.js'
     ])
 </head>

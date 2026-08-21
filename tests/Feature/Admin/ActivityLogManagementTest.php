@@ -176,3 +176,34 @@ it('blocks guests entirely', function () {
 
     $response->assertUnauthorized();
 });
+
+it('returns 304 with an empty body when polled again with the same ETag', function () {
+    $admin = actingAdmin();
+    ActivityLog::factory()->count(3)->create();
+
+    $first = $this->actingAs($admin)->getJson(route('admin.activity.index'));
+    $first->assertOk();
+    $etag = $first->headers->get('ETag');
+    expect($etag)->not->toBeNull();
+
+    $second = $this->actingAs($admin)->getJson(route('admin.activity.index'), ['If-None-Match' => $etag]);
+
+    $second->assertStatus(304);
+    expect($second->getContent())->toBe('');
+});
+
+it('returns a fresh ETag and payload once a new event is recorded', function () {
+    $admin = actingAdmin();
+    ActivityLog::factory()->create();
+
+    $first = $this->actingAs($admin)->getJson(route('admin.activity.index'));
+    $etag = $first->headers->get('ETag');
+
+    ActivityLog::factory()->create(['title' => 'Brand New Event']);
+
+    $second = $this->actingAs($admin)->getJson(route('admin.activity.index'), ['If-None-Match' => $etag]);
+
+    $second->assertOk();
+    expect($second->headers->get('ETag'))->not->toBe($etag);
+    expect(collect($second->json('data'))->pluck('title'))->toContain('Brand New Event');
+});

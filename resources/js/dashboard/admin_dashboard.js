@@ -167,14 +167,24 @@ async function apiFetch(url, options = {}) {
 }
 
 /** Fetch all real platform users (Laravel-backed, not the disconnected admin_users table) */
+let lastUsersPayload = null;
+
 async function loadUsers() {
     try {
-        const data = await apiFetch('/admin/users');
-        users = Array.isArray(data.users) ? data.users : [];
+        const data = await pollJson('/admin/users');
+        if (data !== null) {
+            lastUsersPayload = data;
+        }
+        // data === null means 304 Not Modified — lastUsersPayload is already current.
     } catch (err) {
         console.warn('loadUsers error:', err.message);
-        users = [];
+        if (!lastUsersPayload) {
+            users = [];
+        }
+        return; // keep showing whatever was last loaded rather than clearing the UI
     }
+
+    users = Array.isArray(lastUsersPayload.users) ? lastUsersPayload.users : [];
 }
 
 function getFilteredUsers() {
@@ -312,20 +322,29 @@ async function deleteUser(id) {
    ============================================================ */
 
 /** Load the most recent activity logs (Home tab preview) from the authenticated backend. */
+let lastActivityPreviewPayload = null;
+
 async function loadActivity() {
     try {
-        const data = await apiFetch('/admin/activity');
-        activity = data.data.map(r => ({
-            id:    r.id,
-            type:  r.type,
-            title: r.title,
-            sub:   r.sub   || '',
-            badge: r.badge || 'Event',
-            time:  r.time  || '',
-        }));
+        const data = await pollJson('/admin/activity');
+        if (data !== null) {
+            lastActivityPreviewPayload = data;
+        }
+        // data === null means 304 Not Modified — lastActivityPreviewPayload is already current.
     } catch (err) {
         console.warn('loadActivity error:', err.message);
+        return; // keep showing whatever was last loaded rather than clearing the UI
     }
+
+    if (!lastActivityPreviewPayload) return;
+    activity = lastActivityPreviewPayload.data.map(r => ({
+        id:    r.id,
+        type:  r.type,
+        title: r.title,
+        sub:   r.sub   || '',
+        badge: r.badge || 'Event',
+        time:  r.time  || '',
+    }));
 }
 
 /**
@@ -380,6 +399,7 @@ let archivedLogState = {
     meta: { current_page: 1, last_page: 1, total: 0 },
 };
 let activityLogSearchTimer = null;
+let lastActivityLogPayload = null;
 
 async function loadActivityLog(page = 1) {
     const f = activityLogState.filters;
@@ -390,16 +410,25 @@ async function loadActivityLog(page = 1) {
     if (f.date) params.set('date', f.date);
 
     try {
-        const data = await apiFetch(`/admin/activity?${params.toString()}`);
-        activityLogState.data = data.data;
-        activityLogState.meta = data.meta;
-        setText('ac-events', data.counters.eventsToday);
-        setText('ac-logins', data.counters.loginsToday);
-        setText('ac-errors', data.counters.errorsToday);
+        const data = await pollJson(`/admin/activity?${params.toString()}`);
+        if (data !== null) {
+            lastActivityLogPayload = data;
+        }
+        // data === null means 304 Not Modified — lastActivityLogPayload is already current.
     } catch (err) {
         console.warn('loadActivityLog error:', err.message);
-        activityLogState.data = [];
+        if (!lastActivityLogPayload) {
+            activityLogState.data = [];
+            renderActivityLog();
+        }
+        return; // keep showing whatever was last loaded rather than clearing the UI
     }
+
+    activityLogState.data = lastActivityLogPayload.data;
+    activityLogState.meta = lastActivityLogPayload.meta;
+    setText('ac-events', lastActivityLogPayload.counters.eventsToday);
+    setText('ac-logins', lastActivityLogPayload.counters.loginsToday);
+    setText('ac-errors', lastActivityLogPayload.counters.errorsToday);
     renderActivityLog();
 }
 
@@ -825,6 +854,7 @@ async function loadAndRenderContent() {
 
     try {
         contents = await fetchContentsFromSupabase();
+        lastContentsSnapshot = JSON.stringify(contents);
         renderContent();
     } catch (err) {
         console.error('Content load error:', err);
@@ -840,6 +870,24 @@ async function loadAndRenderContent() {
     } finally {
         contentLoading = false;
     }
+}
+
+/**
+ * Content tab lives entirely on direct Supabase reads (storage bucket list +
+ * module_status table), with no Laravel route in the loop — so there's no
+ * server-side ETag/304 to lean on here like the other auto-refresh pages.
+ * Instead: fetch on the same interval, but skip the re-render entirely
+ * unless the fetched data actually differs from what's already shown.
+ */
+let lastContentsSnapshot = null;
+
+async function pollContentTick() {
+    const fresh = await fetchContentsFromSupabase();
+    const snapshot = JSON.stringify(fresh);
+    if (snapshot === lastContentsSnapshot) return;
+    lastContentsSnapshot = snapshot;
+    contents = fresh;
+    renderContent();
 }
 
 function renderContent() {
@@ -1732,6 +1780,7 @@ async function loadAndRenderModules() {
 
     try {
         modulesData = await fetchModulesFromSupabase();
+        lastModulesSnapshot = JSON.stringify(modulesData);
         renderModules();
     } catch (err) {
         console.error('Supabase load error:', err);
@@ -1748,6 +1797,22 @@ async function loadAndRenderModules() {
         setText('mod-total', '0'); setText('mod-published', '0');
         setText('mod-draft', '0'); setText('mod-completion', '0%');
     }
+}
+
+/**
+ * Same direct-Supabase situation as pollContentTick() above — no Laravel
+ * route to attach an ETag to, so this polls on an interval and skips the
+ * re-render unless the fetched data actually changed.
+ */
+let lastModulesSnapshot = null;
+
+async function pollModulesTick() {
+    const fresh = await fetchModulesFromSupabase();
+    const snapshot = JSON.stringify(fresh);
+    if (snapshot === lastModulesSnapshot) return;
+    lastModulesSnapshot = snapshot;
+    modulesData = fresh;
+    renderModules();
 }
 
 function renderModules() {
@@ -1822,7 +1887,7 @@ function renderModules() {
                 <div class="module-card-actions">
                     <button class="tbl-btn view" onclick="viewModule('${Security.escape(String(m.id))}')">View</button>
                     <button class="tbl-btn edit" onclick="editModule('${Security.escape(String(m.id))}')">Edit</button>
-                    <button class="tbl-btn feedback" onclick="deleteModule('${Security.escape(String(m.id))}')">Delete</button>
+                    <button class="tbl-btn del" onclick="deleteModule('${Security.escape(String(m.id))}')">Delete</button>
                 </div>
             </div>
         </div>`;
@@ -2171,4 +2236,38 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Load everything from Supabase, then render
     initDashboard();
+
+    // Keep the Activity Log live without a manual reload: every 30s, check
+    // for new platform events — but only while the Activity tab is open AND
+    // the admin is viewing page 1 (the newest events), so a poll-triggered
+    // refresh never reshuffles rows out from under someone paging through
+    // older history. Pauses automatically while the browser tab is hidden
+    // (see resources/js/polling.js).
+    startPolling(() => {
+        const activityTabOpen = document.getElementById('page-activity')?.classList.contains('active');
+        if (!activityTabOpen || activityLogState.meta.current_page !== 1) return;
+        return loadActivityLog(1);
+    }, 30000);
+
+    // Keep the Home tab's stat tiles + recent-activity preview live without
+    // a manual reload — same 30s cadence, only while Home is the open tab.
+    startPolling(async () => {
+        if (!document.getElementById('page-home')?.classList.contains('active')) return;
+        await Promise.all([loadUsers(), loadActivity()]);
+        renderHome();
+    }, 30000);
+
+    // Content and Modules tabs read directly from Supabase (no Laravel
+    // route in the loop), so there's no server ETag to lean on — each tick
+    // just re-fetches and skips the re-render if nothing actually changed
+    // (see pollContentTick()/pollModulesTick()).
+    startPolling(() => {
+        if (!document.getElementById('page-content')?.classList.contains('active')) return;
+        return pollContentTick();
+    }, 30000);
+
+    startPolling(() => {
+        if (!document.getElementById('page-modules')?.classList.contains('active')) return;
+        return pollModulesTick();
+    }, 30000);
 });

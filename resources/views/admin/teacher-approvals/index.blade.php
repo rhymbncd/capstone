@@ -59,11 +59,11 @@
 
         <div class="card">
             <div class="card-header">
-                <h2>Pending <span class="badge badge-pending">{{ $pendingTeachers->total() }}</span></h2>
+                <h2>Pending <span class="badge badge-pending" id="badge-pending">{{ $pendingTeachers->total() }}</span></h2>
             </div>
             <table>
                 <thead><tr><th>Name</th><th>Email</th><th>Requested</th><th>Actions</th></tr></thead>
-                <tbody>
+                <tbody id="pending-tbody" data-page="{{ $pendingTeachers->currentPage() }}">
                     @forelse ($pendingTeachers as $teacher)
                         <tr>
                             <td>{{ $teacher->name }}</td>
@@ -90,7 +90,7 @@
 
         <div class="card">
             <div class="card-header">
-                <h2>Approved <span class="badge badge-approved">{{ $approvedTeachers->total() }}</span></h2>
+                <h2>Approved <span class="badge badge-approved" id="badge-approved">{{ $approvedTeachers->total() }}</span></h2>
             </div>
             <table>
                 <thead><tr><th>Name</th><th>Email</th><th>Actions</th></tr></thead>
@@ -116,7 +116,7 @@
 
         <div class="card">
             <div class="card-header">
-                <h2>Rejected <span class="badge badge-rejected">{{ $rejectedTeachers->total() }}</span></h2>
+                <h2>Rejected <span class="badge badge-rejected" id="badge-rejected">{{ $rejectedTeachers->total() }}</span></h2>
             </div>
             <table>
                 <thead><tr><th>Name</th><th>Email</th><th>Actions</th></tr></thead>
@@ -140,5 +140,21 @@
             <div class="pagination">{{ $rejectedTeachers->links() }}</div>
         </div>
     </div>
+
+    @vite(['resources/js/polling.js', 'resources/js/approval-queue.js'])
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            initApprovalQueuePolling({
+                dataUrl: @json(route('admin.teacher-approvals.data')),
+                pendingBadgeId: 'badge-pending',
+                approvedBadgeId: 'badge-approved',
+                rejectedBadgeId: 'badge-rejected',
+                pendingTbodyId: 'pending-tbody',
+                columns: ['name', 'email', 'requestedAgo'],
+                emptyColspan: 4,
+                emptyMessage: 'No pending teachers.',
+            });
+        });
+    </script>
 </body>
 </html>

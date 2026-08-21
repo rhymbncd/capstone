@@ -22,6 +22,36 @@ it('lists real registered users for the admin', function () {
     expect($ids)->toContain($admin->id, $student->id);
 });
 
+it('returns 304 when the admin polls the user list with an unchanged ETag', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    User::factory()->create(['role' => 'student', 'approval_status' => 'approved']);
+
+    $first = $this->actingAs($admin)->getJson(route('admin.users.index'));
+    $first->assertOk();
+    $etag = $first->headers->get('ETag');
+    expect($etag)->not->toBeNull();
+
+    $second = $this->actingAs($admin)->getJson(route('admin.users.index'), ['If-None-Match' => $etag]);
+
+    $second->assertStatus(304);
+    expect($second->getContent())->toBe('');
+});
+
+it('returns a fresh ETag once a user is updated', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $student = User::factory()->create(['role' => 'student', 'approval_status' => 'pending']);
+
+    $first = $this->actingAs($admin)->getJson(route('admin.users.index'));
+    $etag = $first->headers->get('ETag');
+
+    $student->update(['approval_status' => 'approved']);
+
+    $second = $this->actingAs($admin)->getJson(route('admin.users.index'), ['If-None-Match' => $etag]);
+
+    $second->assertOk();
+    expect($second->headers->get('ETag'))->not->toBe($etag);
+});
+
 it('includes each student\'s student ID for the admin', function () {
     $admin = User::factory()->create(['role' => 'admin']);
     $section = Section::factory()->create();

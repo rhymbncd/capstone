@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\StudentProgress;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 
@@ -37,8 +38,13 @@ class StudentController extends Controller
     /**
      * Get all students enrolled in the authenticated teacher's sections,
      * with real completion progress computed from student_progress.
+     *
+     * Supports HTTP conditional requests (ETag/If-None-Match) so a client
+     * polling this on an interval — e.g. a teacher watching the roster live
+     * during class — gets a cheap 304 with no body when nothing has
+     * actually changed.
      */
-    public function getTeacherStudents(): JsonResponse
+    public function getTeacherStudents(Request $request): JsonResponse
     {
         $teacher = Auth::user();
 
@@ -59,7 +65,16 @@ class StudentController extends Controller
             ->whereIn('session_id', $studentIds)
             ->whereIn('phase', ['pre', 'post'])
             ->whereIn('topic_key', self::CURRICULUM_TOPICS)
-            ->get(['session_id', 'topic_key', 'phase', 'score', 'total']);
+            ->get(['session_id', 'topic_key', 'phase', 'score', 'total', 'updated_at']);
+
+        // Fingerprinted from what can actually change the response's
+        // meaning — roster membership/approval + the most recent progress
+        // write — not the rendered payload (which includes "X minutes ago"
+        // style text that drifts on its own and would defeat 304 entirely).
+        $rosterFingerprint = $students
+            ->map(fn (User $s) => $s->id.':'.$s->approval_status.':'.$s->updated_at->timestamp)
+            ->implode('|');
+        $progressFingerprint = $allProgressRows->count().':'.optional($allProgressRows->max('updated_at'))?->timestamp;
 
         $progressRows = $allProgressRows->groupBy('session_id');
 
@@ -86,10 +101,17 @@ class StudentController extends Controller
             ];
         });
 
-        return response()->json([
+        $response = response()->json([
             'students' => $studentData,
             'subjectCompletion' => $this->subjectCompletion($allProgressRows, $students->count()),
         ]);
+        $response->setEtag(md5($rosterFingerprint.'#'.$progressFingerprint));
+
+        if ($response->isNotModified($request)) {
+            return $response;
+        }
+
+        return $response;
     }
 
     /**

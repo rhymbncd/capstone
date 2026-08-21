@@ -446,6 +446,72 @@ class TeacherApprovalTest extends TestCase
         $this->assertAuthenticatedAs($student);
     }
 
+    public function test_teacher_student_approvals_data_returns_304_with_unchanged_etag(): void
+    {
+        $teacher = User::factory()->teacher()->create(['approval_status' => 'approved']);
+        $section = Section::factory()->create(['teacher_id' => $teacher->id]);
+        User::factory()->create(['role' => 'student', 'approval_status' => 'pending', 'section_id' => $section->id]);
+
+        $first = $this->actingAs($teacher)->getJson(route('teacher.student-approvals.data'));
+        $first->assertOk();
+        $etag = $first->headers->get('ETag');
+        $this->assertNotNull($etag);
+
+        $second = $this->actingAs($teacher)->getJson(route('teacher.student-approvals.data'), ['If-None-Match' => $etag]);
+
+        $second->assertStatus(304);
+        $this->assertSame('', $second->getContent());
+    }
+
+    public function test_teacher_student_approvals_data_returns_fresh_etag_once_a_student_registers(): void
+    {
+        $teacher = User::factory()->teacher()->create(['approval_status' => 'approved']);
+        $section = Section::factory()->create(['teacher_id' => $teacher->id]);
+
+        $first = $this->actingAs($teacher)->getJson(route('teacher.student-approvals.data'));
+        $etag = $first->headers->get('ETag');
+
+        User::factory()->create(['role' => 'student', 'approval_status' => 'pending', 'section_id' => $section->id, 'name' => 'Brand New Applicant']);
+
+        $second = $this->actingAs($teacher)->getJson(route('teacher.student-approvals.data'), ['If-None-Match' => $etag]);
+
+        $second->assertOk();
+        $this->assertNotSame($etag, $second->headers->get('ETag'));
+        $this->assertContains('Brand New Applicant', collect($second->json('pending'))->pluck('name'));
+    }
+
+    public function test_admin_teacher_approvals_data_returns_304_with_unchanged_etag(): void
+    {
+        $admin = User::factory()->admin()->create();
+        User::factory()->teacher()->create(['approval_status' => 'pending']);
+
+        $first = $this->actingAs($admin)->getJson(route('admin.teacher-approvals.data'));
+        $first->assertOk();
+        $etag = $first->headers->get('ETag');
+        $this->assertNotNull($etag);
+
+        $second = $this->actingAs($admin)->getJson(route('admin.teacher-approvals.data'), ['If-None-Match' => $etag]);
+
+        $second->assertStatus(304);
+        $this->assertSame('', $second->getContent());
+    }
+
+    public function test_admin_teacher_approvals_data_returns_fresh_etag_once_a_teacher_registers(): void
+    {
+        $admin = User::factory()->admin()->create();
+
+        $first = $this->actingAs($admin)->getJson(route('admin.teacher-approvals.data'));
+        $etag = $first->headers->get('ETag');
+
+        User::factory()->teacher()->create(['approval_status' => 'pending', 'name' => 'Brand New Teacher']);
+
+        $second = $this->actingAs($admin)->getJson(route('admin.teacher-approvals.data'), ['If-None-Match' => $etag]);
+
+        $second->assertOk();
+        $this->assertNotSame($etag, $second->headers->get('ETag'));
+        $this->assertContains('Brand New Teacher', collect($second->json('pending'))->pluck('name'));
+    }
+
     public function test_teacher_can_reset_student_approval_status_to_pending(): void
     {
         $teacher = User::factory()->teacher()->create(['approval_status' => 'approved']);

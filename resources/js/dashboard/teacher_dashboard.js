@@ -336,22 +336,17 @@ async function apiFetch(url, options = {}) {
  */
 async function loadStudents() {
     try {
-        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
-        const res = await fetch('/teacher/students', {
-            headers: {
-                'Accept': 'application/json',
-                ...(csrfToken && { 'X-CSRF-TOKEN': csrfToken }),
-            },
-            credentials: 'same-origin',
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        students = Array.isArray(data.students) ? data.students : [];
-        subjectCompletion = Array.isArray(data.subjectCompletion) ? data.subjectCompletion : [];
+        const data = await pollJson('/teacher/students');
+        if (data !== null) {
+            // data === null means 304 Not Modified — students/subjectCompletion
+            // are already correct from the last successful load, leave them be.
+            students = Array.isArray(data.students) ? data.students : [];
+            subjectCompletion = Array.isArray(data.subjectCompletion) ? data.subjectCompletion : [];
+        }
     } catch (e) {
+        // Keep showing whatever was last successfully loaded rather than
+        // wiping the roster to empty over one failed poll tick.
         console.warn('Could not load students:', e.message);
-        students = [];
-        subjectCompletion = [];
     }
 }
 let subjectCompletion = [];
@@ -536,14 +531,24 @@ function viewStudent(id) {
    ============================================================ */
 
 /** Load real feedback this teacher has sent (from the database). */
+let lastFeedbacksPayload = null;
+
 async function loadFeedbacks() {
     try {
-        const data = await apiFetch('/teacher/feedback');
-        feedbacks = Array.isArray(data.feedback) ? data.feedback : [];
+        const data = await pollJson('/teacher/feedback');
+        if (data !== null) {
+            lastFeedbacksPayload = data;
+        }
+        // data === null means 304 Not Modified — lastFeedbacksPayload is already current.
     } catch (e) {
         console.warn('Could not load feedback:', e.message);
-        feedbacks = [];
+        if (!lastFeedbacksPayload) {
+            feedbacks = [];
+        }
+        return; // keep showing whatever was last loaded rather than clearing the UI
     }
+
+    feedbacks = Array.isArray(lastFeedbacksPayload.feedback) ? lastFeedbacksPayload.feedback : [];
 }
 
 const FEEDBACK_TYPE_META = {
@@ -967,6 +972,7 @@ async function loadAndRenderModules() {
 
     try {
         modulesData = await fetchModulesFromSupabase();
+        lastModulesSnapshot = JSON.stringify(modulesData);
         renderModules();
     } catch (err) {
         console.error('Supabase load error:', err);
@@ -984,6 +990,25 @@ async function loadAndRenderModules() {
         setText('mod-total', '0'); setText('mod-published', '0');
         setText('mod-draft', '0'); setText('mod-completion', '0%');
     }
+}
+
+/**
+ * Modules tab reads directly from Supabase (storage bucket + module_status
+ * table), with no Laravel route in the loop — so there's no server-side
+ * ETag/304 to lean on here like the other auto-refresh pages. Instead:
+ * fetch on the same interval, but skip the re-render entirely unless the
+ * fetched data actually differs from what's already shown. This is how a
+ * teacher sees an admin's approve/reject decision land without reloading.
+ */
+let lastModulesSnapshot = null;
+
+async function pollModulesTick() {
+    const fresh = await fetchModulesFromSupabase();
+    const snapshot = JSON.stringify(fresh);
+    if (snapshot === lastModulesSnapshot) return;
+    lastModulesSnapshot = snapshot;
+    modulesData = fresh;
+    renderModules();
 }
 
 /* ============================================================
@@ -4105,4 +4130,30 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     renderHome();
     renderStudents();
+
+    // Keep the roster (Students tab) and the stat tiles + recent-student
+    // preview (Home tab) live without a manual reload: every 20s, check for
+    // changed progress/approvals/feedback — but only while one of those two
+    // tabs is actually open, so this never fetches or re-renders in the
+    // background on other tabs. Pauses automatically while the browser tab
+    // is hidden (see resources/js/polling.js).
+    startPolling(async () => {
+        const onStudents = document.getElementById('page-students')?.classList.contains('active');
+        const onHome = document.getElementById('page-home')?.classList.contains('active');
+        if (onStudents) {
+            await loadStudents();
+            renderStudents();
+        } else if (onHome) {
+            await Promise.all([loadStudents(), loadFeedbacks()]);
+            renderHome();
+        }
+    }, 20000);
+
+    // Modules tab: see an admin's approve/reject decision land live, without
+    // a manual reload — see pollModulesTick() above for why this can't use
+    // the ETag/304 pattern the other pages use.
+    startPolling(() => {
+        if (!document.getElementById('page-modules')?.classList.contains('active')) return;
+        return pollModulesTick();
+    }, 30000);
 });

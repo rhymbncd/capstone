@@ -58,6 +58,7 @@
 
     @vite([
         'resources/css/dashboard/admin_dashboard.css',
+        'resources/js/polling.js',
         'resources/js/dashboard/admin_dashboard.js'
     ])
 </head>
@@ -218,8 +219,8 @@
                         </div>
                         <div class="action-content">
                             <h3>Roles &amp; Permissions</h3>
-                            <p>Configure access levels and privileges</p>
-                            <button class="outline-btn" onclick="navigate('settings')">Configure Roles</button>
+                            <p>See what each role can access</p>
+                            <button class="outline-btn" onclick="navigate('settings')">View Roles</button>
                         </div>
                     </div>
                     <div class="action-card">
@@ -652,7 +653,7 @@
                 </div>
                 <div class="settings-section">
                     <h3>Roles &amp; Permissions</h3>
-                    <div class="desc">Configure what each role can access and modify</div>
+                    <div class="desc">What each role can currently access — fixed by role, not editable here</div>
                     <div class="table-wrap">
                         <table>
                             <thead><tr><th>Permission</th><th>Admin</th><th>Teacher</th><th>Student</th></tr></thead>
