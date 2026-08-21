@@ -1,3 +1,52 @@
+@import "tailwindcss";
+
+/* ================================================================
+   DESIGN TOKENS — approved design direction (see plan discussion).
+   Single source of truth for color, type, radius, and shadow across
+   the whole app. Tailwind v4's @theme exposes every token below both
+   as a CSS custom property (var(--color-primary)) for the existing
+   hand-written dashboard CSS, and as a Tailwind utility (bg-primary,
+   text-primary, etc.) for new Blade components.
+
+   Spacing intentionally has no override here: Tailwind v4's default
+   spacing scale (0.25rem = 4px per step) already matches the approved
+   4px-based scale (4·8·12·16·24·32·48·64) exactly.
+   ================================================================ */
+@theme {
+    --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+
+    /* Primary — one accent, used only for actions/links/focus/selection */
+    --color-primary: #2563eb;
+    --color-primary-hover: #1d4ed8;
+    --color-primary-tint: #eff6ff;
+
+    /* Neutral ramp (5 steps, cool-toned) */
+    --color-neutral-50: #f7f8fa;
+    --color-neutral-200: #e5e7eb;
+    --color-neutral-500: #6b7280;
+    --color-neutral-700: #374151;
+    --color-neutral-900: #111827;
+
+    /* Semantic — the only other colors in the system */
+    --color-success: #15803d;
+    --color-success-tint: #f0fdf4;
+    --color-warning: #b45309;
+    --color-warning-tint: #fef3c7;
+    --color-error: #dc2626;
+    --color-error-tint: #fef2f2;
+
+    /* Radius */
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+    --radius-pill: 999px;
+
+    /* Elevation — 3 levels: flat (border only, no token needed),
+       raised, and overlay. Navy-tinted, never pure black. */
+    --shadow-raised: 0 1px 2px rgba(16, 24, 40, 0.06);
+    --shadow-overlay: 0 12px 32px rgba(16, 24, 40, 0.16);
+}
+
 /* Login CSS files are defined inline in their respective Blade views */
 /* @import './login/student_login.css'; */
 /* @import './login/teacher_login.css'; */

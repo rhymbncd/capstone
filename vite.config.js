@@ -9,10 +9,15 @@ export default defineConfig({
                 'resources/css/app.css',
                 'resources/js/app.js',
 
+                // Shared behavior for the auth pages (sign-in/sign-up/reset) —
+                // e.g. the password-visibility toggle used by x-input.
+                'resources/js/auth.js',
+
                 'resources/css/homepage.css',
                 'resources/js/homepage.js',
 
-                // Login files handled inline in Blade templates (no separate CSS/JS files)
+                // Login pages are otherwise self-contained Blade templates
+                // (styles/behavior inline), aside from resources/js/auth.js above.
                 // 'resources/css/login/student_login.css',
                 // 'resources/js/login/student_login.js',
                 // 'resources/css/login/teacher_login.css',

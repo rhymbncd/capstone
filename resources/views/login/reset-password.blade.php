@@ -4,133 +4,53 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Reset Password | Bubog NHS</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <style>
-    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { height: 100%; font-family: 'Inter', sans-serif; }
-
-    body {
-      background: linear-gradient(180deg, #1E88E5 0%, #80DEEA 100%);
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 24px 16px;
-    }
-
-    .back-link {
-      width: 100%;
-      max-width: 460px;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 14px;
-      font-weight: 600;
-      color: rgba(255,255,255,0.92);
-      text-decoration: none;
-      margin-bottom: 16px;
-      transition: color .2s, transform .2s;
-    }
-    .back-link:hover { color: #fff; transform: translateX(-3px); }
-
-    .card {
-      width: 100%;
-      max-width: 460px;
-      background: #fff;
-      border-radius: 22px;
-      box-shadow: 0 24px 64px rgba(0,0,0,0.22);
-      padding: 44px 40px;
-    }
-
-    .icon-circle {
-      width: 56px; height: 56px; border-radius: 50%;
-      background: #EBF5FF; color: #1E88E5;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 22px; margin-bottom: 18px;
-    }
-
-    h2 { font-size: 24px; font-weight: 700; color: #1a1a1a; margin-bottom: 6px; }
-    .sub { font-size: 13px; color: #888; margin-bottom: 24px; line-height: 1.5; }
-
-    .ig { margin-bottom: 18px; }
-    .ig label { display: block; font-size: 12px; font-weight: 600; color: #555; margin-bottom: 5px; }
-    .ig .iw { position: relative; display: flex; align-items: center; }
-    .ig .iw i.ico { position: absolute; left: 13px; font-size: 15px; color: #aaa; pointer-events: none; }
-    .ig input {
-      width: 100%; padding: 13px 13px 13px 40px;
-      background: #F1F5F9; border: 1.5px solid transparent;
-      border-radius: 11px; font-size: 14px; color: #333;
-      outline: none; transition: .2s;
-    }
-    .ig input:focus { background: #fff; border-color: #1E88E5; box-shadow: 0 0 0 3px rgba(30,136,229,0.12); }
-    .eye { position: absolute; right: 13px; color: #aaa; font-size: 16px; cursor: pointer; }
-
-    .btn-main {
-      width: 100%; padding: 15px; background: #1E88E5; color: #fff;
-      border: none; border-radius: 11px; font-size: 16px; font-weight: 700;
-      display: flex; align-items: center; justify-content: center; gap: 8px;
-      cursor: pointer; transition: background .2s, transform .1s;
-    }
-    .btn-main:hover { background: #1565C0; }
-    .btn-main:active { transform: scale(0.99); }
-  </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  @vite(['resources/css/app.css', 'resources/js/auth.js'])
 </head>
-<body>
+<body class="flex min-h-screen flex-col items-center justify-center bg-neutral-50 p-4 font-sans sm:p-6">
 
-<a href="{{ route(($portalType ?? 'student').'.login') }}" class="back-link">
-  <i class="fa-solid fa-arrow-left"></i> Back to Sign In
-</a>
+  <a href="{{ route(($portalType ?? 'student').'.login') }}" class="mb-4 inline-flex w-full max-w-[460px] items-center gap-1.5 text-[13px] font-semibold text-neutral-500 transition-colors duration-150 hover:text-neutral-900">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+    Back to Sign In
+  </a>
 
-<div class="card">
-  <div class="icon-circle"><i class="fa-solid fa-lock-open"></i></div>
-  <h2>Set a new password</h2>
-  <p class="sub">Choose a new password for your {{ $portalType ?? 'student' }} account.</p>
-
-  <form method="POST" action="{{ route(($portalType ?? 'student').'.password.update') }}">
-    @csrf
-    <input type="hidden" name="token" value="{{ $token }}">
-
-    <div class="ig">
-      <label>Email address</label>
-      <div class="iw">
-        <i class="fa-solid fa-envelope ico"></i>
-        <input type="email" name="email" placeholder="Enter your email" autocomplete="off" readonly required value="{{ old('email', $email ?? '') }}" style="background:#e5e7eb;cursor:not-allowed">
-      </div>
-      @error('email')<p style="color: red; font-size: 12px; margin-top: 5px;">{{ $message }}</p>@enderror
+  <div class="w-full max-w-[460px] rounded-lg border border-neutral-200 bg-white p-8 shadow-overlay sm:p-10">
+    <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary-tint text-primary">
+      <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>
     </div>
 
-    <div class="ig">
-      <label>New password</label>
-      <div class="iw">
-        <i class="fa-solid fa-lock ico"></i>
-        <input type="password" name="password" id="pw" placeholder="••••••••" autocomplete="new-password" required minlength="8">
-        <i class="fa-solid fa-eye eye" onclick="togglePw('pw', this)"></i>
-      </div>
-      @error('password')<p style="color: red; font-size: 12px; margin-top: 5px;">{{ $message }}</p>@enderror
-    </div>
+    <h1 class="text-[24px] font-bold tracking-tight text-neutral-900">Set a new password</h1>
+    <p class="mb-6 mt-1 text-[13px] leading-relaxed text-neutral-500">Choose a new password for your {{ $portalType ?? 'student' }} account.</p>
 
-    <div class="ig">
-      <label>Confirm new password</label>
-      <div class="iw">
-        <i class="fa-solid fa-lock ico"></i>
-        <input type="password" name="password_confirmation" id="pw2" placeholder="••••••••" autocomplete="new-password" required minlength="8">
-        <i class="fa-solid fa-eye eye" onclick="togglePw('pw2', this)"></i>
-      </div>
-    </div>
+    <form method="POST" action="{{ route(($portalType ?? 'student').'.password.update') }}" class="space-y-4">
+      @csrf
+      <input type="hidden" name="token" value="{{ $token }}">
 
-    <button type="submit" class="btn-main">
-      <i class="fa-solid fa-check"></i> Reset Password
-    </button>
-  </form>
-</div>
+      <x-input
+          label="Email address" name="email" type="email"
+          autocomplete="off" readonly required
+          value="{{ old('email', $email ?? '') }}"
+          :error="$errors->first('email')"
+      />
 
-<script>
-function togglePw(id, icon) {
-  const p = document.getElementById(id);
-  p.type = p.type === 'password' ? 'text' : 'password';
-  icon.className = p.type === 'password' ? 'fa-solid fa-eye eye' : 'fa-solid fa-eye-slash eye';
-}
-</script>
+      <x-input
+          label="New password" name="password" type="password" id="pw"
+          autocomplete="new-password" required minlength="8" placeholder="••••••••"
+          :error="$errors->first('password')"
+      />
+
+      <x-input
+          label="Confirm new password" name="password_confirmation" type="password" id="pw2"
+          autocomplete="new-password" required minlength="8" placeholder="••••••••"
+      />
+
+      <x-button type="submit" variant="primary" class="w-full">
+        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+        Reset Password
+      </x-button>
+    </form>
+  </div>
 </body>
 </html>
