@@ -136,13 +136,13 @@
 
           <p class="text-center text-[11px] leading-relaxed text-neutral-500">By creating an account you agree to our Terms of Service and Privacy Policy.</p>
 
-          <x-button type="submit" variant="action" class="w-full">
+          <x-button type="submit" variant="signup" class="w-full">
             <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="17" y1="11" x2="23" y2="11"/></svg>
             Create Account
           </x-button>
         </form>
 
-        <p class="mt-4 text-center text-[13px] text-neutral-500">Already have an account? <a href="{{ route('signin-signin') }}" class="auth-link">Sign in</a></p>
+        <p class="mt-4 text-center text-[13px] text-neutral-500">Already have an account? <a href="{{ route('signin-signin') }}" class="auth-link-signin">Sign in</a></p>
       </div>
     </div>
   </div>

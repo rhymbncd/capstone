@@ -101,17 +101,17 @@
             <a
                 href="{{ ($portalType ?? 'student') === 'admin' ? '#' : route(($portalType ?? 'student').'.password.request') }}"
                 id="forgot-link"
-                class="auth-link text-[13px] {{ ($portalType ?? 'student') === 'admin' ? 'hidden' : '' }}"
+                class="auth-link-signin text-[13px] {{ ($portalType ?? 'student') === 'admin' ? 'hidden' : '' }}"
             >Forgot password?</a>
           </div>
 
-          <x-button type="submit" variant="action" class="w-full">
+          <x-button type="submit" variant="signin" class="w-full">
             <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
             Sign In
           </x-button>
         </form>
 
-        <p class="mt-5 text-center text-[13px] text-neutral-500">Don't have an account? <a href="{{ route('signin-signup') }}" class="auth-link">Sign up free</a></p>
+        <p class="mt-5 text-center text-[13px] text-neutral-500">Don't have an account? <a href="{{ route('signin-signup') }}" class="auth-link-signup">Sign up free</a></p>
       </div>
     </div>
   </div>

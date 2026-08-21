@@ -13,9 +13,11 @@
         'primary' => 'bg-primary text-white hover:bg-primary-hover focus-visible:outline-primary',
         'secondary' => 'bg-white text-neutral-700 border border-neutral-200 hover:bg-neutral-50 focus-visible:outline-primary',
         'danger' => 'bg-error-tint text-error border border-error/25 hover:bg-error/10 focus-visible:outline-error',
-        // Sign-in/sign-up only — the one deliberate green element on those
-        // pages (see resources/css/app.css). Not for use anywhere else.
-        'action' => 'bg-[var(--auth-action)] text-white hover:bg-[var(--auth-action-hover)] focus-visible:outline-[var(--auth-action)]',
+        // Sign-in/sign-up pages only (see resources/css/app.css): blue for
+        // the sign-in action, green for sign-up — matching what those
+        // colors already mean on the homepage hero. Not for use elsewhere.
+        'signin' => 'bg-[var(--auth-signin)] text-white hover:bg-[var(--auth-signin-hover)] focus-visible:outline-[var(--auth-signin)]',
+        'signup' => 'bg-[var(--auth-signup)] text-white hover:bg-[var(--auth-signup-hover)] focus-visible:outline-[var(--auth-signup)]',
     ];
 
     $classes = $base.' '.($variants[$variant] ?? $variants['primary']);
