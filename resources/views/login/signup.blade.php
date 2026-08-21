@@ -16,7 +16,7 @@
     Back to Homepage
   </a>
 
-  <div class="flex w-full max-w-4xl flex-col overflow-hidden rounded-lg shadow-overlay ring-1 ring-white/10 sm:flex-row">
+  <div class="flex w-full max-w-4xl flex-col overflow-hidden rounded-lg shadow-overlay ring-1 ring-white/10 sm:h-[640px] sm:flex-row">
 
     <!-- Branding panel -->
     <div class="auth-brand-panel flex flex-col items-center justify-center gap-4 px-6 py-8 sm:flex-[0_0_36%] sm:py-12">
@@ -37,7 +37,7 @@
     </div>
 
     <!-- Form panel -->
-    <div class="flex flex-1 items-start justify-center bg-white p-6 sm:p-10">
+    <div id="signup-scroll-panel" class="flex flex-1 items-start justify-center overflow-y-auto bg-white p-6 sm:p-10">
       <div class="w-full max-w-[420px] py-1">
         <h1 class="text-[28px] font-bold tracking-tight text-neutral-900">Create account</h1>
         <p id="sub-text" class="mb-5 mt-1 text-[13px] text-neutral-500">Sign up as {{ ($portalType ?? 'student') === 'admin' ? 'an administrator' : 'a '.($portalType ?? 'student') }}{{ ($portalType ?? 'student') === 'student' ? ' for free' : '' }}</p>
@@ -113,7 +113,9 @@
               <svg id="section-chevron" class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-500 transition-transform duration-150" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
             </div>
 
-            <div id="section-dropdown" class="absolute left-0 right-0 top-full z-20 mt-1.5 hidden max-h-56 overflow-y-auto rounded-md border border-neutral-200 bg-white shadow-overlay">
+            {{-- Positioned via JS (fixed, not absolute) so it isn't clipped by the
+                 scrollable form panel — see openDrop() below. --}}
+            <div id="section-dropdown" class="fixed z-20 hidden max-h-56 overflow-y-auto rounded-md border border-neutral-200 bg-white shadow-overlay">
               <div class="flex items-center gap-2.5 px-3.5 py-2.5 text-[14px] text-neutral-500">Loading sections&hellip;</div>
             </div>
 
@@ -264,7 +266,14 @@ let sectionPickerState = {
   dropdown: null,
   hidden: null,
   chevron: null,
+  positionDrop() {
+    const rect = this.input.getBoundingClientRect();
+    this.dropdown.style.left = rect.left + 'px';
+    this.dropdown.style.top = (rect.bottom + 6) + 'px';
+    this.dropdown.style.width = rect.width + 'px';
+  },
   openDrop() {
+    this.positionDrop();
     this.dropdown.classList.remove('hidden');
     this.chevron.style.transform = 'rotate(180deg)';
     this.input.removeAttribute('readonly');
@@ -343,6 +352,11 @@ function initSectionPicker() {
     if (e.key === 'Escape') { sectionPickerState.closeDrop(); return; }
     if (sectionPickerState.dropdown.classList.contains('hidden')) sectionPickerState.openDrop();
   });
+
+  // The dropdown is position:fixed (so it isn't clipped by the scrollable
+  // form panel), which means it won't follow the input if the panel itself
+  // scrolls — just close it rather than leaving it visually detached.
+  document.getElementById('signup-scroll-panel')?.addEventListener('scroll', () => sectionPickerState.closeDrop());
 
   sectionPickerState.input.addEventListener('input', function() {
     const q = this.value.toLowerCase();

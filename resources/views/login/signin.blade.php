@@ -16,7 +16,7 @@
     Back to Homepage
   </a>
 
-  <div class="flex w-full max-w-4xl flex-col overflow-hidden rounded-lg shadow-overlay ring-1 ring-white/10 sm:flex-row">
+  <div class="flex w-full max-w-4xl flex-col overflow-hidden rounded-lg shadow-overlay ring-1 ring-white/10 sm:h-[640px] sm:flex-row">
 
     <!-- Branding panel -->
     <div class="auth-brand-panel flex flex-col items-center justify-center gap-4 px-6 py-8 sm:flex-[0_0_36%] sm:py-12">
@@ -37,7 +37,7 @@
     </div>
 
     <!-- Form panel -->
-    <div class="flex flex-1 items-center justify-center bg-white p-6 sm:p-10">
+    <div class="flex flex-1 items-center justify-center overflow-y-auto bg-white p-6 sm:p-10">
       <div class="w-full max-w-[420px]">
         <h1 class="text-[28px] font-bold tracking-tight text-neutral-900">Welcome back</h1>
         <p id="sub-text" class="mb-6 mt-1 text-[13px] text-neutral-500">Sign in to your {{ $portalType ?? 'student' }} account</p>
