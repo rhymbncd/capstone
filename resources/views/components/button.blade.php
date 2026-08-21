@@ -13,6 +13,9 @@
         'primary' => 'bg-primary text-white hover:bg-primary-hover focus-visible:outline-primary',
         'secondary' => 'bg-white text-neutral-700 border border-neutral-200 hover:bg-neutral-50 focus-visible:outline-primary',
         'danger' => 'bg-error-tint text-error border border-error/25 hover:bg-error/10 focus-visible:outline-error',
+        // Sign-in/sign-up only — the one deliberate green element on those
+        // pages (see resources/css/app.css). Not for use anywhere else.
+        'action' => 'bg-[var(--auth-action)] text-white hover:bg-[var(--auth-action-hover)] focus-visible:outline-[var(--auth-action)]',
     ];
 
     $classes = $base.' '.($variants[$variant] ?? $variants['primary']);

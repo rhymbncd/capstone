@@ -52,13 +52,58 @@
 /* @import './login/teacher_login.css'; */
 /* @import './login/admin_login.css'; */
 
-/* Sign-in/sign-up backdrop only — a deep blue-to-emerald gradient with two
-   soft glow highlights for depth. Deliberately not a design token: this is
-   a one-off backdrop behind a white/primary card, not a reusable accent. */
+/* ================================================================
+   SIGN-IN / SIGN-UP — a small, self-contained palette, deliberately
+   kept out of the @theme block above: blue plays a different role
+   here (background/panel identity, not the one global action color)
+   and green appears nowhere else in the app. Mixing either into the
+   sitewide --color-* tokens would leak them onto buttons everywhere.
+
+   Four rules this palette follows:
+   1. The background goes blue → teal → green, never straight
+      blue-to-green (that middle would mud out to gray). Teal is the
+      natural bridge between the two.
+   2. The background stays deep and desaturated — it recedes behind
+      the white card instead of competing with it.
+   3. Blue owns identity/structure (panel, links, tabs). Green
+      appears exactly once, on the Sign In / Create Account button —
+      that's what makes it read as *the* action instead of just
+      another accent.
+   4. Three depth layers front-to-back: background (darkest) → panel
+      (mid-tone) → card (white). That alone reads as depth, no
+      drop-shadow tricks needed.
+   ================================================================ */
 .auth-gradient-bg {
-    background:
-        radial-gradient(1000px 700px at 8% -5%, rgba(56, 189, 248, 0.4), transparent 55%),
-        radial-gradient(950px 700px at 105% 108%, rgba(16, 185, 129, 0.45), transparent 55%),
-        linear-gradient(135deg, #0a1c34 0%, #0e3c5c 28%, #106157 60%, #0e7a5c 100%);
+    --auth-blue: #0b2a4a;
+    --auth-teal: #0f4a5c;
+    --auth-green: #125c46;
+    --auth-panel-blue: #1c5c86;
+    --auth-panel-teal: #14766e;
+    --auth-action: #047857;
+    --auth-action-hover: #065f46;
+    --auth-ink: #0b2a4a;
+    --auth-slate: #4a5f6e;
+    --auth-line: #dde3e8;
+
+    background: linear-gradient(135deg, var(--auth-blue) 0%, var(--auth-teal) 55%, var(--auth-green) 100%);
     background-attachment: fixed;
 }
+
+.auth-brand-panel {
+    background: linear-gradient(160deg, var(--auth-panel-blue) 0%, var(--auth-panel-teal) 100%);
+}
+
+.auth-tab-active {
+    border-color: var(--auth-panel-blue);
+    color: var(--auth-ink);
+    background: #eaf1f7;
+}
+.auth-tab-inactive {
+    border-color: var(--auth-line);
+    color: var(--auth-slate);
+    background: #fff;
+}
+.auth-tab-inactive:hover { border-color: #c5cfd8; color: var(--auth-ink); }
+
+.auth-link { color: var(--auth-panel-blue); font-weight: 600; }
+.auth-link:hover { color: var(--auth-ink); text-decoration: underline; }

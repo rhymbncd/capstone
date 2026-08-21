@@ -19,8 +19,8 @@
   <div class="flex w-full max-w-4xl flex-col overflow-hidden rounded-lg shadow-overlay ring-1 ring-white/10 sm:flex-row">
 
     <!-- Branding panel -->
-    <div class="flex flex-col items-center justify-center gap-4 bg-primary px-6 py-8 sm:flex-[0_0_36%] sm:py-12">
-      <div class="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-2 border-white/40 bg-white/10 sm:h-32 sm:w-32">
+    <div class="auth-brand-panel flex flex-col items-center justify-center gap-4 px-6 py-8 sm:flex-[0_0_36%] sm:py-12">
+      <div class="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border border-white/20 bg-[#F7FAFB] sm:h-32 sm:w-32">
         <img
             src="{{ asset('image/587572187-777024998723535-6772324307557000990-n-fotor-20260519155328.png') }}"
             alt="Bubog National High School seal"
@@ -101,17 +101,17 @@
             <a
                 href="{{ ($portalType ?? 'student') === 'admin' ? '#' : route(($portalType ?? 'student').'.password.request') }}"
                 id="forgot-link"
-                class="text-[13px] font-semibold text-primary hover:underline {{ ($portalType ?? 'student') === 'admin' ? 'hidden' : '' }}"
+                class="auth-link text-[13px] {{ ($portalType ?? 'student') === 'admin' ? 'hidden' : '' }}"
             >Forgot password?</a>
           </div>
 
-          <x-button type="submit" variant="primary" class="w-full">
+          <x-button type="submit" variant="action" class="w-full">
             <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
             Sign In
           </x-button>
         </form>
 
-        <p class="mt-5 text-center text-[13px] text-neutral-500">Don't have an account? <a href="{{ route('signin-signup') }}" class="font-semibold text-primary hover:underline">Sign up free</a></p>
+        <p class="mt-5 text-center text-[13px] text-neutral-500">Don't have an account? <a href="{{ route('signin-signup') }}" class="auth-link">Sign up free</a></p>
       </div>
     </div>
   </div>
@@ -124,8 +124,8 @@ const forgotRoutes = { student: '{{ route("student.password.request") }}', teach
 let currentRole = '{{ $portalType ?? "student" }}';
 
 const TAB_BASE = 'flex flex-col items-center gap-1 rounded-md border py-2 px-1 text-[12px] font-semibold transition-colors duration-150 cursor-pointer';
-const TAB_ACTIVE = 'border-primary text-primary bg-primary-tint';
-const TAB_INACTIVE = 'border-neutral-200 text-neutral-500 bg-white hover:border-neutral-300 hover:text-neutral-700';
+const TAB_ACTIVE = 'auth-tab-active';
+const TAB_INACTIVE = 'auth-tab-inactive';
 
 function paintTab(el, isActive) {
   el.className = TAB_BASE + ' ' + (isActive ? TAB_ACTIVE : TAB_INACTIVE);
