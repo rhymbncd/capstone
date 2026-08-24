@@ -42,6 +42,17 @@ export default defineConfig({
                 'resources/js/dashboard/student_dashboard.js',
                 'resources/css/dashboard/chatbot.css',
                 'resources/js/dashboard/chatbot.js',
+
+                // Calculator tab + drag behavior layered onto the chatbot
+                // widget above. Loaded after chatbot.js/.css so it can rely
+                // on window.openChat/closeChat and win the CSS cascade for
+                // its mobile/reduced-motion overrides. math.js itself is
+                // NOT listed here — calculator-engine.js dynamic-imports it
+                // lazily on first Calculator-tab click, so it's Rollup's
+                // own async chunk, not part of this entry's initial bundle.
+                'resources/css/dashboard/math-panel.css',
+                'resources/js/dashboard/math-panel.js',
+
                 'resources/css/dashboard/teacher_dashboard.css',
                 'resources/js/dashboard/teacher_dashboard.js',
                 'resources/css/dashboard/admin_dashboard.css',

@@ -70,13 +70,15 @@ document.addEventListener('DOMContentLoaded', function () {
     // CLOSE CHAT
     // ============================================
 
-    closeChatBtn?.addEventListener('click', () => {
+    window.closeChat = function () {
 
         isOpen = false;
 
         chatWindow?.classList.remove('open');
 
-    });
+    };
+
+    closeChatBtn?.addEventListener('click', window.closeChat);
 
     // ============================================
     // SHOW TYPING INDICATOR

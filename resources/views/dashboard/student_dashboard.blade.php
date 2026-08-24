@@ -118,10 +118,12 @@
     @vite([
         'resources/css/dashboard/student_dashboard.css',
         'resources/css/dashboard/chatbot.css',
+        'resources/css/dashboard/math-panel.css',
         'resources/js/polling.js',
         'resources/js/nav-progress.js',
         'resources/js/dashboard/student_dashboard.js',
         'resources/js/dashboard/chatbot.js',
+        'resources/js/dashboard/math-panel.js',
     ])
 
 </head>
@@ -752,7 +754,7 @@
         <div class="nav-dot"></div>
     </button>
     <div class="fab">
-        <button class="fab-btn" id="fab-chat">
+        <button class="fab-btn" id="fab-chat" aria-label="Open Math AI Assistant" aria-expanded="false" aria-controls="ai-chat-window">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         </button>
         <span class="fab-label">AI Chat</span>
@@ -794,9 +796,7 @@
         };
     </script>
 
-    {{-- 3. Huling i-load ang JS --}}
-    @vite(['resources/js/dashboard/chatbot.js'])
-
+    {{-- chatbot.js and math-panel.js are already loaded via the @vite([...]) block in <head>. --}}
 
 <script>
 
