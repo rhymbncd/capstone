@@ -10,13 +10,13 @@ function actingAdmin(): User
 
 it('lists active activity logs with pagination', function () {
     $admin = actingAdmin();
-    ActivityLog::factory()->count(20)->create();
+    ActivityLog::factory()->count(30)->create();
 
     $response = $this->actingAs($admin)->getJson(route('admin.activity.index'));
 
     $response->assertOk();
-    expect($response->json('data'))->toHaveCount(15);
-    expect($response->json('meta.total'))->toBe(20);
+    expect($response->json('data'))->toHaveCount(25);
+    expect($response->json('meta.total'))->toBe(30);
     expect($response->json('meta.last_page'))->toBe(2);
 });
 

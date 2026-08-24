@@ -15,29 +15,72 @@ use Illuminate\Validation\Rule;
 
 class UserController extends Controller
 {
+    private const PER_PAGE = 25;
+
     /**
-     * List every registered user for the admin "User Management" page
-     * (also the source of the Home tab's user-count tiles).
+     * Paginated, searchable "User Management" listing. Also the source of
+     * the Home tab's user-count tiles, via `counts` — computed separately
+     * from the search/role filters below (always platform-wide) so a
+     * lingering search on the Users tab can never make the Home tab's
+     * tiles look wrong.
      *
      * Supports HTTP conditional requests (ETag/If-None-Match) so a client
      * polling this on an interval gets a cheap 304 with no body when
-     * nothing has actually changed.
+     * nothing on this exact page/filter combination has actually changed.
      */
     public function index(Request $request): JsonResponse
     {
-        $rows = User::orderByDesc('created_at')
-            ->get(['id', 'name', 'email', 'student_id', 'role', 'approval_status', 'created_at', 'updated_at']);
+        $validated = $request->validate([
+            'q' => 'nullable|string|max:255',
+            'role' => ['nullable', 'string', 'in:student,teacher,admin'],
+            'page' => 'nullable|integer|min:1',
+        ]);
 
-        $payload = $rows->map(fn (User $user) => $this->toPayload($user));
+        $query = User::query();
 
-        // Fingerprinted from id + role + approval status + updated_at, not
-        // the rendered payload, since that's everything the Home tab tiles
-        // and the Users table actually depend on.
-        $fingerprint = $rows
+        if ($validated['q'] ?? null) {
+            $term = $validated['q'];
+            $query->where(function ($q) use ($term) {
+                $q->where('name', 'like', "%{$term}%")
+                    ->orWhere('email', 'like', "%{$term}%");
+            });
+        }
+
+        if ($validated['role'] ?? null) {
+            $query->where('role', $validated['role']);
+        }
+
+        $users = $query->orderByDesc('created_at')
+            ->paginate(self::PER_PAGE, ['id', 'name', 'email', 'student_id', 'role', 'approval_status', 'created_at', 'updated_at'])
+            ->withQueryString();
+
+        $counts = [
+            'total' => User::count(),
+            'students' => User::where('role', 'student')->count(),
+            'teachers' => User::where('role', 'teacher')->count(),
+            'pending' => User::where('approval_status', 'pending')->count(),
+        ];
+
+        $payload = collect($users->items())->map(fn (User $user) => $this->toPayload($user));
+
+        // Fingerprinted from the current page's id/role/approval/updated_at
+        // plus the counts, not the rendered payload — not "X minutes ago"
+        // style text (there isn't any here, but same principle as the
+        // other polled endpoints: fingerprint stable data, not prose).
+        $fingerprint = collect($users->items())
             ->map(fn (User $user) => $user->id.':'.$user->role.':'.$user->approval_status.':'.$user->updated_at->timestamp)
-            ->implode('|');
+            ->implode('|').'#'.implode(',', $counts);
 
-        $response = response()->json(['users' => $payload]);
+        $response = response()->json([
+            'users' => $payload,
+            'meta' => [
+                'current_page' => $users->currentPage(),
+                'last_page' => $users->lastPage(),
+                'total' => $users->total(),
+                'per_page' => $users->perPage(),
+            ],
+            'counts' => $counts,
+        ]);
         $response->setEtag(md5($fingerprint));
 
         if ($response->isNotModified($request)) {

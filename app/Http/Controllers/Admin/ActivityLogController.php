@@ -9,7 +9,7 @@ use Illuminate\Http\Request;
 
 class ActivityLogController extends Controller
 {
-    private const PER_PAGE = 15;
+    private const PER_PAGE = 25;
 
     private const TYPES = ['registration', 'login', 'content', 'system', 'error'];
 

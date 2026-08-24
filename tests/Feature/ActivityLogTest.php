@@ -101,3 +101,21 @@ it('logs an event when an admin approves a teacher', function () {
         'title' => 'Teacher Approved',
     ]);
 });
+
+it('prunes activity logs older than the retention window', function () {
+    $old = ActivityLog::factory()->create(['created_at' => now()->subDays(91)]);
+    $recent = ActivityLog::factory()->create(['created_at' => now()->subDays(89)]);
+
+    $this->artisan('model:prune', ['--model' => [ActivityLog::class]]);
+
+    $this->assertModelMissing($old);
+    $this->assertModelExists($recent);
+});
+
+it('prunes an archived log the same as an active one once past the retention window', function () {
+    $oldArchived = ActivityLog::factory()->archived()->create(['created_at' => now()->subDays(91)]);
+
+    $this->artisan('model:prune', ['--model' => [ActivityLog::class]]);
+
+    $this->assertModelMissing($oldArchived);
+});

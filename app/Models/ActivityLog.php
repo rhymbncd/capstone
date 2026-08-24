@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Prunable;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -14,7 +15,15 @@ use Illuminate\Support\Str;
  */
 class ActivityLog extends Model
 {
-    use HasFactory;
+    use HasFactory, Prunable;
+
+    /**
+     * How long a log lives before `model:prune` removes it — the admin's
+     * own "archive old logs" action already moves anything an admin wants
+     * kept out of this table's active-vs-archived scope, so this is a
+     * hard floor for the truly stale, not the primary retention control.
+     */
+    private const PRUNE_AFTER_DAYS = 90;
 
     protected $table = 'activity_logs';
 
@@ -142,5 +151,15 @@ class ActivityLog extends Model
         }
 
         return $query;
+    }
+
+    /**
+     * Rows eligible for the daily `model:prune` scheduled task (see
+     * routes/console.php) — anything older than the retention window,
+     * archived or not.
+     */
+    public function prunable(): Builder
+    {
+        return static::where('created_at', '<=', now()->subDays(self::PRUNE_AFTER_DAYS));
     }
 }

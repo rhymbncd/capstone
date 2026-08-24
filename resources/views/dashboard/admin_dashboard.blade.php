@@ -317,7 +317,7 @@
                         </button>
                     </div>
                     <div class="toolbar">
-                        <input type="text" class="search-input" id="user-search" placeholder="🔍  Search by name or email…" oninput="filterUsers()" maxlength="100" autocomplete="off">
+                        <input type="text" class="search-input" id="user-search" placeholder="🔍  Search by name or email…" oninput="debounceUserSearch()" maxlength="100" autocomplete="off">
                         <select class="filter-select" id="user-role-filter" onchange="filterUsers()">
                             <option value="">All Roles</option>
                             <option value="admin">Admin</option>

@@ -124,8 +124,11 @@ let modulesData = [];
 let userEditId     = null;
 let contentLoading = false;
 let pendingFile     = null;
-const USERS_PER_PAGE = 6;
-let userPage = 1;
+
+// Platform-wide role/status counts (Home tab tiles + Users tab summary
+// cards) — computed server-side, since `users` now only ever holds the
+// current page's rows, not every account.
+let userCounts = { total: 0, students: 0, teachers: 0, pending: 0 };
 
 /* ============================================================
    INIT — load all data from Supabase on startup
@@ -174,12 +177,29 @@ async function apiFetch(url, options = {}) {
     return data;
 }
 
-/** Fetch all real platform users (Laravel-backed, not the disconnected admin_users table) */
+/**
+ * Fetch one page of real platform users (Laravel-backed, not the
+ * disconnected admin_users table), honoring the current search/role
+ * filter. Mirrors loadActivityLog()'s shape: search+filter+pagination
+ * happen server-side (indexed on role/approval_status now), so this
+ * scales past however many accounts a full school's rosters add up to,
+ * instead of fetching every row on every load.
+ */
+let userListState = {
+    meta: { current_page: 1, last_page: 1, total: 0 },
+    filters: { q: '', role: '' },
+};
+let userSearchTimer = null;
 let lastUsersPayload = null;
 
-async function loadUsers() {
+async function loadUsers(page = 1) {
+    const f = userListState.filters;
+    const params = new URLSearchParams({ page });
+    if (f.q)    params.set('q', f.q);
+    if (f.role) params.set('role', f.role);
+
     try {
-        const data = await pollJson('/admin/users');
+        const data = await pollJson(`/admin/users?${params.toString()}`);
         if (data !== null) {
             lastUsersPayload = data;
         }
@@ -193,37 +213,26 @@ async function loadUsers() {
     }
 
     users = Array.isArray(lastUsersPayload.users) ? lastUsersPayload.users : [];
-}
-
-function getFilteredUsers() {
-    const q    = Security.sanitize(document.getElementById('user-search')?.value || '').toLowerCase();
-    const role = document.getElementById('user-role-filter')?.value || '';
-    return users.filter(u =>
-        (u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)) &&
-        (!role || u.role === role)
-    );
+    userListState.meta = lastUsersPayload.meta ?? userListState.meta;
+    userCounts = lastUsersPayload.counts ?? userCounts;
 }
 
 function renderUsers() {
-    setText('m-total',    users.length);
-    setText('m-students', users.filter(u => u.role === 'student').length);
-    setText('m-teachers', users.filter(u => u.role === 'teacher').length);
-    setText('u-total',    users.length);
-    setText('u-students', users.filter(u => u.role === 'student').length);
-    setText('u-teachers', users.filter(u => u.role === 'teacher').length);
-
-    const filtered   = getFilteredUsers();
-    const totalPages = Math.max(1, Math.ceil(filtered.length / USERS_PER_PAGE));
-    if (userPage > totalPages) userPage = totalPages;
-    const slice = filtered.slice((userPage - 1) * USERS_PER_PAGE, userPage * USERS_PER_PAGE);
+    setText('m-total',    userCounts.total);
+    setText('m-students', userCounts.students);
+    setText('m-teachers', userCounts.teachers);
+    setText('u-total',    userCounts.total);
+    setText('u-students', userCounts.students);
+    setText('u-teachers', userCounts.teachers);
 
     const tbody = document.getElementById('users-tbody');
-    if (!slice.length) {
+    if (!users.length) {
         tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">👤</div><h4>No users found</h4><p>Try a different search or filter.</p></div></td></tr>`;
     } else {
-        tbody.innerHTML = slice.map((u, i) => `
+        const startIndex = (userListState.meta.current_page - 1) * userListState.meta.per_page;
+        tbody.innerHTML = users.map((u, i) => `
             <tr>
-                <td style="color:var(--text-4);font-size:12px">${(userPage - 1) * USERS_PER_PAGE + i + 1}</td>
+                <td style="color:var(--text-4);font-size:12px">${startIndex + i + 1}</td>
                 <td><b>${Security.escape(u.name)}</b></td>
                 <td style="color:var(--text-3)">${Security.escape(u.email)}</td>
                 <td style="font-size:12px;color:var(--text-3)">${u.studentId ? Security.escape(u.studentId) : '—'}</td>
@@ -237,18 +246,19 @@ function renderUsers() {
             </tr>`).join('');
     }
 
-    const pg = document.getElementById('user-pagination');
-    pg.innerHTML = '';
-    pg.appendChild(makePgBtn('‹ Prev', userPage === 1, () => { userPage--; renderUsers(); }));
-    for (let i = 1; i <= totalPages; i++) {
-        const btn = makePgBtn(i, false, () => { userPage = i; renderUsers(); });
-        if (i === userPage) btn.classList.add('active');
-        pg.appendChild(btn);
-    }
-    pg.appendChild(makePgBtn('Next ›', userPage === totalPages, () => { userPage++; renderUsers(); }));
+    renderPaginationInto('user-pagination', userListState.meta, page => loadUsers(page).then(renderUsers));
 }
 
-function filterUsers() { userPage = 1; renderUsers(); }
+function filterUsers() {
+    userListState.filters.q    = Security.sanitize(document.getElementById('user-search')?.value || '');
+    userListState.filters.role = document.getElementById('user-role-filter')?.value || '';
+    loadUsers(1).then(renderUsers);
+}
+
+function debounceUserSearch() {
+    clearTimeout(userSearchTimer);
+    userSearchTimer = setTimeout(filterUsers, 350);
+}
 
 function editUser(id) {
     // id arrives as a string (it's read out of an HTML onclick attribute);
@@ -282,18 +292,20 @@ async function saveUser() {
     if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
 
     try {
-        const data = await apiFetch(`/admin/users/${userEditId}`, {
+        await apiFetch(`/admin/users/${userEditId}`, {
             method: 'PATCH',
             body: JSON.stringify({ name, email, role, status }),
         });
-        const u = users.find(x => String(x.id) === String(userEditId));
-        if (u) Object.assign(u, data.user);
-        await logEvent('content', 'User Updated', `${name}'s profile was edited`, 'Updated');
         toast('success', 'User updated successfully.');
-
         closeModal('modal-user');
+
+        // Refetch rather than patch the local row in place — a role/status
+        // change can shift userCounts (e.g. student -> teacher), and only
+        // the server knows the up-to-date breakdown.
+        await loadUsers(userListState.meta.current_page);
         renderUsers();
         renderHome();
+        logEvent('content', 'User Updated', `${name}'s profile was edited`, 'Updated');
     } catch (err) {
         warn('Save Failed', err.message || 'Could not save user. Please try again.');
     } finally {
@@ -314,11 +326,18 @@ async function deleteUser(id) {
         if (!r.isConfirmed) return;
         try {
             await apiFetch(`/admin/users/${id}`, { method: 'DELETE' });
-            await logEvent('system', 'User Deleted', `Account for ${u.name} removed`, 'System');
-            users = users.filter(x => String(x.id) !== String(id));
+            toast('success', 'User deleted.');
+            // Refetch (now fast — session_id/role/approval_status are
+            // indexed) rather than just splice the local array: userCounts
+            // and pagination metadata both need the server's fresh numbers.
+            await loadUsers(userListState.meta.current_page);
             renderUsers();
             renderHome();
-            toast('success', 'User deleted.');
+            // Audit-log write is fire-and-forget — logEvent() has its own
+            // try/catch, and the UI is already updated; no reason to make
+            // the user wait on a second network call for a background
+            // write that isn't the actual delete.
+            logEvent('system', 'User Deleted', `Account for ${u.name} removed`, 'System');
         } catch (err) {
             warn('Delete Failed', err.message || 'Could not delete user.');
         }
@@ -1057,10 +1076,10 @@ async function deleteContent(id) {
    HOME
    ============================================================ */
 function renderHome() {
-    setText('m-total',    users.length);
-    setText('m-students', users.filter(u => u.role === 'student').length);
-    setText('m-teachers', users.filter(u => u.role === 'teacher').length);
-    setText('m-pending',  users.filter(u => u.status === 'Pending').length);
+    setText('m-total',    userCounts.total);
+    setText('m-students', userCounts.students);
+    setText('m-teachers', userCounts.teachers);
+    setText('m-pending',  userCounts.pending);
 
     const logEl = document.getElementById('home-activity-log');
     if (!activity.length) {
@@ -2211,7 +2230,7 @@ function initFileUpload() {
    ============================================================ */
 Object.assign(window, {
     navigate,
-    filterUsers, editUser, saveUser, deleteUser,
+    filterUsers, debounceUserSearch, editUser, saveUser, deleteUser,
     filterContent, loadAndRenderContent,
     approveContent, rejectContent, resetContentStatus, deleteContent,
     filterModules, loadAndRenderModules, openAddModule, cancelModule, saveModule,

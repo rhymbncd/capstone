@@ -162,3 +162,57 @@ it('prevents an admin from deleting their own account', function () {
     $response->assertForbidden();
     $this->assertDatabaseHas('users', ['id' => $admin->id]);
 });
+
+it('paginates the user list at 25 per page', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    User::factory()->count(30)->create(['role' => 'student', 'approval_status' => 'approved']);
+
+    $response = $this->actingAs($admin)->getJson(route('admin.users.index'));
+
+    $response->assertOk();
+    expect($response->json('users'))->toHaveCount(25);
+    expect($response->json('meta.total'))->toBe(31); // 30 students + the admin
+    expect($response->json('meta.last_page'))->toBe(2);
+});
+
+it('returns platform-wide counts unaffected by the current search/role filter', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    User::factory()->count(3)->create(['role' => 'student', 'approval_status' => 'approved']);
+    User::factory()->teacher()->count(2)->create(['approval_status' => 'approved']);
+
+    $response = $this->actingAs($admin)->getJson(route('admin.users.index', ['role' => 'teacher']));
+
+    $response->assertOk();
+    // The filtered list only has teachers...
+    expect(collect($response->json('users'))->pluck('role')->unique()->all())->toBe(['teacher']);
+    // ...but counts stay platform-wide, not scoped to that filter.
+    expect($response->json('counts.total'))->toBe(6);
+    expect($response->json('counts.students'))->toBe(3);
+    expect($response->json('counts.teachers'))->toBe(2);
+});
+
+it('searches the user list by name or email', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $match = User::factory()->create(['name' => 'Juan Dela Cruz', 'role' => 'student', 'approval_status' => 'approved']);
+    User::factory()->create(['name' => 'Someone Else', 'role' => 'student', 'approval_status' => 'approved']);
+
+    $response = $this->actingAs($admin)->getJson(route('admin.users.index', ['q' => 'Juan']));
+
+    $response->assertOk();
+    $ids = collect($response->json('users'))->pluck('id');
+    expect($ids)->toContain($match->id);
+    expect($ids)->toHaveCount(1);
+});
+
+it('filters the user list by role', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    User::factory()->count(2)->create(['role' => 'student', 'approval_status' => 'approved']);
+    $teacher = User::factory()->teacher()->create(['approval_status' => 'approved']);
+
+    $response = $this->actingAs($admin)->getJson(route('admin.users.index', ['role' => 'teacher']));
+
+    $response->assertOk();
+    $ids = collect($response->json('users'))->pluck('id');
+    expect($ids)->toContain($teacher->id);
+    expect($ids)->toHaveCount(1);
+});
