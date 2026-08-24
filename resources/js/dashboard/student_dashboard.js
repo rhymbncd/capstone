@@ -287,6 +287,47 @@ document.addEventListener('DOMContentLoaded', function () {
     };
 
     /* ================================
+       CHANGE PASSWORD
+       ================================ */
+    window.clearPasswordForm = function () {
+        ['pw-current', 'pw-new', 'pw-confirm'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+    };
+
+    window.updatePassword = async function () {
+        const current = document.getElementById('pw-current')?.value || '';
+        const next = document.getElementById('pw-new')?.value || '';
+        const confirm = document.getElementById('pw-confirm')?.value || '';
+
+        const res = await fetch('/student/account/password', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? '',
+            },
+            body: JSON.stringify({
+                current_password: current,
+                password: next,
+                password_confirmation: confirm,
+            }),
+        });
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+            const firstError = data.errors ? Object.values(data.errors)[0]?.[0] : null;
+            window.toast('error', firstError || data.message || 'Could not update password.');
+            return;
+        }
+
+        window.toast('success', 'Password updated successfully!');
+        window.clearPasswordForm();
+    };
+
+    /* ================================
        CONFIRM LOGOUT
        ================================ */
     window.confirmLogout = function () {

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AccountController;
 use App\Http\Controllers\Admin\ActivityLogController;
 use App\Http\Controllers\Admin\MaintenanceController;
 use App\Http\Controllers\Admin\TeacherApprovalController;
@@ -76,6 +77,9 @@ Route::prefix('student')->group(function () {
         })->name('student.modules');
         Route::post('/logout', [AuthController::class, 'logout'])->name('student.logout');
 
+        // Account
+        Route::post('/account/password', [AccountController::class, 'updatePassword'])->name('student.account.password');
+
         // Feedback from teachers
         Route::prefix('feedback')->group(function () {
             Route::get('/', [StudentFeedbackController::class, 'index'])->name('student.feedback.index');
@@ -104,6 +108,10 @@ Route::prefix('teacher')->group(function () {
     Route::middleware(['auth', 'role:teacher'])->group(function () {
         Route::get('/dashboard', [TeacherDashboardController::class, 'index'])->name('teacher.dashboard');
         Route::post('/logout', [AuthController::class, 'logout'])->name('teacher.logout');
+
+        // Account
+        Route::post('/account/password', [AccountController::class, 'updatePassword'])->name('teacher.account.password');
+
         Route::post('/generate-quiz', [QuizController::class, 'generate'])->name('quiz.generate');
         Route::post('/quiz/generate-text', [QuizController::class, 'generateText'])->name('quiz.generate-text');
 

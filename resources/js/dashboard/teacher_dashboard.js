@@ -1952,11 +1952,41 @@ function renderProfile() {
         </div>`).join('');
 }
 
-function saveProfile() {
-    const name = Security.sanitize(document.getElementById('p-name')?.value || '');
-    if (!name || name.length < 2) return warn('Name required', 'Please enter your full name.');
-    logActivity('Profile Updated', 'Your profile information was saved', 'settings');
-    toast('success', 'Profile saved successfully!');
+function clearPasswordForm() {
+    ['pw-current', 'pw-new', 'pw-confirm'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+}
+
+async function updatePassword() {
+    const current = document.getElementById('pw-current')?.value || '';
+    const next = document.getElementById('pw-new')?.value || '';
+    const confirm = document.getElementById('pw-confirm')?.value || '';
+
+    const res = await fetch('/teacher/account/password', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? '',
+        },
+        body: JSON.stringify({
+            current_password: current,
+            password: next,
+            password_confirmation: confirm,
+        }),
+    });
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+        const firstError = data.errors ? Object.values(data.errors)[0]?.[0] : null;
+        return warn('Could not update password', firstError || data.message || 'Please check your input and try again.');
+    }
+
+    toast('success', 'Password updated successfully!');
+    clearPasswordForm();
 }
 
 /* ============================================================
@@ -4047,7 +4077,7 @@ Object.assign(window, {
     openAddSection, editSection, deleteSection, showReportExportPicker,
 
     // Profile
-    saveProfile,
+    updatePassword, clearPasswordForm,
 
     // Modals
     openModal, closeModal,

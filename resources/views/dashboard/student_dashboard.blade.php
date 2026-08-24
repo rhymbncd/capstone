@@ -462,20 +462,20 @@
                     <h3>Change Password</h3>
                     <p class="desc">Keep your account secure</p>
                     <div class="field-row">
-                        <label>Current Password</label>
-                        <input type="password" placeholder="••••••••">
+                        <label for="pw-current">Current Password</label>
+                        <input type="password" id="pw-current" placeholder="••••••••" autocomplete="current-password">
                     </div>
                     <div class="field-row">
-                        <label>New Password</label>
-                        <input type="password" placeholder="••••••••">
+                        <label for="pw-new">New Password</label>
+                        <input type="password" id="pw-new" placeholder="••••••••" autocomplete="new-password">
                     </div>
                     <div class="field-row">
-                        <label>Confirm New Password</label>
-                        <input type="password" placeholder="••••••••">
+                        <label for="pw-confirm">Confirm New Password</label>
+                        <input type="password" id="pw-confirm" placeholder="••••••••" autocomplete="new-password">
                     </div>
                     <div class="save-row">
-                        <button class="btn-cancel">Cancel</button>
-                        <button class="btn-save" onclick="toast('success','Password changed!')">Update Password</button>
+                        <button class="btn-cancel" onclick="clearPasswordForm()">Cancel</button>
+                        <button class="btn-save" onclick="updatePassword()">Update Password</button>
                     </div>
                 </div>
             </div>

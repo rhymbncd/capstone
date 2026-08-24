@@ -916,24 +916,44 @@
                     <p class="welcome-subtitle">Manage your account and preferences</p>
                 </div>
 
-                <div class="modules-container">
-                    <div class="section-label">Account Information</div>
-                    <div class="section-sub">Update your personal details</div>
+                <div class="profile-card">
+                    <div class="profile-avatar">{{ strtoupper(substr(auth()->user()->name ?? 'T', 0, 1)) }}</div>
+                    <div class="profile-name">{{ auth()->user()->name ?? 'Teacher' }}</div>
+                    <div class="profile-email">{{ auth()->user()->email ?? 'teacher@mathlearning.edu' }}</div>
+                    <span class="profile-badge">Teacher</span>
+                </div>
+
+                <div class="settings-section">
+                    <h3>Account Information</h3>
+                    <p class="desc">Your registered account details</p>
                     <div class="field-row">
-                        <label for="p-name">Full Name</label>
-                        <input type="text" id="p-name" placeholder="Your full name" maxlength="80" autocomplete="off">
+                        <label>Full Name</label>
+                        <input type="text" value="{{ auth()->user()->name ?? '' }}" placeholder="Your full name" readonly>
                     </div>
                     <div class="field-row">
-                        <label for="p-email">Email Address</label>
-                        <input type="email" id="p-email" placeholder="your@email.com" maxlength="120" autocomplete="off">
+                        <label>Email Address</label>
+                        <input type="email" value="{{ auth()->user()->email ?? '' }}" placeholder="Your email" readonly>
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <h3>Change Password</h3>
+                    <p class="desc">Keep your account secure</p>
+                    <div class="field-row">
+                        <label for="pw-current">Current Password</label>
+                        <input type="password" id="pw-current" placeholder="••••••••" autocomplete="current-password">
                     </div>
                     <div class="field-row">
-                        <label for="p-subject">Subject / Department</label>
-                        <input type="text" id="p-subject" placeholder="e.g. Mathematics" maxlength="80" autocomplete="off">
+                        <label for="pw-new">New Password</label>
+                        <input type="password" id="pw-new" placeholder="••••••••" autocomplete="new-password">
+                    </div>
+                    <div class="field-row">
+                        <label for="pw-confirm">Confirm New Password</label>
+                        <input type="password" id="pw-confirm" placeholder="••••••••" autocomplete="new-password">
                     </div>
                     <div class="save-row">
-                        <button class="btn-cancel">Cancel</button>
-                        <button class="btn-save" onclick="saveProfile()">Save Changes</button>
+                        <button class="btn-cancel" onclick="clearPasswordForm()">Cancel</button>
+                        <button class="btn-save" onclick="updatePassword()">Update Password</button>
                     </div>
                 </div>
 
