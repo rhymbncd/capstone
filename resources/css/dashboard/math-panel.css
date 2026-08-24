@@ -211,6 +211,50 @@
     flex-shrink: 0;
 }
 
+/* ── Chat empty state (shown until the first real message is
+   appended — appendMessage() in chatbot.js always appends to the end
+   of #chat-content, so once anything follows this block it's no
+   longer :last-child and the rule below hides it. Pure CSS, no
+   changes needed in chatbot.js's send/receive logic.) ── */
+.chat-empty-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    text-align: center;
+    padding: 20px;
+}
+.chat-empty-state:not(:last-child) { display: none; }
+
+.chat-empty-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--border);
+    color: var(--text-3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+.chat-empty-text { margin: 0; font-size: 14px; color: var(--text-2); font-weight: 500; }
+
+.chat-calc-hint {
+    background: none;
+    border: none;
+    padding: 0;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--calc-accent);
+    cursor: pointer;
+}
+.chat-calc-hint:hover { text-decoration: underline; }
+
 /* ── FAB re-skin (matches the header gradient + "fx" branding) ── */
 .fab-btn {
     background: linear-gradient(135deg, #1D4ED8 0%, #0F9B6C 100%);

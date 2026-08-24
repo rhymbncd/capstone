@@ -45,6 +45,11 @@
                 <div class="msg-bubble">Hello! I'm here to help you with your math questions. Ask me about <strong>Sequences</strong>, <strong>Polynomials</strong>, or <strong>Functions</strong>.</div>
                 <span class="msg-time">Just now</span>
             </div>
+            <div class="chat-empty-state">
+                <span class="chat-empty-icon" aria-hidden="true">?</span>
+                <p class="chat-empty-text">Type a question below to get started</p>
+                <button type="button" class="chat-calc-hint" id="chat-calc-hint">Need to compute? Open the calculator tab</button>
+            </div>
         </div>
 
         <!-- Footer -->
