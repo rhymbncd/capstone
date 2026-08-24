@@ -21,13 +21,7 @@
 /* ── Header re-skin (blue-to-green gradient, matching the design reference) ── */
 .chat-header { background: linear-gradient(135deg, #1D4ED8 0%, #0F9B6C 100%); }
 
-.chat-avatar {
-    font-style: italic;
-    font-weight: 700;
-    font-size: 13px;
-    color: white;
-    font-family: Georgia, 'Times New Roman', serif;
-}
+.chat-avatar svg { width: 19px; height: 19px; color: white; }
 
 /* ── Drag Handle (the header) ── */
 #chat-drag-handle {
@@ -255,15 +249,9 @@
 }
 .chat-calc-hint:hover { text-decoration: underline; }
 
-/* ── FAB re-skin (matches the header gradient + "fx" branding) ── */
-.fab-btn {
-    background: linear-gradient(135deg, #1D4ED8 0%, #0F9B6C 100%);
-    font-style: italic;
-    font-weight: 700;
-    font-size: 16px;
-    color: white;
-    font-family: Georgia, 'Times New Roman', serif;
-}
+/* ── FAB re-skin (matches the header gradient; icon sizing/color
+   already comes from student_dashboard.css's .fab-btn svg rule) ── */
+.fab-btn { background: linear-gradient(135deg, #1D4ED8 0%, #0F9B6C 100%); }
 
 /* ── Mobile: dragging disabled, panel stays a floating card (its
    normal sizing/position already comes from chatbot.css) ── */
