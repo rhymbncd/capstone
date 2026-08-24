@@ -19,7 +19,8 @@
     <!-- ================= CSS / JS ================= -->
     @vite([
         'resources/css/homepage.css',
-        'resources/js/homepage.js'
+        'resources/js/homepage.js',
+        'resources/js/nav-progress.js'
     ])
 
 </head>

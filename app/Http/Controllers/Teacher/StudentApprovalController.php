@@ -30,6 +30,7 @@ class StudentApprovalController extends Controller
         $approvedStudents = User::where('role', 'student')
             ->where('approval_status', 'approved')
             ->whereHas('section', $ownSection)
+            ->with('section:id,name') // the Approved table shows Section — avoid an N+1 per row
             ->latest()
             ->paginate(15);
 

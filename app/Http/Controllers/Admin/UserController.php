@@ -10,12 +10,17 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class UserController extends Controller
 {
     private const PER_PAGE = 25;
+
+    private const COUNTS_CACHE_KEY = 'admin.users.counts';
+
+    private const COUNTS_CACHE_TTL = 300; // 5 minutes
 
     /**
      * Paginated, searchable "User Management" listing. Also the source of
@@ -54,12 +59,19 @@ class UserController extends Controller
             ->paginate(self::PER_PAGE, ['id', 'name', 'email', 'student_id', 'role', 'approval_status', 'created_at', 'updated_at'])
             ->withQueryString();
 
-        $counts = [
+        // Home tab tiles poll this every 30s across however many admins have
+        // it open — role/status counts only change on a rare, deliberate
+        // admin action (registration+approval, edit, delete), not on every
+        // request, so a short cache absorbs that polling instead of running
+        // 4 count() queries per tick. Busted explicitly in update()/destroy()
+        // below so the admin who just acted sees the real number immediately
+        // rather than waiting out the TTL.
+        $counts = Cache::remember(self::COUNTS_CACHE_KEY, self::COUNTS_CACHE_TTL, fn () => [
             'total' => User::count(),
             'students' => User::where('role', 'student')->count(),
             'teachers' => User::where('role', 'teacher')->count(),
             'pending' => User::where('approval_status', 'pending')->count(),
-        ];
+        ]);
 
         $payload = collect($users->items())->map(fn (User $user) => $this->toPayload($user));
 
@@ -120,6 +132,10 @@ class UserController extends Controller
 
         $user->save();
 
+        // Role/status may have just changed — don't make the admin who did
+        // it wait out the 5-minute TTL to see the Home tab tiles agree.
+        Cache::forget(self::COUNTS_CACHE_KEY);
+
         return response()->json(['user' => $this->toPayload($user)]);
     }
 
@@ -160,6 +176,8 @@ class UserController extends Controller
 
             $user->delete();
         });
+
+        Cache::forget(self::COUNTS_CACHE_KEY);
 
         return response()->json(['message' => 'User deleted successfully.']);
     }

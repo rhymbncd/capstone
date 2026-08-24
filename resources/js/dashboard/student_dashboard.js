@@ -18,6 +18,7 @@ document.addEventListener('DOMContentLoaded', function () {
             // Which module card/button was actually clicked — the modules
             // page scrolls straight to that section instead of always
             // landing back at Module 1.
+            window.startNavProgress?.();
             window.location.href = moduleNum ? `${base}#module${moduleNum}` : base;
             return;
         }

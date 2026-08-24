@@ -21,6 +21,10 @@ export default defineConfig({
                 // Shared live-poller for the Teacher/Student approval-queue pages.
                 'resources/js/approval-queue.js',
 
+                // Thin top-of-page progress bar shown on real cross-page
+                // navigation (not the dashboards' in-page tab-switching).
+                'resources/js/nav-progress.js',
+
                 'resources/css/homepage.css',
                 'resources/js/homepage.js',
 

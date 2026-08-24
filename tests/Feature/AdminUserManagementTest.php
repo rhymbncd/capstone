@@ -204,6 +204,54 @@ it('searches the user list by name or email', function () {
     expect($ids)->toHaveCount(1);
 });
 
+it('caches the Home tab counts across requests', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    User::factory()->create(['role' => 'student', 'approval_status' => 'approved']);
+
+    $first = $this->actingAs($admin)->getJson(route('admin.users.index'));
+    expect($first->json('counts.total'))->toBe(2);
+
+    // Created directly in the DB, bypassing the controller — the cached
+    // count should not see this yet.
+    User::factory()->create(['role' => 'student', 'approval_status' => 'approved']);
+
+    $second = $this->actingAs($admin)->getJson(route('admin.users.index'));
+    expect($second->json('counts.total'))->toBe(2); // still the cached, stale value
+});
+
+it('busts the counts cache immediately when an admin deletes a user', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $teacher = User::factory()->teacher()->create(['approval_status' => 'approved']);
+
+    $first = $this->actingAs($admin)->getJson(route('admin.users.index'));
+    expect($first->json('counts.total'))->toBe(2);
+
+    $this->actingAs($admin)->deleteJson(route('admin.users.destroy', $teacher))->assertOk();
+
+    $second = $this->actingAs($admin)->getJson(route('admin.users.index'));
+    expect($second->json('counts.total'))->toBe(1); // reflects the delete right away, not after 5 minutes
+});
+
+it('busts the counts cache immediately when an admin updates a user\'s role', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $student = User::factory()->create(['role' => 'student', 'approval_status' => 'approved']);
+
+    $first = $this->actingAs($admin)->getJson(route('admin.users.index'));
+    expect($first->json('counts.students'))->toBe(1);
+    expect($first->json('counts.teachers'))->toBe(0);
+
+    $this->actingAs($admin)->patchJson(route('admin.users.update', $student), [
+        'name' => $student->name,
+        'email' => $student->email,
+        'role' => 'teacher',
+        'status' => 'Active',
+    ])->assertOk();
+
+    $second = $this->actingAs($admin)->getJson(route('admin.users.index'));
+    expect($second->json('counts.students'))->toBe(0);
+    expect($second->json('counts.teachers'))->toBe(1);
+});
+
 it('filters the user list by role', function () {
     $admin = User::factory()->create(['role' => 'admin']);
     User::factory()->count(2)->create(['role' => 'student', 'approval_status' => 'approved']);

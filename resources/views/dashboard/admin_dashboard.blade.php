@@ -59,6 +59,7 @@
     @vite([
         'resources/css/dashboard/admin_dashboard.css',
         'resources/js/polling.js',
+        'resources/js/nav-progress.js',
         'resources/js/dashboard/admin_dashboard.js'
     ])
 </head>

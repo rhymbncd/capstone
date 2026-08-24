@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  @vite(['resources/css/app.css', 'resources/js/auth.js'])
+  @vite(['resources/css/app.css', 'resources/js/auth.js', 'resources/js/nav-progress.js'])
 </head>
 <body class="auth-gradient-bg flex min-h-screen flex-col items-center justify-center p-4 font-sans sm:p-6">
 

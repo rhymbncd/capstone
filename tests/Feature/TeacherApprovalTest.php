@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Section;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
@@ -381,6 +382,30 @@ class TeacherApprovalTest extends TestCase
         $response->assertSuccessful();
         $response->assertViewHas('pendingStudents');
         $this->assertEquals(3, $response['pendingStudents']->count());
+    }
+
+    public function test_teacher_student_approvals_index_does_not_n_plus_one_on_section(): void
+    {
+        $teacher = User::factory()->teacher()->create(['approval_status' => 'approved']);
+        $section = Section::factory()->create(['teacher_id' => $teacher->id]);
+        User::factory()->count(10)->create([
+            'role' => 'student',
+            'approval_status' => 'approved',
+            'section_id' => $section->id,
+        ]);
+
+        $queryCount = 0;
+        DB::listen(function () use (&$queryCount) {
+            $queryCount++;
+        });
+
+        $response = $this->actingAs($teacher)->get(route('teacher.student-approvals'));
+
+        $response->assertSuccessful();
+        // Fixed number of queries regardless of how many approved students
+        // there are — a per-row query for ->section would make this scale
+        // with the 10 students above instead of staying flat.
+        $this->assertLessThan(20, $queryCount, "Expected a bounded query count, got {$queryCount} — looks like an N+1 crept back in.");
     }
 
     // ============ GOOGLE OAUTH STUDENT APPROVAL ============

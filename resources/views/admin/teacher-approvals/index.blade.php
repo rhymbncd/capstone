@@ -141,7 +141,7 @@
         </div>
     </div>
 
-    @vite(['resources/js/polling.js', 'resources/js/approval-queue.js'])
+    @vite(['resources/js/polling.js', 'resources/js/approval-queue.js', 'resources/js/nav-progress.js'])
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             initApprovalQueuePolling({
