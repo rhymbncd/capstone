@@ -325,6 +325,14 @@ async function apiFetch(url, options = {}) {
             ...options.headers,
         },
     });
+    // A stale security token (long-idle tab, or signed in/out in another
+    // tab) surfaces here as Laravel's raw "CSRF token mismatch" — not
+    // useful to someone clicking a button, so translate it into something
+    // actionable instead of letting it leak into whatever "X Failed" toast
+    // the caller shows.
+    if (res.status === 419) {
+        throw new Error('Your session has expired. Please refresh the page and try again.');
+    }
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.message || `Request failed (${res.status})`);
     return data;
@@ -1198,6 +1206,9 @@ async function saveSectionToServer(name) {
             },
             body: JSON.stringify({ name }),
         });
+        if (res.status === 419) {
+            throw new Error('Your session has expired. Please refresh the page and try again.');
+        }
         if (!res.ok) {
             const err = await res.json();
             throw new Error(err.message || 'Failed to create section');
@@ -1978,6 +1989,10 @@ async function updatePassword() {
             password_confirmation: confirm,
         }),
     });
+    if (res.status === 419) {
+        return warn('Could not update password', 'Your session has expired. Please refresh the page and try again.');
+    }
+
     const data = await res.json().catch(() => ({}));
 
     if (!res.ok) {

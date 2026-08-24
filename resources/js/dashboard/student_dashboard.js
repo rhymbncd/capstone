@@ -315,6 +315,11 @@ document.addEventListener('DOMContentLoaded', function () {
                 password_confirmation: confirm,
             }),
         });
+        if (res.status === 419) {
+            window.toast('error', 'Your session has expired. Please refresh the page and try again.');
+            return;
+        }
+
         const data = await res.json().catch(() => ({}));
 
         if (!res.ok) {
