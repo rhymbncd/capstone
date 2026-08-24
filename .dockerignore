@@ -1,0 +1,22 @@
+node_modules
+vendor
+.git
+.env
+.env.*
+storage/logs/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+public/build
+public/hot
+tests
+
+# Small, obviously-safe additions on top of the requested list
+.dockerignore
+Dockerfile
+docker-compose*.yml
+.github
+.vscode
+.idea
+*.md
+.phpunit.cache
