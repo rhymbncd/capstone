@@ -28,7 +28,6 @@ const STORAGE_KEY = 'mathPanelPosition';
 const MOBILE_BREAKPOINT = 640;
 const CLAMP_MARGIN = 8;
 const KEYBOARD_INSERT_PATTERN = /^[0-9.+\-*/^!()]$/;
-const PERCENT_PATTERN = /(\d+(?:\.\d+)?)%/g;
 
 document.addEventListener('DOMContentLoaded', function () {
 
@@ -148,12 +147,11 @@ document.addEventListener('DOMContentLoaded', function () {
     // ============================================
 
     const expressionEl = document.getElementById('calc-expression');
-    const previewEl = document.getElementById('calc-preview');
+    const outputEl = document.getElementById('calc-preview');
     const errorEl = document.getElementById('calc-error');
     const loadingEl = document.getElementById('calc-loading');
     const keypad = document.getElementById('calc-keypad');
-    const degBtn = document.getElementById('calc-deg-btn');
-    const radBtn = document.getElementById('calc-rad-btn');
+    const angleBtn = document.getElementById('calc-angle-btn');
     const formatBtn = document.getElementById('calc-format-btn');
     const askBtn = document.getElementById('calc-ask-btn');
 
@@ -196,27 +194,8 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    function preprocessExpression(raw) {
-        return raw.replace(PERCENT_PATTERN, '($1/100)');
-    }
-
-    function renderExpression() {
-        expressionEl.textContent = expression || '0';
-    }
-
-    function updatePreview() {
-        errorEl.textContent = '';
-
-        if (!mathEngine || !expression) {
-            previewEl.textContent = '';
-            return;
-        }
-
-        const result = evaluateExpression(mathEngine, preprocessExpression(expression), angleMode);
-
-        previewEl.textContent = result.ok
-            ? `= ${formatDisplayValue(roundDisplay(result.value))}`
-            : '';
+    function renderExpressionLine() {
+        expressionEl.textContent = expression;
     }
 
     function formatDisplayValue(rounded) {
@@ -229,7 +208,25 @@ document.addEventListener('DOMContentLoaded', function () {
         return fraction ? formatFraction(fraction) : String(rounded);
     }
 
-    /** Applies a computed result to both the visible display and the
+    /** Live output while typing: an incomplete/invalid expression (e.g.
+     *  "3+") just leaves the last valid value on screen rather than
+     *  flickering blank, like a normal calculator's incremental eval. */
+    function updateLiveOutput() {
+        errorEl.textContent = '';
+
+        if (!mathEngine || !expression) {
+            outputEl.textContent = '0';
+            return;
+        }
+
+        const result = evaluateExpression(mathEngine, expression, angleMode);
+
+        if (result.ok) {
+            outputEl.textContent = formatDisplayValue(roundDisplay(result.value));
+        }
+    }
+
+    /** Applies a computed result to both the visible output and the
      *  expression buffer that carries into the next calculation — using
      *  the exact fraction form (e.g. "(1/3)") rather than its rounded
      *  decimal, so chained fraction arithmetic never drifts. */
@@ -257,7 +254,7 @@ document.addEventListener('DOMContentLoaded', function () {
         lastResultDisplay = displayText;
         expression = continuation;
 
-        expressionEl.textContent = displayText;
+        outputEl.textContent = displayText;
         askBtn.disabled = false;
     }
 
@@ -267,19 +264,37 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         const originalExpression = expression;
-        const result = evaluateExpression(mathEngine, preprocessExpression(expression), angleMode);
+        const result = evaluateExpression(mathEngine, expression, angleMode);
 
         if (!result.ok) {
             errorEl.textContent = result.message || 'Check your expression';
-            previewEl.textContent = '';
             return;
         }
 
         applyResult(roundDisplay(result.value));
+        expressionEl.textContent = `${originalExpression} =`;
         lastExpressionText = originalExpression;
-        previewEl.textContent = '';
         errorEl.textContent = '';
         justEvaluated = true;
+    }
+
+    function toggleAngleMode() {
+        angleMode = angleMode === 'deg' ? 'rad' : 'deg';
+        angleBtn.textContent = angleMode;
+        angleBtn.setAttribute('aria-pressed', String(angleMode === 'deg'));
+        updateLiveOutput();
+    }
+
+    function toggleDisplayMode() {
+        displayMode = displayMode === 'fraction' ? 'decimal' : 'fraction';
+        formatBtn.classList.toggle('active', displayMode === 'fraction');
+        formatBtn.setAttribute('aria-pressed', String(displayMode === 'fraction'));
+
+        if (justEvaluated && lastResultValue !== null) {
+            applyResult(lastResultValue);
+        } else {
+            updateLiveOutput();
+        }
     }
 
     function handleKey({ insert, action }) {
@@ -309,13 +324,19 @@ document.addEventListener('DOMContentLoaded', function () {
                 ? expression.slice(2, -1)
                 : `-(${expression})`;
             justEvaluated = false;
+        } else if (action === 'angle') {
+            toggleAngleMode();
+            return;
+        } else if (action === 'frac') {
+            toggleDisplayMode();
+            return;
         } else if (action === 'equals') {
             handleEquals();
             return;
         }
 
-        renderExpression();
-        updatePreview();
+        renderExpressionLine();
+        updateLiveOutput();
     }
 
     keypad?.addEventListener('click', (event) => {
@@ -345,30 +366,6 @@ document.addEventListener('DOMContentLoaded', function () {
             event.preventDefault();
             handleKey({ insert: event.key });
         }
-    });
-
-    function setAngleMode(mode) {
-        angleMode = mode;
-        degBtn.classList.toggle('active', mode === 'deg');
-        radBtn.classList.toggle('active', mode === 'rad');
-        degBtn.setAttribute('aria-pressed', String(mode === 'deg'));
-        radBtn.setAttribute('aria-pressed', String(mode === 'rad'));
-        updatePreview();
-    }
-
-    degBtn?.addEventListener('click', () => setAngleMode('deg'));
-    radBtn?.addEventListener('click', () => setAngleMode('rad'));
-
-    formatBtn?.addEventListener('click', () => {
-        displayMode = displayMode === 'fraction' ? 'decimal' : 'fraction';
-        formatBtn.setAttribute('aria-pressed', String(displayMode === 'fraction'));
-        formatBtn.classList.toggle('active', displayMode === 'fraction');
-
-        if (justEvaluated && lastResultValue !== null) {
-            applyResult(lastResultValue);
-        }
-
-        updatePreview();
     });
 
     askBtn?.addEventListener('click', () => {

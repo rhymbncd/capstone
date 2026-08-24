@@ -27,7 +27,7 @@
         </div>
         <div class="chat-header-actions">
             <button type="button" id="chat-reset-position" title="Reset panel position" aria-label="Reset panel position">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="7" x2="17" y2="17"></line><polyline points="17 7 17 17 7 17"></polyline></svg>
             </button>
             <button id="close-chat" aria-label="Close panel">&times;</button>
         </div>
@@ -36,9 +36,15 @@
     <!-- Tabs -->
     <div class="chat-tablist" role="tablist" aria-label="Math AI Assistant panel">
         <button type="button" class="chat-tab active" id="tab-chat" role="tab"
-                aria-selected="true" aria-controls="panel-chat" tabindex="0">Chat</button>
+                aria-selected="true" aria-controls="panel-chat" tabindex="0">
+            <svg class="chat-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
+            Chat
+        </button>
         <button type="button" class="chat-tab" id="tab-calculator" role="tab"
-                aria-selected="false" aria-controls="panel-calculator" tabindex="-1">Calculator</button>
+                aria-selected="false" aria-controls="panel-calculator" tabindex="-1">
+            <svg class="chat-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="2" width="16" height="20" rx="2"></rect><line x1="8" y1="6" x2="16" y2="6"></line><line x1="8" y1="11" x2="8.01" y2="11"></line><line x1="12" y1="11" x2="12.01" y2="11"></line><line x1="16" y1="11" x2="16.01" y2="11"></line><line x1="8" y1="15" x2="8.01" y2="15"></line><line x1="12" y1="15" x2="12.01" y2="15"></line><line x1="16" y1="15" x2="16.01" y2="15"></line><line x1="8" y1="19" x2="8.01" y2="19"></line><line x1="12" y1="19" x2="12.01" y2="19"></line></svg>
+            Calculator
+        </button>
     </div>
 
     <!-- Chat tab panel (existing widget — unchanged) -->
@@ -92,65 +98,59 @@
 
         <div class="calc-pane">
 
-            <div class="calc-toggle-row">
-                <div class="calc-toggle-group" role="group" aria-label="Angle unit">
-                    <button type="button" class="calc-toggle-btn active" id="calc-deg-btn" data-angle="deg">deg</button>
-                    <button type="button" class="calc-toggle-btn" id="calc-rad-btn" data-angle="rad">rad</button>
-                </div>
-                <button type="button" class="calc-toggle-btn" id="calc-format-btn" title="Toggle fraction/decimal display" aria-pressed="true">f&harr;d</button>
-            </div>
-
             <div class="calc-screen">
-                <div class="calc-expression" id="calc-expression">0</div>
-                <div class="calc-preview" id="calc-preview" aria-live="polite"></div>
+                <div class="calc-expression" id="calc-expression"></div>
+                <div class="calc-output" id="calc-preview" aria-live="polite">0</div>
                 <div class="calc-error" id="calc-error" role="alert"></div>
             </div>
 
             <div class="calc-keypad" id="calc-keypad">
-                <button type="button" class="calc-key calc-key-fn" data-action="clear">AC</button>
+                <button type="button" class="calc-key calc-key-fn calc-key-accent" id="calc-angle-btn" data-action="angle" aria-pressed="true">deg</button>
+                <button type="button" class="calc-key calc-key-fn calc-key-accent active" id="calc-format-btn" data-action="frac" title="Toggle fraction/decimal display" aria-pressed="true">f&harr;d</button>
                 <button type="button" class="calc-key calc-key-fn" data-action="backspace" aria-label="Backspace">&larr;</button>
                 <button type="button" class="calc-key calc-key-fn" data-insert="(">(</button>
                 <button type="button" class="calc-key calc-key-fn" data-insert=")">)</button>
 
+                <button type="button" class="calc-key calc-key-fn" data-action="clear">C</button>
                 <button type="button" class="calc-key calc-key-fn" data-insert="sin(">sin</button>
                 <button type="button" class="calc-key calc-key-fn" data-insert="cos(">cos</button>
                 <button type="button" class="calc-key calc-key-fn" data-insert="tan(">tan</button>
-                <button type="button" class="calc-key calc-key-fn" data-insert="sqrt(">&radic;</button>
+                <button type="button" class="calc-key calc-key-fn" data-insert="/">&divide;</button>
 
+                <button type="button" class="calc-key calc-key-fn calc-key-accent" data-insert="/" title="Fraction (a/b)">a/b</button>
+                <button type="button" class="calc-key calc-key-fn" data-insert="sqrt(">&radic;</button>
                 <button type="button" class="calc-key calc-key-fn" data-insert="log10(">log</button>
                 <button type="button" class="calc-key calc-key-fn" data-insert="log(">ln</button>
-                <button type="button" class="calc-key calc-key-fn" data-insert="^">x^y</button>
-                <button type="button" class="calc-key calc-key-fn" data-insert="!">n!</button>
+                <button type="button" class="calc-key calc-key-fn" data-insert="*">&times;</button>
 
+                <button type="button" class="calc-key calc-key-fn" data-insert="^">x^y</button>
                 <button type="button" class="calc-key" data-insert="7">7</button>
                 <button type="button" class="calc-key" data-insert="8">8</button>
                 <button type="button" class="calc-key" data-insert="9">9</button>
-                <button type="button" class="calc-key calc-key-op" data-insert="/">&divide;</button>
+                <button type="button" class="calc-key calc-key-fn" data-insert="-">&minus;</button>
 
+                <button type="button" class="calc-key calc-key-fn" data-insert="pi">&pi;</button>
                 <button type="button" class="calc-key" data-insert="4">4</button>
                 <button type="button" class="calc-key" data-insert="5">5</button>
                 <button type="button" class="calc-key" data-insert="6">6</button>
-                <button type="button" class="calc-key calc-key-op" data-insert="*">&times;</button>
+                <button type="button" class="calc-key calc-key-fn" data-insert="+">+</button>
 
+                <button type="button" class="calc-key calc-key-fn" data-insert="e">e</button>
                 <button type="button" class="calc-key" data-insert="1">1</button>
                 <button type="button" class="calc-key" data-insert="2">2</button>
                 <button type="button" class="calc-key" data-insert="3">3</button>
-                <button type="button" class="calc-key calc-key-op" data-insert="-">&minus;</button>
+                <button type="button" class="calc-key calc-key-equals" data-action="equals">=</button>
 
-                <button type="button" class="calc-key calc-key-fn" data-insert="/" title="Fraction (a/b)">a/b</button>
+                <button type="button" class="calc-key calc-key-fn" data-insert="!">n!</button>
                 <button type="button" class="calc-key" data-insert="0">0</button>
                 <button type="button" class="calc-key" data-insert=".">.</button>
-                <button type="button" class="calc-key calc-key-op" data-insert="+">+</button>
-
-                <button type="button" class="calc-key calc-key-fn" data-insert="pi">&pi;</button>
-                <button type="button" class="calc-key calc-key-fn" data-insert="e">e</button>
                 <button type="button" class="calc-key calc-key-fn" data-action="negate">&plusmn;</button>
-                <button type="button" class="calc-key calc-key-fn" data-insert="%">%</button>
-
-                <button type="button" class="calc-key calc-key-equals" data-action="equals">=</button>
             </div>
 
-            <button type="button" class="calc-ask-btn" id="calc-ask-btn">Ask the assistant about this</button>
+            <button type="button" class="calc-ask-btn" id="calc-ask-btn" disabled>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
+                Ask the assistant about this
+            </button>
 
             <div class="calc-loading" id="calc-loading" hidden>Loading calculator&hellip;</div>
 
