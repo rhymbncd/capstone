@@ -3268,12 +3268,19 @@ async function saveQuizToSupabase() {
         await loadSavedQuizzes();
         toast('success', 'Quiz saved to Supabase! ✅');
 
-        // Ask teacher if they want to publish to students right away
+        // Ask teacher if they want to publish to students right away. This is
+        // the ONE confirmation for publishing — publishCurrentQuiz() is told
+        // to skip its own dialog so saving doesn't chain into two near-
+        // identical "are you sure" prompts.
         const { isConfirmed } = await Swal.fire({
             title:             'Publish to students now?',
             html:              `<p style="font-size:13px;color:#6b7280;font-family:'Plus Jakarta Sans',sans-serif">
                                    Saved! Do you also want students to use your new questions
-                                   for <strong>${Security.escape(currentQuiz.activityLabel)}</strong>?
+                                   for <strong>${Security.escape(currentQuiz.activityLabel)}</strong> right now?
+                                   Saving alone does <strong>not</strong> make it visible to students.<br><br>
+                                   Pre-test: <b>${currentQuiz.pretest.length}</b> items &nbsp;·&nbsp;
+                                   Activity: <b>${currentQuiz.activity.length}</b> items &nbsp;·&nbsp;
+                                   Post-test: <b>${currentQuiz.posttest.length}</b> items
                                </p>`,
             icon:              'question',
             showCancelButton:  true,
@@ -3283,7 +3290,11 @@ async function saveQuizToSupabase() {
             cancelButtonText:  'Not yet',
         });
 
-        if (isConfirmed) await publishCurrentQuiz();
+        if (isConfirmed) {
+            await publishCurrentQuiz({ skipConfirm: true });
+        } else {
+            toast('info', 'Saved as draft — remember to publish it before students need it.');
+        }
 
     } catch (err) {
         console.error('Save quiz error:', err);
@@ -3620,9 +3631,14 @@ async function deleteSavedQuiz(idx) {
    ============================================================ */
 
 /**
- * Publishes the current quiz to students via quiz_published table
+ * Publishes the current quiz to students via quiz_published table.
+ *
+ * @param {{ skipConfirm?: boolean }} options — skipConfirm is set by the
+ *   post-save "Publish to students now?" prompt, which already asked the
+ *   same question with the same item counts; without it, this would chain
+ *   into a second, near-identical confirm dialog right after the first.
  */
-async function publishCurrentQuiz() {
+async function publishCurrentQuiz({ skipConfirm = false } = {}) {
     if (!currentQuiz) return warn('No quiz', 'Generate a quiz first.');
 
     const actVal = document.getElementById('quiz-activity')?.value;
@@ -3634,25 +3650,27 @@ async function publishCurrentQuiz() {
     const topicLabel = (ACTIVITY_OPTIONS[document.getElementById('quiz-topic')?.value] || [])
         .find(o => o.value === actVal)?.label || actVal;
 
-    const conf = await Swal.fire({
-        title:             'Publish quiz to students?',
-        html:              `<p style="font-size:13px;color:#6b7280;font-family:'Plus Jakarta Sans',sans-serif">
-                               Students will see your generated questions for
-                               <strong style="color:#111827">${Security.escape(topicLabel)}</strong>
-                               instead of the default questions.<br><br>
-                               Pre-test: <b>${currentQuiz.pretest.length}</b> items &nbsp;·&nbsp;
-                               Activity: <b>${currentQuiz.activity.length}</b> items &nbsp;·&nbsp;
-                               Post-test: <b>${currentQuiz.posttest.length}</b> items
-                           </p>`,
-        icon:              'question',
-        showCancelButton:  true,
-        confirmButtonColor:'#2563eb',
-        cancelButtonColor: '#6b7280',
-        confirmButtonText: '📤 Publish',
-        cancelButtonText:  'Cancel',
-    });
+    if (!skipConfirm) {
+        const conf = await Swal.fire({
+            title:             'Publish quiz to students?',
+            html:              `<p style="font-size:13px;color:#6b7280;font-family:'Plus Jakarta Sans',sans-serif">
+                                   Students will see your generated questions for
+                                   <strong style="color:#111827">${Security.escape(topicLabel)}</strong>
+                                   instead of the default questions.<br><br>
+                                   Pre-test: <b>${currentQuiz.pretest.length}</b> items &nbsp;·&nbsp;
+                                   Activity: <b>${currentQuiz.activity.length}</b> items &nbsp;·&nbsp;
+                                   Post-test: <b>${currentQuiz.posttest.length}</b> items
+                               </p>`,
+            icon:              'question',
+            showCancelButton:  true,
+            confirmButtonColor:'#2563eb',
+            cancelButtonColor: '#6b7280',
+            confirmButtonText: '📤 Publish',
+            cancelButtonText:  'Cancel',
+        });
 
-    if (!conf.isConfirmed) return;
+        if (!conf.isConfirmed) return;
+    }
 
     try {
         // Check if already published for this topic

@@ -897,12 +897,25 @@
                 <!-- SAVED QUIZZES LIST -->
                 <div class="modules-container" style="margin-top:24px">
                     <div class="section-label">Saved Quizzes</div>
-                    <div class="section-sub">All quizzes stored in Database</div>
+                    <div class="section-sub">All quizzes stored in Database — saving does not publish them to students</div>
                     <div id="saved-quizzes-list">
                         <div class="empty-state">
                             <div class="empty-icon">🗂️</div>
                             <h4>No saved quizzes yet</h4>
                             <p>Generate and save a quiz to see it here.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PUBLISHED QUIZZES LIST -->
+                <div class="modules-container" style="margin-top:24px">
+                    <div class="section-label">Published Quizzes</div>
+                    <div class="section-sub">Activities where students currently see your questions instead of the defaults</div>
+                    <div id="quiz-published-list">
+                        <div class="empty-state">
+                            <div class="empty-icon">📭</div>
+                            <h4>No published quizzes</h4>
+                            <p>Generate a quiz and click "Publish to students" to send it live.</p>
                         </div>
                     </div>
                 </div>
