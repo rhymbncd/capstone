@@ -265,21 +265,9 @@
     font-family: Georgia, 'Times New Roman', serif;
 }
 
-/* ── Mobile: bottom sheet, dragging disabled ── */
+/* ── Mobile: dragging disabled, panel stays a floating card (its
+   normal sizing/position already comes from chatbot.css) ── */
 @media (max-width: 639px) {
-    #ai-chat-window {
-        left: 0 !important;
-        right: 0 !important;
-        bottom: 0 !important;
-        top: auto !important;
-        width: 100% !important;
-        max-width: 100% !important;
-        height: min(85vh, 640px);
-        max-height: 85vh;
-        border-radius: 20px 20px 0 0;
-        transform-origin: bottom center;
-    }
-
     #chat-drag-handle { cursor: default; touch-action: auto; }
     .chat-drag-grip,
     #chat-reset-position { display: none; }
