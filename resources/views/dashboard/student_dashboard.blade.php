@@ -754,16 +754,7 @@
         <div class="nav-dot"></div>
     </button>
     <div class="fab">
-        <button class="fab-btn" id="fab-chat" aria-label="Open Math AI Assistant" aria-expanded="false" aria-controls="ai-chat-window">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 8V4H8"></path>
-                <rect x="4" y="8" width="16" height="12" rx="2"></rect>
-                <path d="M2 14h2"></path>
-                <path d="M20 14h2"></path>
-                <path d="M9 13v2"></path>
-                <path d="M15 13v2"></path>
-            </svg>
-        </button>
+        <button class="fab-btn" id="fab-chat" aria-label="Open Math AI Assistant" aria-expanded="false" aria-controls="ai-chat-window">fx</button>
         <span class="fab-label">AI Chat</span>
     </div>
     <button class="nav-item" data-page="progress">
