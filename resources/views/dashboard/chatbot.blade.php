@@ -49,7 +49,6 @@
                     <button class="quick-reply-btn">Functions</button>
                 </div>
                 <span class="msg-time">Just now</span>
-                <button type="button" class="chat-calc-hint" id="chat-calc-hint">Need to compute? Open the calculator tab</button>
             </div>
         </div>
 

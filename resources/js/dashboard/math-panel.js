@@ -123,10 +123,6 @@ document.addEventListener('DOMContentLoaded', function () {
         tab.addEventListener('click', () => activateTab(tab));
     });
 
-    document.getElementById('chat-calc-hint')?.addEventListener('click', () => {
-        activateTab(tabCalculator);
-    });
-
     tablist?.addEventListener('keydown', (event) => {
         if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') {
             return;

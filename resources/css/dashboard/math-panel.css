@@ -211,22 +211,6 @@
     flex-shrink: 0;
 }
 
-/* ── "Need to compute?" hint under the greeting message ── */
-.chat-calc-hint {
-    display: block;
-    margin-top: 6px;
-    background: none;
-    border: none;
-    padding: 0;
-    font-family: inherit;
-    font-size: 11.5px;
-    font-weight: 600;
-    color: var(--calc-accent);
-    cursor: pointer;
-    text-align: left;
-}
-.chat-calc-hint:hover { text-decoration: underline; }
-
 /* ── FAB re-skin (matches the header gradient + "fx" branding) ── */
 .fab-btn {
     background: linear-gradient(135deg, #1D4ED8 0%, #0F9B6C 100%);
