@@ -174,29 +174,6 @@
             background: white;
         }
 
-        /* ── Math Symbol Palette ── */
-        .symbol-row {
-            display: flex;
-            gap: 5px;
-            flex-wrap: wrap;
-        }
-        .symbol-btn {
-            min-width: 28px;
-            height: 26px;
-            padding: 0 6px;
-            border-radius: 7px;
-            border: 1px solid var(--border);
-            background: var(--bg);
-            color: var(--text-2);
-            font-family: inherit;
-            font-size: 13px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.15s;
-        }
-        .symbol-btn:hover { background: var(--blue-light); border-color: var(--blue); color: var(--blue); }
-        .symbol-btn:active { transform: scale(0.92); }
-
         /* ── Chat Input ── */
         .input-row {
             display: flex;

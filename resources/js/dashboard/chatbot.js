@@ -10,7 +10,6 @@ document.addEventListener('DOMContentLoaded', function () {
     const sidebarChatBtn = document.getElementById('sidebar-chat-btn');
     const fabChatBtn = document.getElementById('fab-chat');
     const startChatBtn = document.getElementById('start-chat-btn');
-    const symbolRow = document.getElementById('ai-symbol-row');
 
     let isOpen = false;
     let isSending = false;
@@ -918,30 +917,6 @@ document.addEventListener('DOMContentLoaded', function () {
         'click',
         window.openChat
     );
-
-    // ============================================
-    // MATH SYMBOL PALETTE
-    // Inserts the tapped symbol into the input at the cursor position,
-    // since most students have no easy way to type √, π, ≤, etc.
-    // ============================================
-
-    symbolRow?.addEventListener('click', function (event) {
-
-        const btn = event.target.closest('.symbol-btn');
-
-        if (!btn || !input) {
-            return;
-        }
-
-        const symbol = btn.dataset.symbol;
-        const start = input.selectionStart ?? input.value.length;
-        const end = input.selectionEnd ?? input.value.length;
-
-        input.value = input.value.slice(0, start) + symbol + input.value.slice(end);
-        input.focus();
-        input.setSelectionRange(start + symbol.length, start + symbol.length);
-
-    });
 
     // ============================================
     // DEBUG

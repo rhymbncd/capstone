@@ -49,20 +49,6 @@
 
         <!-- Footer -->
         <div class="chat-footer">
-            <div class="symbol-row" id="ai-symbol-row">
-                <button type="button" class="symbol-btn" data-symbol="√">√</button>
-                <button type="button" class="symbol-btn" data-symbol="π">π</button>
-                <button type="button" class="symbol-btn" data-symbol="×">×</button>
-                <button type="button" class="symbol-btn" data-symbol="÷">÷</button>
-                <button type="button" class="symbol-btn" data-symbol="±">±</button>
-                <button type="button" class="symbol-btn" data-symbol="≤">≤</button>
-                <button type="button" class="symbol-btn" data-symbol="≥">≥</button>
-                <button type="button" class="symbol-btn" data-symbol="≠">≠</button>
-                <button type="button" class="symbol-btn" data-symbol="∞">∞</button>
-                <button type="button" class="symbol-btn" data-symbol="²">x²</button>
-                <button type="button" class="symbol-btn" data-symbol="³">x³</button>
-                <button type="button" class="symbol-btn" data-symbol="∑">∑</button>
-            </div>
             <div class="input-row">
                 <input type="text" id="ai-input" placeholder="Type your question...">
                 <button id="ai-send-btn" title="Send message">
