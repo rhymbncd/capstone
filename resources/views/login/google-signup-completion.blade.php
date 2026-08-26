@@ -11,7 +11,8 @@
     html, body { height: 100%; font-family: 'Inter', sans-serif; }
 
     body {
-      background: linear-gradient(180deg, #1E88E5 0%, #80DEEA 100%);
+      background: linear-gradient(135deg, #1e4e7f 0%, #197a86 52%, #16906e 100%);
+      background-attachment: fixed;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
@@ -116,8 +117,8 @@
     }
     .section-search-input:focus {
       background: #fff;
-      border-color: #1E88E5;
-      box-shadow: 0 0 0 3px rgba(30,136,229,0.12);
+      border-color: #1b5384;
+      box-shadow: 0 0 0 3px rgba(27,83,132,0.12);
       cursor: text;
     }
     .section-dropdown {
@@ -148,13 +149,13 @@
       border-bottom: 1px solid #f3f4f6;
     }
     .section-option:last-child { border-bottom: none; }
-    .section-option:hover, .section-option.focused { background: #EBF5FF; color: #1E88E5; }
+    .section-option:hover, .section-option.focused { background: #eaf1f7; color: #1b5384; }
     .section-option .badge {
       width: 28px;
       height: 28px;
       border-radius: 8px;
-      background: #EBF5FF;
-      color: #1E88E5;
+      background: #eaf1f7;
+      color: #1b5384;
       font-size: 11px;
       font-weight: 700;
       display: flex;
@@ -177,7 +178,7 @@
     .btn-main {
       width: 100%;
       padding: 14px;
-      background: #1E88E5;
+      background: #1b5384;
       color: #fff;
       border: none;
       border-radius: 11px;
@@ -190,7 +191,7 @@
       cursor: pointer;
       transition: background .2s, transform .1s;
     }
-    .btn-main:hover { background: #1565C0; }
+    .btn-main:hover { background: #164468; }
     .btn-main:active { transform: scale(0.99); }
     .btn-main:disabled { background: #ccc; cursor: not-allowed; }
 
@@ -200,7 +201,7 @@
       color: #888;
       margin-top: 14px;
     }
-    .bottom-link a { color: #1E88E5; font-weight: 600; text-decoration: none; }
+    .bottom-link a { color: #1b5384; font-weight: 600; text-decoration: none; }
     .bottom-link a:hover { text-decoration: underline; }
 
     @media (max-width: 640px) {
