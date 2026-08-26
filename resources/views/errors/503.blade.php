@@ -11,7 +11,7 @@
     html, body { height: 100%; font-family: 'Inter', -apple-system, sans-serif; }
 
     body {
-      background: linear-gradient(180deg, #1E88E5 0%, #80DEEA 100%);
+      background: linear-gradient(135deg, #1e4e7f 0%, #197a86 52%, #16906e 100%);
       min-height: 100vh;
       display: flex;
       align-items: center;
@@ -67,7 +67,7 @@
       position: absolute;
       inset: 0;
       border-radius: 50%;
-      background: #EBF5FF;
+      background: #e3f2f0;
       animation: pulse-ring 2s ease-in-out infinite;
     }
     @keyframes pulse-ring {
@@ -77,7 +77,7 @@
     .gear-icon {
       position: relative;
       font-size: 40px;
-      color: #1E88E5;
+      color: #197a86;
       animation: spin 3.5s linear infinite;
     }
     @keyframes spin {
@@ -88,7 +88,7 @@
     h1 {
       font-size: 24px;
       font-weight: 800;
-      color: #1a1a1a;
+      color: #0e2e4c;
       margin-bottom: 8px;
       letter-spacing: -0.3px;
     }
@@ -103,11 +103,11 @@
     .dots { display: flex; align-items: center; justify-content: center; gap: 7px; margin-bottom: 6px; }
     .dots span {
       width: 9px; height: 9px; border-radius: 50%;
-      background: #1E88E5;
+      background: #16906e;
       animation: bounce 1.4s ease-in-out infinite;
     }
-    .dots span:nth-child(2) { animation-delay: 0.15s; background: #42A5F5; }
-    .dots span:nth-child(3) { animation-delay: 0.3s;  background: #80DEEA; }
+    .dots span:nth-child(2) { animation-delay: 0.15s; background: #1e4e7f; }
+    .dots span:nth-child(3) { animation-delay: 0.3s;  background: #16906e; }
     @keyframes bounce {
       0%, 80%, 100% { transform: translateY(0);    opacity: 0.5; }
       40%           { transform: translateY(-10px); opacity: 1;   }
@@ -120,10 +120,10 @@
       margin-top: 20px;
       padding: 6px 14px;
       border-radius: 99px;
-      background: #F1F5F9;
+      background: #eaf1f7;
       font-size: 12px;
       font-weight: 600;
-      color: #64748b;
+      color: #0f7355;
     }
   </style>
 </head>
@@ -142,10 +142,10 @@
       <i class="fa-solid fa-gear gear-icon"></i>
     </div>
 
-    <h1>We'll be right back!</h1>
+    <h1>We'll be right back</h1>
     <p class="sub">
-      MathLearn is currently undergoing scheduled maintenance to improve
-      your experience. Thanks for your patience — we won't be long.
+      MathLearn is under scheduled maintenance so we can make it
+      faster for you. This won't take long.
     </p>
 
     <div class="dots"><span></span><span></span><span></span></div>
