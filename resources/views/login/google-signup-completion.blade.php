@@ -6,313 +6,127 @@
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>Complete Your Profile | Bubog NHS</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <style>
-    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { height: 100%; font-family: 'Inter', sans-serif; }
-
-    body {
-      background: linear-gradient(135deg, #1e4e7f 0%, #197a86 52%, #16906e 100%);
-      background-attachment: fixed;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 24px 16px;
-    }
-
-    .back-link {
-      width: 100%;
-      max-width: 600px;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 14px;
-      font-weight: 600;
-      color: rgba(255,255,255,0.92);
-      text-decoration: none;
-      margin-bottom: 16px;
-      transition: color .2s, transform .2s;
-    }
-    .back-link:hover { color: #fff; transform: translateX(-3px); }
-
-    .card {
-      width: 100%;
-      max-width: 600px;
-      background: white;
-      border-radius: 22px;
-      overflow: hidden;
-      box-shadow: 0 24px 64px rgba(0,0,0,0.22);
-      min-height: auto;
-    }
-
-    .card-content {
-      padding: 48px 52px;
-    }
-
-    h2 {
-      font-size: 28px;
-      font-weight: 700;
-      color: #1a1a1a;
-      margin-bottom: 4px;
-    }
-
-    .sub {
-      font-size: 13px;
-      color: #888;
-      margin-bottom: 24px;
-    }
-
-    .user-info {
-      background: #f8fafc;
-      border: 1.5px solid #e5e7eb;
-      border-radius: 11px;
-      padding: 16px 14px;
-      margin-bottom: 20px;
-      font-size: 14px;
-      color: #333;
-    }
-
-    .user-label {
-      font-size: 12px;
-      font-weight: 600;
-      color: #888;
-      margin-bottom: 4px;
-    }
-
-    .ig { margin-bottom: 12px; }
-    .ig label {
-      display: block;
-      font-size: 12px;
-      font-weight: 600;
-      color: #555;
-      margin-bottom: 6px;
-    }
-
-    .section-picker-wrap { position: relative; margin-bottom: 12px; }
-    .section-search-box {
-      position: relative;
-      display: flex;
-      align-items: center;
-    }
-    .section-search-box i.ico {
-      position: absolute;
-      left: 13px;
-      font-size: 15px;
-      color: #aaa;
-      pointer-events: none;
-      z-index: 1;
-    }
-    .section-search-input {
-      width: 100%;
-      padding: 11px 13px 11px 40px;
-      background: #F1F5F9;
-      border: 1.5px solid transparent;
-      border-radius: 11px;
-      font-size: 14px;
-      color: #333;
-      outline: none;
-      cursor: pointer;
-      transition: .2s;
-    }
-    .section-search-input:focus {
-      background: #fff;
-      border-color: #1b5384;
-      box-shadow: 0 0 0 3px rgba(27,83,132,0.12);
-      cursor: text;
-    }
-    .section-dropdown {
-      position: absolute;
-      top: calc(100% + 6px);
-      left: 0;
-      right: 0;
-      background: #fff;
-      border: 1.5px solid #e5e7eb;
-      border-radius: 12px;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.10);
-      z-index: 100;
-      overflow: hidden;
-      display: none;
-      max-height: 220px;
-      overflow-y: auto;
-    }
-    .section-dropdown.open { display: block; }
-    .section-option {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px 14px;
-      font-size: 14px;
-      color: #333;
-      cursor: pointer;
-      transition: background .15s;
-      border-bottom: 1px solid #f3f4f6;
-    }
-    .section-option:last-child { border-bottom: none; }
-    .section-option:hover, .section-option.focused { background: #eaf1f7; color: #1b5384; }
-    .section-option .badge {
-      width: 28px;
-      height: 28px;
-      border-radius: 8px;
-      background: #eaf1f7;
-      color: #1b5384;
-      font-size: 11px;
-      font-weight: 700;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-    }
-    .section-option.no-result { color: #aaa; cursor: default; }
-    .section-option.no-result:hover { background: none; }
-    .section-chevron {
-      position: absolute;
-      right: 13px;
-      font-size: 14px;
-      color: #aaa;
-      pointer-events: none;
-      transition: transform .2s;
-    }
-    .section-picker-wrap.open .section-chevron { transform: rotate(180deg); }
-
-    .btn-main {
-      width: 100%;
-      padding: 14px;
-      background: #1b5384;
-      color: #fff;
-      border: none;
-      border-radius: 11px;
-      font-size: 16px;
-      font-weight: 700;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      cursor: pointer;
-      transition: background .2s, transform .1s;
-    }
-    .btn-main:hover { background: #164468; }
-    .btn-main:active { transform: scale(0.99); }
-    .btn-main:disabled { background: #ccc; cursor: not-allowed; }
-
-    .bottom-link {
-      text-align: center;
-      font-size: 13px;
-      color: #888;
-      margin-top: 14px;
-    }
-    .bottom-link a { color: #1b5384; font-weight: 600; text-decoration: none; }
-    .bottom-link a:hover { text-decoration: underline; }
-
-    @media (max-width: 640px) {
-      body { padding: 2vw 2vw; }
-      .back-link { font-size: 2.8vw; margin-bottom: 2vw; }
-      .card { max-width: 100%; border-radius: 3.5vw; }
-      .card-content { padding: 4vw 3.5vw; }
-      h2 { font-size: 4.5vw; margin-bottom: 0.5vw; }
-      .sub { font-size: 2.8vw; margin-bottom: 3vw; }
-      .ig { margin-bottom: 2vw; }
-      .btn-main { padding: 2.5vw; font-size: 3vw; }
-    }
-  </style>
+  @vite(['resources/css/app.css', 'resources/js/nav-progress.js'])
 </head>
-<body>
+<body class="auth-gradient-bg flex min-h-screen flex-col items-center justify-center p-4 font-sans sm:p-6">
 
-<a href="{{ route('student.login') }}" class="back-link">
-  <i class="fa-solid fa-arrow-left"></i> Back to Login
-</a>
+  <a href="{{ route('student.login') }}" class="mb-4 inline-flex w-full max-w-4xl items-center gap-1.5 text-[13px] font-semibold text-white/70 transition-colors duration-150 hover:text-white">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+    Back to login
+  </a>
 
-<div class="card">
-  <div class="card-content">
-    <h2>Complete Your Profile</h2>
-    <p class="sub">One last step to finish your registration</p>
+  <div class="flex w-full max-w-4xl flex-col overflow-hidden rounded-lg shadow-overlay ring-1 ring-white/10 sm:flex-row">
 
-    @if ($errors->any())
-      <div style="background: #f8d7da; color: #721c24; padding: 12px; border-radius: 8px; margin-bottom: 20px; font-size: 13px; border: 1px solid #f5c6cb;">
-        @foreach ($errors->all() as $error)
-          <p>{{ $error }}</p>
-        @endforeach
+    <!-- Branding panel -->
+    <div class="auth-brand-panel flex flex-col items-center justify-center gap-4 px-6 py-10 text-center sm:flex-[0_0_36%] sm:py-12">
+      <div class="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border border-white/20 bg-[#F7FAFB] sm:h-32 sm:w-32">
+        <img
+            src="{{ asset('image/587572187-777024998723535-6772324307557000990-n-fotor-20260519155328.png') }}"
+            alt="Bubog National High School seal"
+            class="h-full w-full object-cover"
+            width="354" height="354"
+        >
       </div>
-    @endif
-
-    <div class="user-info">
-      <div class="user-label">Signed in as</div>
-      <div><strong>{{ $user->name }}</strong> ({{ $user->email }})</div>
+      <div class="text-[15px] font-bold tracking-wide text-white/90">Bubog National High School</div>
+      <p class="max-w-[220px] text-[13px] leading-relaxed text-white/70">Add your student details so your teachers see you in the right section.</p>
     </div>
 
-    <form id="completionForm" method="POST" onsubmit="return validateSection(event)">
-      @csrf
+    <!-- Form panel -->
+    <div class="flex flex-1 items-center justify-center overflow-y-auto bg-white p-6 sm:p-10">
+      <div class="w-full max-w-[420px]">
+        <h1 class="text-[28px] font-bold tracking-tight text-neutral-900">Complete your profile</h1>
+        <p class="mb-6 mt-1 text-[13px] text-neutral-500">One last step to finish your registration.</p>
 
-      <div class="ig" id="student-id-row">
-        <label>Student ID <span style="color: #ef4444;">*</span></label>
-        <div class="iw">
-          <i class="fa-solid fa-id-card ico" style="position:absolute;left:13px;font-size:15px;color:#aaa;pointer-events:none"></i>
-          <input type="text" name="student_id" id="student_id" placeholder="e.g. 24-1234" autocomplete="off"
-                 style="width:100%;padding:11px 13px 11px 40px;background:#F1F5F9;border:1.5px solid transparent;border-radius:11px;font-size:14px;color:#333;outline:none;transition:.2s"
-                 value="{{ old('student_id') }}">
-        </div>
-        @error('student_id')<p style="color: #ef4444; font-size: 12px; margin-top: 5px;">{{ $message }}</p>@enderror
-      </div>
-
-      <div class="section-picker-wrap" id="section-row">
-        <label for="section-search-input">Select Your Section <span style="color: #ef4444;">*</span></label>
-
-        {{-- Hidden real select that gets submitted with the form --}}
-        <select name="section_id" id="section_id" style="display:none" required>
-          <option value="" disabled selected></option>
-          @if(isset($sections) && $sections->count() > 0)
-            @foreach($sections as $section)
-              <option value="{{ $section->id }}">{{ $section->name }}</option>
+        @if ($errors->any())
+          <x-alert variant="error" class="mb-5">
+            @foreach ($errors->all() as $error)
+              <p>{{ $error }}</p>
             @endforeach
-          @endif
-        </select>
+          </x-alert>
+        @endif
 
-        <div class="section-search-box">
-          <i class="fa-solid fa-layer-group ico"></i>
-          <input
-            type="text"
-            id="section-search-input"
-            class="section-search-input"
-            placeholder="Search or select a section…"
-            autocomplete="off"
-            readonly
-          >
-          <i class="fa-solid fa-chevron-down section-chevron"></i>
+        <div class="mb-5 flex items-center gap-3 rounded-md border-l-4 border-[#1b5384] bg-[#eaf1f7] px-4 py-3">
+          <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1b5384] text-[15px] font-bold text-white">
+            {{ strtoupper(substr($user->name, 0, 1)) }}
+          </div>
+          <div>
+            <div class="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Signed in as</div>
+            <div class="text-[14px] text-neutral-900"><span class="font-bold">{{ $user->name }}</span> <span class="text-neutral-500">({{ $user->email }})</span></div>
+          </div>
         </div>
 
-        <div class="section-dropdown" id="section-dropdown">
-          @if(isset($sections) && $sections->count() > 0)
-            @foreach($sections as $index => $section)
-              <div
-                class="section-option"
-                data-value="{{ $section->id }}"
-                data-label="{{ $section->name }}"
+        <form id="completionForm" method="POST" onsubmit="return validateSection(event)">
+          @csrf
+
+          <div class="mb-4" id="student-id-row">
+            <label for="student_id" class="mb-1.5 block text-[13px] font-medium text-neutral-700">Student ID <span class="text-error">*</span></label>
+            <div class="relative">
+              <i class="fa-solid fa-id-card pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"></i>
+              <input
+                type="text" name="student_id" id="student_id" placeholder="e.g. 24-1234" autocomplete="off"
+                value="{{ old('student_id') }}"
+                class="h-10 w-full rounded-md border border-neutral-200 pl-10 pr-3 text-[15px] text-neutral-900 placeholder:text-neutral-500 outline-none transition-colors duration-150 focus:border-[#1b5384] focus:ring-2 focus:ring-[#1b5384]/15"
               >
-                <span class="badge">{{ $index + 1 }}</span>
-                {{ $section->name }}
-              </div>
-            @endforeach
-          @else
-            <div class="section-option no-result">
-              <i class="fa-solid fa-circle-info" style="color:#ccc"></i>
-              No sections available yet
             </div>
-          @endif
-        </div>
+            @error('student_id')<p class="mt-1.5 text-[13px] text-error">{{ $message }}</p>@enderror
+          </div>
 
-        @error('section_id')
-          <p style="color: #ef4444; font-size: 12px; margin-top: 5px;">{{ $message }}</p>
-        @enderror
+          <div class="relative mb-5" id="section-row">
+            <label for="section-search-input" class="mb-1.5 block text-[13px] font-medium text-neutral-700">Select your section <span class="text-error">*</span></label>
+
+            {{-- Hidden real select that gets submitted with the form --}}
+            <select name="section_id" id="section_id" class="hidden" required>
+              <option value="" disabled selected></option>
+              @if(isset($sections) && $sections->count() > 0)
+                @foreach($sections as $section)
+                  <option value="{{ $section->id }}">{{ $section->name }}</option>
+                @endforeach
+              @endif
+            </select>
+
+            <div class="relative flex items-center">
+              <i class="fa-solid fa-layer-group pointer-events-none absolute left-3 text-neutral-400"></i>
+              <input
+                type="text" id="section-search-input" placeholder="Search or select a section…"
+                autocomplete="off" readonly
+                class="h-10 w-full cursor-pointer rounded-md border border-neutral-200 pl-10 pr-9 text-[15px] text-neutral-900 outline-none transition-colors duration-150 focus:border-[#1b5384] focus:ring-2 focus:ring-[#1b5384]/15"
+              >
+              <i class="fa-solid fa-chevron-down section-chevron pointer-events-none absolute right-3 text-neutral-400 transition-transform duration-150"></i>
+            </div>
+
+            <div class="section-dropdown absolute left-0 right-0 top-[calc(100%+6px)] z-50 hidden max-h-[220px] overflow-y-auto rounded-md border border-neutral-200 bg-white shadow-lg" id="section-dropdown">
+              @if(isset($sections) && $sections->count() > 0)
+                @foreach($sections as $index => $section)
+                  <div
+                    class="section-option flex cursor-pointer items-center gap-2.5 border-b border-neutral-100 px-3.5 py-2.5 text-[14px] text-neutral-800 transition-colors duration-150 last:border-b-0 hover:bg-[#eaf1f7] hover:text-[#1b5384]"
+                    data-value="{{ $section->id }}"
+                    data-label="{{ $section->name }}"
+                  >
+                    <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[#eaf1f7] text-[11px] font-bold text-[#1b5384]">{{ $index + 1 }}</span>
+                    {{ $section->name }}
+                  </div>
+                @endforeach
+              @else
+                <div class="section-option flex cursor-default items-center gap-2.5 px-3.5 py-2.5 text-[14px] text-neutral-400">
+                  <i class="fa-solid fa-circle-info"></i> No sections available yet
+                </div>
+              @endif
+            </div>
+
+            @error('section_id')
+              <p class="mt-1.5 text-[13px] text-error">{{ $message }}</p>
+            @enderror
+          </div>
+
+          <button type="submit" class="flex h-10 w-full items-center justify-center gap-2 rounded-md bg-[#1b5384] text-[15px] font-bold text-white transition-colors duration-150 hover:bg-[#164468] active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-neutral-300">
+            <i class="fa-solid fa-check"></i> Complete registration
+          </button>
+        </form>
+
+        <p class="mt-4 text-center text-[13px] text-neutral-500">Need help? <a href="{{ route('student.login') }}" class="font-semibold text-[#0f7355] transition-colors duration-150 hover:text-[#0b5c44] hover:underline">Back to login</a></p>
       </div>
-
-      <button type="submit" class="btn-main">
-        <i class="fa-solid fa-check"></i> Complete Registration
-      </button>
-    </form>
-
-    <p class="bottom-link">Need help? <a href="{{ route('student.login') }}">Back to login</a></p>
+    </div>
   </div>
-</div>
 
 <script>
 // Validate section selection before form submission
@@ -320,23 +134,23 @@ function validateSection(event) {
   const studentIdInput = document.getElementById('student_id');
   if (!studentIdInput.value.trim()) {
     event.preventDefault();
-    studentIdInput.style.borderColor = '#ef4444';
-    studentIdInput.style.background = '#fef2f2';
+    studentIdInput.classList.add('border-error', 'focus:border-error');
+    studentIdInput.classList.remove('border-neutral-200');
     studentIdInput.focus();
 
     let idErrorMsg = document.getElementById('student-id-error-msg');
     if (!idErrorMsg) {
       idErrorMsg = document.createElement('p');
       idErrorMsg.id = 'student-id-error-msg';
-      idErrorMsg.style.cssText = 'color: #ef4444; font-size: 12px; margin-top: 5px;';
+      idErrorMsg.className = 'mt-1.5 text-[13px] text-error';
       document.getElementById('student-id-row').appendChild(idErrorMsg);
     }
     idErrorMsg.textContent = 'Please enter your student ID';
 
     return false;
   }
-  studentIdInput.style.borderColor = '';
-  studentIdInput.style.background = '';
+  studentIdInput.classList.remove('border-error', 'focus:border-error');
+  studentIdInput.classList.add('border-neutral-200');
   const idErrorMsg = document.getElementById('student-id-error-msg');
   if (idErrorMsg) idErrorMsg.textContent = '';
 
@@ -346,17 +160,15 @@ function validateSection(event) {
   if (!sectionId) {
     event.preventDefault();
 
-    // Highlight the section field in red
-    sectionInput.style.borderColor = '#ef4444';
-    sectionInput.style.background = '#fef2f2';
+    sectionInput.classList.add('border-error', 'focus:border-error');
+    sectionInput.classList.remove('border-neutral-200');
     sectionInput.focus();
 
-    // Show error message
     let errorMsg = document.getElementById('section-error-msg');
     if (!errorMsg) {
       errorMsg = document.createElement('p');
       errorMsg.id = 'section-error-msg';
-      errorMsg.style.cssText = 'color: #ef4444; font-size: 12px; margin-top: 5px;';
+      errorMsg.className = 'mt-1.5 text-[13px] text-error';
       document.getElementById('section-row').appendChild(errorMsg);
     }
     errorMsg.textContent = 'Please select a section to continue';
@@ -364,9 +176,8 @@ function validateSection(event) {
     return false;
   }
 
-  // Clear error styling if section is valid
-  sectionInput.style.borderColor = '';
-  sectionInput.style.background = '';
+  sectionInput.classList.remove('border-error', 'focus:border-error');
+  sectionInput.classList.add('border-neutral-200');
   const errorMsg = document.getElementById('section-error-msg');
   if (errorMsg) errorMsg.textContent = '';
 
@@ -380,46 +191,46 @@ function validateSection(event) {
   const wrap = document.getElementById('section-row');
   const input = document.getElementById('section-search-input');
   const dropdown = document.getElementById('section-dropdown');
+  const chevron = document.querySelector('.section-chevron');
   const hidden = document.getElementById('section_id');
 
   if (!wrap) return;
 
   function openDrop() {
-    wrap.classList.add('open');
-    dropdown.classList.add('open');
+    dropdown.classList.remove('hidden');
+    chevron.classList.add('rotate-180');
     input.removeAttribute('readonly');
     input.focus();
   }
   function closeDrop() {
-    wrap.classList.remove('open');
-    dropdown.classList.remove('open');
+    dropdown.classList.add('hidden');
+    chevron.classList.remove('rotate-180');
     input.setAttribute('readonly', true);
   }
 
   input.addEventListener('click', openDrop);
-  input.addEventListener('keydown', e => { if (!dropdown.classList.contains('open')) openDrop(); });
+  input.addEventListener('keydown', e => { if (dropdown.classList.contains('hidden')) openDrop(); });
 
   input.addEventListener('input', function() {
     const q = this.value.toLowerCase();
     let any = false;
     dropdown.querySelectorAll('.section-option').forEach(opt => {
-      if (opt.classList.contains('no-result')) return;
+      if (!opt.dataset.label) return;
       const match = opt.dataset.label.toLowerCase().includes(q);
       opt.style.display = match ? '' : 'none';
       if (match) any = true;
     });
-    const noRes = dropdown.querySelector('.no-result');
+    const noRes = dropdown.querySelector('.section-option:not([data-label])');
     if (noRes) noRes.style.display = any ? 'none' : '';
   });
 
-  dropdown.querySelectorAll('.section-option:not(.no-result)').forEach(opt => {
+  dropdown.querySelectorAll('.section-option[data-value]').forEach(opt => {
     opt.addEventListener('click', function() {
       hidden.value = this.dataset.value;
       input.value = this.dataset.label;
 
-      // Clear error styling
-      input.style.borderColor = '';
-      input.style.background = '';
+      input.classList.remove('border-error', 'focus:border-error');
+      input.classList.add('border-neutral-200');
       const errorMsg = document.getElementById('section-error-msg');
       if (errorMsg) errorMsg.textContent = '';
 
