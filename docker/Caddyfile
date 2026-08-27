@@ -5,14 +5,26 @@
 
 :{$PORT:8080} {
 	root * /app/public
-	encode zstd gzip
 
-	# Vite's /build/* filenames are content-hashed, so "immutable" is always
-	# safe there. /image/* and /fonts/* are NOT hashed — replacing a file
-	# under those paths in place means old copies keep being served from
-	# cache for up to a year, so rename (don't overwrite) when swapping one.
-	@long_lived path /build/* /image/* /fonts/*
-	header @long_lived Cache-Control "public, max-age=31536000, immutable"
+	# `route` forces these to run in the exact order written. Without it,
+	# Caddy's automatic directive sorter interacts badly with php_server's
+	# internal routing (it expands into a handle-like construct) and
+	# silently drops/reorders `header` and skips `encode` for PHP-generated
+	# responses — no error, `caddy validate` still says "valid". Verified
+	# in production: static files got gzipped but the HTML document never
+	# did, and Cache-Control never reached the client at all, until this
+	# was wrapped in `route`.
+	route {
+		encode zstd gzip
 
-	php_server
+		# Vite's /build/* filenames are content-hashed, so "immutable" is
+		# always safe there. /image/* and /fonts/* are NOT hashed —
+		# replacing a file under those paths in place means old copies
+		# keep being served from cache for up to a year, so rename (don't
+		# overwrite) when swapping one.
+		@long_lived path /build/* /image/* /fonts/*
+		header @long_lived Cache-Control "public, max-age=31536000, immutable"
+
+		php_server
+	}
 }
