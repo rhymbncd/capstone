@@ -47,7 +47,7 @@ body {
 .hero-blur {
     position: absolute;
     inset: 0;
-    background: url('/image/pexels-photo-6344238.webp') center/cover no-repeat;
+    background: url('/image/pexels-photo-6344238-640w.webp') center/cover no-repeat;
     filter: blur(14px);
     transform: scale(1.15);
     opacity: 0.4;

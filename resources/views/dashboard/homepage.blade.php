@@ -12,7 +12,13 @@
     <link rel="preload" href="/fonts/inter-latin-400-800.woff2" as="font" type="font/woff2" crossorigin>
 
     <!-- ================= HERO IMAGE ================= -->
-    <link rel="preload" as="image" href="/image/pexels-photo-6344238.webp" type="image/webp" fetchpriority="high">
+    <link rel="preload" as="image" type="image/webp"
+          href="/image/pexels-photo-6344238-1280w.webp"
+          imagesrcset="/image/pexels-photo-6344238-640w.webp 640w,
+                       /image/pexels-photo-6344238-1280w.webp 1280w,
+                       /image/pexels-photo-6344238-1920w.webp 1920w"
+          imagesizes="100vw"
+          fetchpriority="high">
 
     <!-- ================= CSS / JS ================= -->
     @vite([
@@ -31,8 +37,15 @@
 <section class="hero">
 
     <picture>
-        <source type="image/webp" srcset="/image/pexels-photo-6344238.webp">
-        <img src="/image/pexels-photo-6344238.jpeg" alt="" class="hero-bg" width="1920" height="1280" fetchpriority="high">
+        <source
+            type="image/webp"
+            srcset="/image/pexels-photo-6344238-640w.webp 640w,
+                    /image/pexels-photo-6344238-1280w.webp 1280w,
+                    /image/pexels-photo-6344238-1920w.webp 1920w"
+            sizes="100vw">
+        <img src="/image/pexels-photo-6344238.jpeg" alt="" class="hero-bg"
+             width="1920" height="1280"
+             fetchpriority="high" decoding="async">
     </picture>
 
     <div class="hero-blur"></div>

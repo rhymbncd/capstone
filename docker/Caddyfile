@@ -6,32 +6,27 @@
 :{$PORT:8080} {
 	root * /app/public
 
-	# `route` forces these to run in the exact order written. Without it,
-	# Caddy's automatic directive sorter interacts badly with php_server's
-	# internal routing (it expands into a handle-like construct) and
-	# silently drops/reorders `header` and skips `encode` for PHP-generated
-	# responses — no error, `caddy validate` still says "valid". Verified
-	# in production: static files got gzipped but the HTML document never
-	# did, and Cache-Control never reached the client at all, until this
-	# was wrapped in `route`.
+	# `route` pins directive order. Caddy's auto directive-sorter reorders
+	# encode/header around php_server (which expands into a handle-like
+	# construct) in a way that silently drops them for served responses —
+	# caddy validate still passes. Wrapping all three forces literal order.
 	route {
-		# DIAGNOSTIC ONLY — not a fix. Unconditional, no matcher, applies
-		# to every response. If this header shows up on ANY request, the
-		# `header` directive mechanism works in this container and the
-		# problem is specifically the `@long_lived` matcher below. If it
-		# never shows up on anything, `header` itself isn't reaching the
-		# client regardless of matchers. Remove once we have the answer.
-		header X-Caddy-Test "1"
-
 		encode zstd gzip
 
-		# Vite's /build/* filenames are content-hashed, so "immutable" is
-		# always safe there. /image/* and /fonts/* are NOT hashed —
-		# replacing a file under those paths in place means old copies
-		# keep being served from cache for up to a year, so rename (don't
-		# overwrite) when swapping one.
-		@long_lived path /build/* /image/* /fonts/*
-		header @long_lived Cache-Control "public, max-age=31536000, immutable"
+		# Non-hashed but stable — cache a year. No `immutable` so a renamed
+		# replacement is still picked up without a hard reload.
+		@fonts path /fonts/*
+		header @fonts Cache-Control "public, max-age=31536000"
+
+		# Non-hashed, changed more often — 30 days.
+		@images path /image/* *.webp *.png *.jpg *.jpeg *.svg *.ico
+		header @images Cache-Control "public, max-age=2592000"
+
+		# Vite output is content-hashed: safe to cache forever + immutable.
+		# Declared last so it wins if a hashed asset also matches @images
+		# (header ops apply in order, last write wins).
+		@immutable path /build/*
+		header @immutable Cache-Control "public, max-age=31536000, immutable"
 
 		php_server
 	}
