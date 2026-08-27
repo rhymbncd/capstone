@@ -1,3 +1,13 @@
+/* Self-hosted variable font: one file covers weights 400-800 (the only
+   weights this stylesheet actually uses), swapped in for Google Fonts. */
+@font-face {
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 400 800;
+    font-display: swap;
+    src: url('/fonts/inter-latin-400-800.woff2') format('woff2');
+}
+
 * {
     margin: 0;
     padding: 0;
@@ -15,19 +25,29 @@ body {
 .hero {
     position: relative;
     height: 600px;
-    background: url('/image/pexels-photo-6344238.jpeg') center/cover no-repeat;
-    background: image-set(url('/image/pexels-photo-6344238.webp') 1x) center/cover no-repeat;
     display: flex;
     justify-content: center;
     align-items: center;
     overflow: hidden;
 }
 
+/* sharp background photo — a real <img> (see hero markup) instead of a
+   CSS background-image, so it's discoverable/preloadable for LCP */
+.hero-bg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    z-index: 0;
+}
+
 /* blurred background */
 .hero-blur {
     position: absolute;
     inset: 0;
-    background: inherit;
+    background: url('/image/pexels-photo-6344238.webp') center/cover no-repeat;
     filter: blur(14px);
     transform: scale(1.15);
     opacity: 0.4;
@@ -113,6 +133,16 @@ body {
 /* icon size */
 .btn i {
     font-size: 1.1rem;
+}
+
+/* inline SVG icons (replacing Font Awesome) size themselves off the
+   same font-size their containing <i> already had */
+.btn i svg,
+.feature-card i svg {
+    width: 1em;
+    height: 1em;
+    fill: currentColor;
+    display: block;
 }
 
 /* soft glow */
@@ -404,7 +434,10 @@ body {
 
 .footer p {
     font-size: 0.85rem;
-    color: #94a3b8;
+    /* #475569 (already used for .topic-card p above) gives 7.6:1 against
+       the white footer background, vs. 2.6:1 for the previous #94a3b8 —
+       meets WCAG AA's 4.5:1 minimum for normal-size text. */
+    color: #475569;
 }
 
 .footer-sub {

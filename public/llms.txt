@@ -1,0 +1,15 @@
+# MathLearn
+
+> MathLearn (MATHsaLOVE) is a math learning platform for Bubog National High School's Junior High School students. It provides interactive learning modules, an AI chatbot for math help, quizzes and assessments with instant feedback, and progress tracking for students, teachers, and administrators.
+
+## Pages
+
+- [Homepage](https://mathlearn.online/): Overview of the platform and its features.
+- [Sign In](https://mathlearn.online/signin): Account sign-in for students, teachers, and administrators.
+- [Sign Up](https://mathlearn.online/signup): New account registration.
+
+## Topics covered
+
+- Sequences and Series
+- Polynomials and Polynomial Equations
+- Advanced Equations and Functions
