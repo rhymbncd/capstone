@@ -15,6 +15,14 @@
 	# did, and Cache-Control never reached the client at all, until this
 	# was wrapped in `route`.
 	route {
+		# DIAGNOSTIC ONLY — not a fix. Unconditional, no matcher, applies
+		# to every response. If this header shows up on ANY request, the
+		# `header` directive mechanism works in this container and the
+		# problem is specifically the `@long_lived` matcher below. If it
+		# never shows up on anything, `header` itself isn't reaching the
+		# client regardless of matchers. Remove once we have the answer.
+		header X-Caddy-Test "1"
+
 		encode zstd gzip
 
 		# Vite's /build/* filenames are content-hashed, so "immutable" is
