@@ -367,7 +367,7 @@ let allSections = [];  // Sections for Reports page display
 let feedbackTargetId = null;
 let pendingFile      = null;
 
-const STUDENTS_PER_PAGE = 6;
+const STUDENTS_PER_PAGE = 15;
 let studentPage = 1;
 
 /* ============================================================
@@ -492,13 +492,59 @@ function renderStudents() {
 
     const pg = document.getElementById('student-pagination');
     pg.innerHTML = '';
-    pg.appendChild(makePgBtn('‹ Prev', studentPage === 1, () => { studentPage--; renderStudents(); }));
-    for (let i = 1; i <= totalPages; i++) {
-        const btn = makePgBtn(i, false, () => { studentPage = i; renderStudents(); });
-        if (i === studentPage) btn.classList.add('active');
-        pg.appendChild(btn);
+
+    const summary = document.createElement('div');
+    summary.className = 'pg-summary';
+    summary.textContent = filtered.length === 0
+        ? 'No results'
+        : `Showing ${(studentPage - 1) * STUDENTS_PER_PAGE + 1} to ${(studentPage - 1) * STUDENTS_PER_PAGE + slice.length} of ${filtered.length} students`;
+    pg.appendChild(summary);
+
+    const controls = document.createElement('div');
+    controls.className = 'pg-controls';
+    controls.appendChild(makePgBtn('Previous', studentPage === 1, () => { studentPage--; renderStudents(); }));
+    for (const page of paginationRange(studentPage, totalPages)) {
+        if (page === '…') {
+            const ellipsis = document.createElement('span');
+            ellipsis.className = 'pg-ellipsis';
+            ellipsis.textContent = '…';
+            controls.appendChild(ellipsis);
+            continue;
+        }
+        const btn = makePgBtn(page, false, () => { studentPage = page; renderStudents(); });
+        if (page === studentPage) btn.classList.add('active');
+        controls.appendChild(btn);
     }
-    pg.appendChild(makePgBtn('Next ›', studentPage === totalPages, () => { studentPage++; renderStudents(); }));
+    controls.appendChild(makePgBtn('Next', studentPage === totalPages, () => { studentPage++; renderStudents(); }));
+    pg.appendChild(controls);
+}
+
+/**
+ * Builds a condensed page-number sequence around the current page, e.g.
+ * [1, '…', 8, 9, 10, 11, 12, '…', 42], so pagination stays usable when
+ * there are hundreds of pages.
+ *
+ * @return {Array<number|string>}
+ */
+function paginationRange(current, last, siblings = 1) {
+    const start = Math.max(2, current - siblings);
+    const end = Math.min(last - 1, current + siblings);
+    const range = [1];
+
+    if (start > 2) {
+        range.push('…');
+    }
+    for (let i = start; i <= end; i++) {
+        range.push(i);
+    }
+    if (end < last - 1) {
+        range.push('…');
+    }
+    if (last > 1) {
+        range.push(last);
+    }
+
+    return range;
 }
 
 function filterStudents() { studentPage = 1; renderStudents(); }

@@ -856,7 +856,9 @@ tr:hover td { background: #fafbff; }
 /* ================================
    PAGINATION
    ================================ */
-.pagination { display: flex; align-items: center; gap: 6px; margin-top: 14px; justify-content: flex-end; }
+.pagination { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 14px; justify-content: space-between; }
+.pg-summary { font-size: 12px; color: var(--text-2); }
+.pg-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .pg-btn {
     padding: 6px 12px; border: 1px solid var(--border); border-radius: 7px;
     background: white; font-family: inherit; font-size: 12px; font-weight: 700;
@@ -864,6 +866,7 @@ tr:hover td { background: #fafbff; }
 }
 .pg-btn:hover, .pg-btn.active { background: var(--blue); color: white; border-color: var(--blue); }
 .pg-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.pg-ellipsis { padding: 6px 4px; font-size: 12px; font-weight: 700; color: var(--text-2); }
 
 /* ================================
    EMPTY STATES
