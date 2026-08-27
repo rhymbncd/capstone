@@ -11,6 +11,12 @@
 	# construct) in a way that silently drops them for served responses —
 	# caddy validate still passes. Wrapping all three forces literal order.
 	route {
+		# Permanent deploy marker: proves this file (not FrankenPHP's
+		# default /etc/frankenphp/Caddyfile) is the config in effect. If
+		# this header is missing from a response, the container isn't
+		# running `frankenphp run --config /app/docker/Caddyfile`.
+		header X-Config-Source "app-caddyfile"
+
 		encode zstd gzip
 
 		# Non-hashed but stable — cache a year. No `immutable` so a renamed

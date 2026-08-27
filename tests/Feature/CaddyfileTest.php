@@ -8,6 +8,10 @@ it('compresses responses with zstd and gzip', function () {
     expect($this->caddyfile)->toContain('encode zstd gzip');
 });
 
+it('emits a permanent marker header identifying the active config', function () {
+    expect($this->caddyfile)->toContain('header X-Config-Source "app-caddyfile"');
+});
+
 it('caches Vite build output for a year as immutable', function () {
     expect($this->caddyfile)
         ->toContain('@immutable path /build/*')
