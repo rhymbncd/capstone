@@ -1385,10 +1385,21 @@ tr:hover td {
    ================================ */
 .pagination {
     display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-top: 14px;
+    justify-content: space-between;
+}
+.pg-summary {
+    font-size: 12px;
+    color: var(--text-3);
+}
+.pg-controls {
+    display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 6px;
-    margin-top: 14px;
-    justify-content: flex-end;
 }
 .pg-btn {
     padding: 6px 12px;
@@ -1410,6 +1421,12 @@ tr:hover td {
 .pg-btn:disabled {
     opacity: 0.4;
     cursor: not-allowed;
+}
+.pg-ellipsis {
+    padding: 6px 4px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-2);
 }
 /* ================================
    EMPTY STATE

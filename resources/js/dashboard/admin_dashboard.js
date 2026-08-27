@@ -487,14 +487,64 @@ function renderPaginationInto(elId, meta, onPage) {
     const pg = document.getElementById(elId);
     if (!pg) return;
     pg.innerHTML = '';
-    const { current_page: current, last_page: last } = meta;
-    pg.appendChild(makePgBtn('‹ Prev', current <= 1, () => onPage(current - 1)));
-    for (let i = 1; i <= last; i++) {
-        const btn = makePgBtn(i, false, () => onPage(i));
-        if (i === current) btn.classList.add('active');
-        pg.appendChild(btn);
+    const { current_page: current, last_page: last, total, per_page: perPage } = meta;
+
+    if (total != null && perPage != null) {
+        const from = total === 0 ? 0 : (current - 1) * perPage + 1;
+        const to = Math.min(current * perPage, total);
+        const summary = document.createElement('div');
+        summary.className = 'pg-summary';
+        summary.textContent = total === 0
+            ? 'No results'
+            : `Showing ${from} to ${to} of ${total}`;
+        pg.appendChild(summary);
     }
-    pg.appendChild(makePgBtn('Next ›', current >= last, () => onPage(current + 1)));
+
+    const controls = document.createElement('div');
+    controls.className = 'pg-controls';
+    controls.appendChild(makePgBtn('Previous', current <= 1, () => onPage(current - 1)));
+    for (const page of paginationRange(current, last)) {
+        if (page === '…') {
+            const ellipsis = document.createElement('span');
+            ellipsis.className = 'pg-ellipsis';
+            ellipsis.textContent = '…';
+            controls.appendChild(ellipsis);
+            continue;
+        }
+        const btn = makePgBtn(page, false, () => onPage(page));
+        if (page === current) btn.classList.add('active');
+        controls.appendChild(btn);
+    }
+    controls.appendChild(makePgBtn('Next', current >= last, () => onPage(current + 1)));
+    pg.appendChild(controls);
+}
+
+/**
+ * Builds a condensed page-number sequence around the current page, e.g.
+ * [1, '…', 8, 9, 10, 11, 12, '…', 42], so pagination stays usable when
+ * there are hundreds of pages.
+ *
+ * @return {Array<number|string>}
+ */
+function paginationRange(current, last, siblings = 1) {
+    const start = Math.max(2, current - siblings);
+    const end = Math.min(last - 1, current + siblings);
+    const range = [1];
+
+    if (start > 2) {
+        range.push('…');
+    }
+    for (let i = start; i <= end; i++) {
+        range.push(i);
+    }
+    if (end < last - 1) {
+        range.push('…');
+    }
+    if (last > 1) {
+        range.push(last);
+    }
+
+    return range;
 }
 
 function renderActivityLog() {
