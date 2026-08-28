@@ -25,6 +25,13 @@
 		# redirect flow and nothing calls window.open()/window.opener.
 		header Cross-Origin-Opener-Policy "same-origin"
 
+		# CSP: 'unsafe-inline' for scripts is still required — the dashboards
+		# have inline <script> config and Blade onclick handlers — but this
+		# blocks any externally-injected script/frame. connect-src lists the
+		# APIs the frontend legitimately calls; supabase.co is only for the
+		# Storage signed-URL redirects the module viewer follows.
+		header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: blob:; connect-src 'self' https://*.supabase.co https://openrouter.ai https://generativelanguage.googleapis.com; worker-src 'self' blob: https://cdnjs.cloudflare.com; frame-ancestors 'self'; base-uri 'self'; form-action 'self'"
+
 		encode zstd gzip
 
 		# Non-hashed but stable — cache a year. No `immutable` so a renamed

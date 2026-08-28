@@ -18,6 +18,13 @@ it('sends HSTS and COOP security headers', function () {
         ->toContain('header Cross-Origin-Opener-Policy "same-origin"');
 });
 
+it('sends a Content-Security-Policy that restricts script and frame ancestors', function () {
+    expect($this->caddyfile)
+        ->toContain('header Content-Security-Policy')
+        ->toContain("frame-ancestors 'self'")
+        ->toContain("default-src 'self'");
+});
+
 it('caches Vite build output for a year as immutable', function () {
     expect($this->caddyfile)
         ->toContain('@immutable path /build/*')
