@@ -22,3 +22,6 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Local Lighthouse audit reports (not part of the app)
+/lighthouse-reports
