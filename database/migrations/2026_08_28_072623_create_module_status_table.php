@@ -17,7 +17,7 @@ return new class extends Migration
         }
 
         Schema::create('module_status', function (Blueprint $table) {
-            $table->id();
+            $table->uuid('id')->primary();
             $table->string('file_name')->unique();
             $table->text('file_url')->nullable();
             $table->string('status')->default('pending');

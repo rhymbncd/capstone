@@ -19,7 +19,7 @@ return new class extends Migration
         }
 
         Schema::create('quiz_published', function (Blueprint $table) {
-            $table->id();
+            $table->uuid('id')->primary();
             $table->string('topic_key')->unique();
             $table->text('pretest')->nullable();
             $table->text('posttest')->nullable();

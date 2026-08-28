@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasUuidPrimaryKey;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -10,6 +11,8 @@ use Illuminate\Database\Eloquent\Model;
  */
 class ModuleStatus extends Model
 {
+    use HasUuidPrimaryKey;
+
     protected $table = 'module_status';
 
     protected $fillable = [
