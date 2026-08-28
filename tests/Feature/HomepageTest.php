@@ -54,6 +54,20 @@ it('has no infinite animation dragging main-thread work', function () {
         ->not->toContain('infinite');
 });
 
+it('never starts the LCP hero text at opacity zero', function () {
+    $css = file_get_contents(resource_path('css/homepage.css'));
+
+    preg_match('/\.hero-content h1\s*\{[^}]*\}/', $css, $h1);
+    preg_match('/@keyframes fadeUp\s*\{(?:[^{}]|\{[^{}]*\})*\}/', $css, $fadeUp);
+
+    expect($h1[0] ?? '')->not->toContain('opacity');
+    expect($fadeUp[0] ?? '')->toContain('transform')->not->toContain('opacity');
+});
+
+it('marks the document as js-capable so reveal sections degrade gracefully', function () {
+    expect(get('/')->getContent())->toContain("classList.add('js')");
+});
+
 it('inlines the homepage stylesheet instead of a render-blocking link', function () {
     $html = get('/')->getContent();
 

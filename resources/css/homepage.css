@@ -446,38 +446,34 @@ body {
 
 /* ================= ANIMATIONS ================= */
 
+/* Slide-up only — deliberately no opacity fade. The hero text is the LCP
+   element; starting it at opacity:0 makes Lighthouse unable to record an
+   LCP on slow loads (NO_LCP). It stays fully painted the whole time. */
 @keyframes fadeUp {
     from {
-        opacity: 0;
-        transform: translateY(32px);
+        transform: translateY(24px);
     }
     to {
-        opacity: 1;
         transform: translateY(0);
     }
 }
 
-/* text entrance */
+/* text entrance ('both' holds the offset during the delay so there's no
+   position jump before each starts) */
 .hero-content h1 {
-    opacity: 0;
-    animation: fadeUp 0.9s ease forwards;
+    animation: fadeUp 0.9s ease both;
 }
 
 .hero-content h2 {
-    opacity: 0;
-    animation: fadeUp 0.9s ease forwards;
-    animation-delay: 0.2s;
+    animation: fadeUp 0.9s ease 0.2s both;
 }
 
 .hero-content p {
-    opacity: 0;
-    animation: fadeUp 0.9s ease forwards;
-    animation-delay: 0.4s;
+    animation: fadeUp 0.9s ease 0.4s both;
 }
 
 .hero-actions .btn {
-    opacity: 0;
-    animation: fadeUp 0.7s ease forwards;
+    animation: fadeUp 0.7s ease both;
 }
 
 .hero-actions .auth-group:nth-child(1) .btn:nth-child(1) {
@@ -498,13 +494,19 @@ body {
 
 /* ================= SCROLL REVEAL ================= */
 
+/* Only hidden once JS is confirmed running (html.js, set by an inline
+   script in <head>). Without JS — a failed bundle, a crawler — the
+   sections stay visible instead of being stuck at opacity:0. */
 .reveal {
-    opacity: 0;
-    transform: translateY(40px);
     transition: opacity 0.9s ease, transform 0.9s ease;
 }
 
-.reveal.show {
+html.js .reveal {
+    opacity: 0;
+    transform: translateY(40px);
+}
+
+html.js .reveal.show {
     opacity: 1;
     transform: translateY(0);
 }
