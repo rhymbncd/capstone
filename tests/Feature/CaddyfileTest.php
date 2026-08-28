@@ -33,3 +33,13 @@ it('caches images for thirty days', function () {
 it('does not attach a long-lived cache header to HTML documents', function () {
     expect($this->caddyfile)->not->toContain('header Cache-Control');
 });
+
+it('is installed at the path FrankenPHP loads by default', function () {
+    expect(file_get_contents(base_path('Dockerfile')))
+        ->toContain('COPY docker/Caddyfile /etc/frankenphp/Caddyfile');
+});
+
+it('is still loaded explicitly by the entrypoint', function () {
+    expect(file_get_contents(base_path('docker/entrypoint.sh')))
+        ->toContain('--config /app/docker/Caddyfile');
+});

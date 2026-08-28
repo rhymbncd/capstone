@@ -52,6 +52,13 @@ RUN composer install --no-dev --no-scripts --no-autoloader
 # Now the rest of the source.
 COPY . .
 
+# FrankenPHP loads /etc/frankenphp/Caddyfile by default. entrypoint.sh also
+# passes --config /app/docker/Caddyfile explicitly, but Railway can override
+# the container start command and bypass the entrypoint entirely — putting
+# our config at the default path makes it apply no matter how the server is
+# started. Both paths hold the same file.
+COPY docker/Caddyfile /etc/frankenphp/Caddyfile
+
 # Built frontend assets from the first stage.
 COPY --from=frontend /app/public/build ./public/build
 
