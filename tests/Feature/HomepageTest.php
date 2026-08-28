@@ -49,6 +49,11 @@ it('declares font-display: swap for the self-hosted Inter face', function () {
         ->toContain('font-display: swap');
 });
 
+it('has no infinite animation dragging main-thread work', function () {
+    expect(file_get_contents(resource_path('css/homepage.css')))
+        ->not->toContain('infinite');
+});
+
 it('inlines the homepage stylesheet instead of a render-blocking link', function () {
     $html = get('/')->getContent();
 
