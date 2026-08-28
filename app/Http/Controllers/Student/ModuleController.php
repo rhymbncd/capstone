@@ -5,9 +5,9 @@ namespace App\Http\Controllers\Student;
 use App\Http\Controllers\Controller;
 use App\Models\ModuleStatus;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ModuleController extends Controller
 {
@@ -52,11 +52,12 @@ class ModuleController extends Controller
     }
 
     /**
-     * Redirect to a short-lived signed URL for one curriculum PDF, chosen
-     * by either its topic key (?topic=) or its exact filename (?name=).
-     * Both are checked against the fixed whitelist — no arbitrary paths.
+     * Stream one curriculum PDF as a download, chosen by topic key
+     * (?topic=) or exact filename (?name=). Both are checked against the
+     * fixed whitelist — no arbitrary bucket paths. The in-page reader also
+     * fetches this endpoint for the raw bytes.
      */
-    public function file(Request $request): RedirectResponse
+    public function file(Request $request): StreamedResponse
     {
         $byTopic = self::CURRICULUM_FILES[$request->query('topic')] ?? null;
         $name = $request->query('name');
@@ -65,20 +66,19 @@ class ModuleController extends Controller
         $filename = $byTopic ?? $byName;
         abort_if($filename === null, 404);
 
-        return redirect()->away(
-            Storage::disk('supabase_materials')->temporaryUrl($filename, now()->addMinutes(10)),
-        );
+        return Storage::disk('supabase_materials')->download($filename);
     }
 
     /**
-     * Redirect to a short-lived signed URL for an approved teacher module.
+     * Stream an approved teacher module as a download.
      */
-    public function download(ModuleStatus $moduleStatus): RedirectResponse
+    public function download(ModuleStatus $moduleStatus): StreamedResponse
     {
         abort_unless($moduleStatus->status === 'approved', 404);
 
-        return redirect()->away(
-            Storage::disk('supabase')->temporaryUrl($moduleStatus->file_name, now()->addMinutes(10)),
+        return Storage::disk('supabase')->download(
+            $moduleStatus->file_name,
+            ($moduleStatus->module_title ?: 'module').'.pdf',
         );
     }
 }

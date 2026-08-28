@@ -871,15 +871,21 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 window.handleDownload = function(filePathOrUrl, isDirectUrl = false) {
     try {
-        if (typeof toast === 'function') toast('info', 'Connecting...');
-
         // isDirectUrl → an already-built /student/modules/... route.
         // Otherwise → a curriculum PDF filename served by /student/modules/file.
+        // The route responds with Content-Disposition: attachment, so a
+        // plain link click saves the file instead of opening a tab.
         const href = isDirectUrl
             ? filePathOrUrl
             : `/student/modules/file?name=${encodeURIComponent(filePathOrUrl)}`;
 
-        window.open(href, '_blank', 'noopener');
+        const link = document.createElement('a');
+        link.href = href;
+        link.rel = 'noopener';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+
         if (typeof toast === 'function') toast('success', 'Download started!');
     } catch (err) {
         if (typeof toast === 'function') toast('error', 'Error: ' + err.message);
