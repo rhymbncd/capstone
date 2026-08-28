@@ -1,10 +1,16 @@
 #!/bin/bash
 set -euo pipefail
 
-# The scheduler service starts this image with an explicit command
-# (`php artisan schedule:run`). Run that and exit — the config/route/view
-# cache and migrations belong to the web service, not this short-lived
-# cron container.
+# Railway pins the start command to this script for every service (see
+# railway.json), so the scheduler service flags itself with
+# RUN_SCHEDULER=true: run the scheduler once and exit instead of booting
+# the web server. The config/route/view cache and migrations belong to
+# the web service, not this short-lived cron container.
+if [ "${RUN_SCHEDULER:-false}" = "true" ]; then
+    exec php artisan schedule:run
+fi
+
+# A bare command passed to the entrypoint is exec'd as-is (one-off tasks).
 if [ "$#" -gt 0 ]; then
     exec "$@"
 fi
