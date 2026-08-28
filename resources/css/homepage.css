@@ -446,15 +446,6 @@ body {
 
 /* ================= ANIMATIONS ================= */
 
-@keyframes heroZoom {
-    from {
-        transform: scale(1.15);
-    }
-    to {
-        transform: scale(1.22);
-    }
-}
-
 @keyframes fadeUp {
     from {
         opacity: 0;
@@ -464,11 +455,6 @@ body {
         opacity: 1;
         transform: translateY(0);
     }
-}
-
-/* slow cinematic background zoom */
-.hero-blur {
-    animation: heroZoom 16s ease-in-out infinite alternate;
 }
 
 /* text entrance */
