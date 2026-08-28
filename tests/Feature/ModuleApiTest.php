@@ -46,6 +46,19 @@ it('lets an admin approve, and a teacher cannot', function () {
     expect($module->reviewed_at)->not->toBeNull();
 });
 
+it('updates module metadata via POST method-spoofing', function () {
+    $module = ModuleStatus::create(['file_name' => '1_old.pdf', 'status' => 'pending', 'module_title' => 'Old']);
+    Storage::disk('supabase')->put('1_old.pdf', 'data');
+
+    $this->actingAs($this->teacher)->post(route('modules.update', $module), [
+        '_method' => 'PATCH',
+        'module_title' => 'New Title',
+        'module_topic' => 'Module 1: Sequences and Series',
+    ])->assertOk();
+
+    expect($module->fresh()->module_title)->toBe('New Title');
+});
+
 it('deletes the file and the row', function () {
     $module = ModuleStatus::create(['file_name' => '1_gone.pdf', 'status' => 'pending', 'module_title' => 'Gone']);
     Storage::disk('supabase')->put('1_gone.pdf', 'data');
