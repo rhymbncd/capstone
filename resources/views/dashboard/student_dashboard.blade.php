@@ -22,12 +22,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
           rel="stylesheet">
 
-    <!-- SWEETALERT -->
-    <link rel="stylesheet"
-          href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
-
-    <!-- SUPABASE -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    {{-- SweetAlert2 (JS + CSS) is bundled through Vite in student_dashboard.js. --}}
 
     <!-- MODULES URL -->
     <meta name="modules-url"
@@ -51,66 +46,18 @@
     <script
         id="MathJax-script"
         async
-        src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js">
+        src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"
+        integrity="sha384-KKWa9jJ1MZvssLeOoXG6FiOAZfAgmzsIIfw8BXwI9+kYm0lPCbC6yTQPBC00F1/L"
+        crossorigin="anonymous"
+        referrerpolicy="no-referrer">
     </script>
 
-    <!-- Expose environment variables to frontend -->
     <script>
-        window.__ENV__ = {
-            SUPABASE_URL:      "{{ config('services.supabase.url') }}",
-            SUPABASE_ANON_KEY: "{{ config('services.supabase.anon_key') }}",
-        };
-
-        // ✅ Provide a safe helper to create/await the Supabase client.
-        // Do not call supabase.createClient() unguarded here because the CDN script
-        // may not have loaded yet and would abort execution (preventing helper from being defined).
-        window.getSupabaseClient = function(timeout = 3000) {
-            return new Promise((resolve, reject) => {
-                if (window.supabaseClient) return resolve(window.supabaseClient);
-
-                const interval = 75;
-                let waited = 0;
-                const id = setInterval(() => {
-                    // If supabase global is available and has a createClient function, initialize
-                    if (typeof supabase !== 'undefined' && supabase && typeof supabase.createClient === 'function') {
-                        try {
-                            window.supabaseClient = supabase.createClient(window.__ENV__.SUPABASE_URL, window.__ENV__.SUPABASE_ANON_KEY);
-                            clearInterval(id);
-                            return resolve(window.supabaseClient);
-                        } catch (e) {
-                            clearInterval(id);
-                            return reject(e);
-                        }
-                    }
-
-                    // Otherwise wait until timeout
-                    waited += interval;
-                    if (waited >= timeout) {
-                        clearInterval(id);
-                        return reject(new Error('Supabase client not initialized (supabase.js may have failed to load)'));
-                    }
-                }, interval);
-            });
-        };
-
-        // Backwards-compat: if some legacy code reads window.supabaseClient directly we still try to initialize it
-        // (non-blocking) to reduce race conditions.
-        (function tryInitSupabaseQuickly() {
-            try {
-                if (typeof supabase !== 'undefined' && supabase && typeof supabase.createClient === 'function' && !window.supabaseClient) {
-                    window.supabaseClient = supabase.createClient(window.__ENV__.SUPABASE_URL, window.__ENV__.SUPABASE_ANON_KEY);
-                }
-            } catch (e) {
-                // Ignore; getSupabaseClient will surface errors instead.
-            }
-        })();
-
-        // ✅ Expose authenticated user to frontend
+        // Expose the authenticated user to the frontend.
         window.__USER__ = {
-            id:    "{{ auth()->user()->id }}",
-            name:  "{{ auth()->user()->name }}",
-            email: "{{ auth()->user()->email }}",
-            role:  "{{ auth()->user()->role ?? 'student' }}",
+            id:   "{{ auth()->user()->id }}",
+            name: "{{ auth()->user()->name }}",
+            role: "{{ auth()->user()->role ?? 'student' }}",
         };
     </script>
 

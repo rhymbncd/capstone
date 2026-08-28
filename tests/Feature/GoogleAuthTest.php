@@ -21,6 +21,7 @@ it('links Google to an existing password-based account instead of crashing', fun
         'id' => 'google-id-1',
         'email' => 'already-registered@example.com',
         'name' => 'Already Registered',
+        'email_verified' => true,
     ]));
 
     $response = $this->get(route('auth.google.callback'));
@@ -52,6 +53,7 @@ it('does not silently re-approve an account a teacher/admin has since rejected',
         'id' => 'google-id-2',
         'email' => 'reset-after-google@example.com',
         'name' => 'Reset After Google',
+        'email_verified' => true,
     ]));
 
     $response = $this->get(route('auth.google.callback'));
@@ -68,6 +70,7 @@ it('sends a brand-new Google student signup to section selection', function () {
         'id' => 'google-id-3',
         'email' => 'new-google-student@example.com',
         'name' => 'New Google Student',
+        'email_verified' => true,
     ]));
 
     $response = $this->get(route('auth.google.callback'));
@@ -94,10 +97,78 @@ it('sends an existing student missing a section to section selection too', funct
         'id' => 'google-id-4',
         'email' => 'no-section-yet@example.com',
         'name' => 'No Section Yet',
+        'email_verified' => true,
     ]));
 
     $response = $this->get(route('auth.google.callback'));
 
     $response->assertRedirect(route('student.complete-google-signup'));
     $this->assertGuest();
+});
+
+it('regenerates the session id when logging in via Google', function () {
+    $section = Section::factory()->create();
+    $user = User::factory()->create([
+        'role' => 'student',
+        'approval_status' => 'approved',
+        'email' => 'regen@example.com',
+        'google_id' => 'google-regen',
+        'section_id' => $section->id,
+    ]);
+
+    session(['oauth_role' => 'student']);
+    Socialite::fake('google', SocialiteUser::fake([
+        'id' => 'google-regen',
+        'email' => 'regen@example.com',
+        'name' => 'Regen Student',
+        'email_verified' => true,
+    ]));
+
+    $before = session()->getId();
+
+    $this->get(route('auth.google.callback'))->assertRedirect(route('student.dashboard'));
+
+    expect(session()->getId())->not->toBe($before);
+    $this->assertAuthenticatedAs($user);
+});
+
+it('rejects a Google account whose email is not verified', function () {
+    session(['oauth_role' => 'student']);
+    Socialite::fake('google', SocialiteUser::fake([
+        'id' => 'google-unverified',
+        'email' => 'unverified@example.com',
+        'name' => 'Unverified Person',
+        'email_verified' => false,
+    ]));
+
+    $response = $this->get(route('auth.google.callback'));
+
+    $response->assertRedirect(route('student.login'));
+    $this->assertGuest();
+    expect(User::where('email', 'unverified@example.com')->exists())->toBeFalse();
+});
+
+it('uses the mock Google login only outside production', function () {
+    config(['services.google.mode' => 'mock']);
+
+    $this->get(route('auth.google.redirect', 'student'));
+
+    $this->assertAuthenticated();
+    expect(User::where('email', 'test.student@gmail.com')->exists())->toBeTrue();
+});
+
+it('never mock-logs-in when running in production', function () {
+    $this->app->detectEnvironment(fn () => 'production');
+    config([
+        'services.google.mode' => 'mock',
+        'services.google.client_id' => 'fake-client-id',
+        'services.google.client_secret' => 'fake-secret',
+        'services.google.redirect' => 'http://localhost/auth/google/callback',
+    ]);
+
+    $response = $this->get(route('auth.google.redirect', 'student'));
+
+    $response->assertRedirectContains('accounts.google.com');
+    $this->assertGuest();
+    expect(User::where('email', 'test.student@gmail.com')->exists())->toBeFalse();
 });

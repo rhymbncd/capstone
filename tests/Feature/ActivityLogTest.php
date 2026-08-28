@@ -66,7 +66,7 @@ it('logs an event when a teacher logs in successfully', function () {
     ]);
 });
 
-it('does not log a login event for a failed login attempt', function () {
+it('records a failed login attempt as a distinct event, never as a successful login', function () {
     $student = User::factory()->create(['role' => 'student', 'password' => bcrypt('password123')]);
 
     $this->post(route('student.login.submit'), [
@@ -74,7 +74,8 @@ it('does not log a login event for a failed login attempt', function () {
         'password' => 'wrong-password',
     ]);
 
-    expect(ActivityLog::where('type', 'login')->count())->toBe(0);
+    expect(ActivityLog::where('title', 'Failed Login Attempt')->count())->toBe(1);
+    expect(ActivityLog::where('title', 'Student Logged In')->count())->toBe(0);
 });
 
 it('logs an event when a teacher approves a student', function () {

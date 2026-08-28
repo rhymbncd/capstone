@@ -40,7 +40,7 @@
     <div id="signup-scroll-panel" class="flex flex-1 items-start justify-center overflow-y-auto bg-white p-6 sm:p-10">
       <div class="w-full max-w-[420px] py-1">
         <h1 class="text-[28px] font-bold tracking-tight text-neutral-900">Create account</h1>
-        <p id="sub-text" class="mb-5 mt-1 text-[13px] text-neutral-500">Sign up as {{ ($portalType ?? 'student') === 'admin' ? 'an administrator' : 'a '.($portalType ?? 'student') }}{{ ($portalType ?? 'student') === 'student' ? ' for free' : '' }}</p>
+        <p id="sub-text" class="mb-5 mt-1 text-[13px] text-neutral-500">Sign up as a {{ $portalType ?? 'student' }}{{ ($portalType ?? 'student') === 'student' ? ' for free' : '' }}</p>
 
         @if ($errors->any())
           <x-alert variant="error" class="mb-5">
@@ -54,7 +54,7 @@
           <x-alert variant="error" class="mb-5">{{ session('notification_error') }}</x-alert>
         @endif
 
-        <div class="mb-4 grid grid-cols-3 gap-2" role="tablist" aria-label="Account type">
+        <div class="mb-4 grid grid-cols-2 gap-2" role="tablist" aria-label="Account type">
           <button type="button" role="tab" id="tab-student" aria-selected="{{ ($portalType ?? 'student') === 'student' ? 'true' : 'false' }}" onclick="setRole('student', this)">
             <svg class="mx-auto h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 10 12 5 2 10l10 5 10-5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
             <span>Student</span>
@@ -62,10 +62,6 @@
           <button type="button" role="tab" id="tab-teacher" aria-selected="{{ ($portalType ?? 'student') === 'teacher' ? 'true' : 'false' }}" onclick="setRole('teacher', this)">
             <svg class="mx-auto h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h20"/><path d="M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3"/><path d="m7 21 5-5 5 5"/></svg>
             <span>Teacher</span>
-          </button>
-          <button type="button" role="tab" id="tab-admin" aria-selected="{{ ($portalType ?? 'student') === 'admin' ? 'true' : 'false' }}" onclick="setRole('admin', this)">
-            <svg class="mx-auto h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-            <span>Admin</span>
           </button>
         </div>
 
@@ -150,9 +146,9 @@
   </div>
 
 <script>
-const roleLabels = { student: 'Sign up as a student for free', teacher: 'Sign up as a teacher', admin: 'Sign up as an administrator' };
-const roleRoutes = { student: '{{ route("student.register") }}', teacher: '{{ route("teacher.register") }}', admin: '{{ route("admin.register") }}' };
-const googleRoutes = { student: '{{ route("auth.google.redirect", "student") }}', teacher: '{{ route("auth.google.redirect", "teacher") }}', admin: '{{ route("auth.google.redirect", "admin") }}' };
+const roleLabels = { student: 'Sign up as a student for free', teacher: 'Sign up as a teacher' };
+const roleRoutes = { student: '{{ route("student.register") }}', teacher: '{{ route("teacher.register") }}' };
+const googleRoutes = { student: '{{ route("auth.google.redirect", "student") }}', teacher: '{{ route("auth.google.redirect", "teacher") }}' };
 let currentRole = '{{ $portalType ?? "student" }}';
 
 const TAB_BASE = 'flex flex-col items-center gap-1 rounded-md border py-2 px-1 text-[12px] font-semibold transition-colors duration-150 cursor-pointer';
@@ -372,9 +368,9 @@ function initSectionPicker() {
 }
 
 // Set initial form action to match the portal actually visited (was
-// previously hardcoded to 'student', so visiting /teacher/register or
-// /admin/register directly and submitting without touching a tab first
-// would silently submit as a student registration).
+// previously hardcoded to 'student', so visiting /teacher/register
+// directly and submitting without touching a tab first would silently
+// submit as a student registration).
 document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('signupForm').action = roleRoutes[currentRole];
   document.querySelectorAll('[role="tab"]').forEach(t => paintTab(t, t.id === 'tab-' + currentRole));

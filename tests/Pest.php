@@ -1,5 +1,8 @@
 <?php
 
+use Illuminate\Support\Facades\Cache;
+use Tests\TestCase;
+
 /*
 |--------------------------------------------------------------------------
 | Test Case
@@ -11,7 +14,8 @@
 |
 */
 
-pest()->extend(Tests\TestCase::class)
+pest()->extend(TestCase::class)
+    ->beforeEach(fn () => Cache::flush())
     ->in('Feature');
 
 /*

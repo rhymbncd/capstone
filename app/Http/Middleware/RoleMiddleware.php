@@ -15,6 +15,17 @@ class RoleMiddleware
                 ->withErrors(['access' => 'Unauthorized access.']);
         }
 
+        // A teacher whose approval is revoked (rejected / reset to pending)
+        // after they logged in must lose dashboard access on their next
+        // request, not only when they choose to log out. Admins have no
+        // approval gate, so this only applies to teachers.
+        if ($role === 'teacher' && Auth::user()->approval_status !== 'approved') {
+            Auth::logout();
+
+            return redirect()->route('teacher.login')
+                ->withErrors(['email' => 'Your account is awaiting administrator approval.']);
+        }
+
         return $next($request);
     }
 }

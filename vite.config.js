@@ -25,6 +25,10 @@ export default defineConfig({
                 // navigation (not the dashboards' in-page tab-switching).
                 'resources/js/nav-progress.js',
 
+                // Bundled SweetAlert2 exposed as window.Swal, for Blade pages
+                // that use it from inline <script> (the student modules page).
+                'resources/js/swal-global.js',
+
                 'resources/css/homepage.css',
                 'resources/js/homepage.js',
 

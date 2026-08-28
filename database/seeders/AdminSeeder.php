@@ -10,20 +10,20 @@ class AdminSeeder extends Seeder
 {
     public function run(): void
     {
-        $admins = [
-            'tardio@gmail.com',
-            'carman@gmail.com',
-            'villamor@gmail.com',
-            'tamayuza@gmail.com',
-            'embanecido@gmail.com',
-        ];
+        $password = env('ADMIN_SEED_PASSWORD');
 
-        foreach ($admins as $email) {
+        if (blank($password)) {
+            $this->command?->warn('AdminSeeder skipped — set ADMIN_SEED_PASSWORD to seed admin accounts.');
+
+            return;
+        }
+
+        foreach (config('admin.emails') as $email) {
             User::firstOrCreate(
                 ['email' => $email],
                 [
                     'name' => 'Admin',
-                    'password' => Hash::make('12345678'),
+                    'password' => Hash::make($password),
                     'role' => 'admin',
                     'approval_status' => 'approved',
                 ]

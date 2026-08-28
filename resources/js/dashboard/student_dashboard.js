@@ -3,6 +3,7 @@
    ================================ */
 
 import Swal from 'sweetalert2';
+import 'sweetalert2/dist/sweetalert2.min.css';
 
 document.addEventListener('DOMContentLoaded', function () {
 
@@ -196,16 +197,13 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     async function loadDownloads() {
-        const SUPABASE_URL      = window.__ENV__?.SUPABASE_URL ?? '';
-        const SUPABASE_ANON_KEY = window.__ENV__?.SUPABASE_ANON_KEY ?? '';
-
         let publishedModules = [];
         try {
-            const res = await fetch(
-                `${SUPABASE_URL}/rest/v1/module_status?select=*&status=eq.approved&module_topic=not.is.null`,
-                { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` } }
-            );
-            if (res.ok) publishedModules = await res.json();
+            const res = await fetch('/student/modules/list', {
+                credentials: 'same-origin',
+                headers: { 'Accept': 'application/json' },
+            });
+            if (res.ok) publishedModules = (await res.json()).modules || [];
         } catch (e) {
             console.warn('Could not load published modules:', e.message);
             return;
@@ -223,9 +221,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const THEME = { mod1: 'green-theme', mod2: 'orange-theme', mod3: 'purple-theme' };
 
         publishedModules.forEach(m => {
-            if (!m.file_url) return;
-
-            const sectionKey = normalizeTopic(m.module_topic);
+            const sectionKey = normalizeTopic(m.topic);
             if (!sectionKey) return;
 
             const section = document.getElementById('section-' + sectionKey);
@@ -233,9 +229,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
             const theme = THEME[sectionKey];
             const item  = {
-                name: m.module_title || m.file_name || 'Teacher Upload',
+                name: m.title || 'Teacher Upload',
                 size: 'Uploaded by teacher',
-                url: m.file_url,
+                url: `/student/modules/${m.id}/download`,
                 isPublished: true,
             };
 
@@ -511,38 +507,9 @@ document.addEventListener('DOMContentLoaded', function () {
         userId: window.__USER__?.id ?? null,
         _rowsCache: null,
 
-        // ✅ Async Supabase helpers
-        async sbSelect(table, select = '*', filters = {}) {
-            let url = `${window.__ENV__.SUPABASE_URL}/rest/v1/${table}?select=${select}`;
-            Object.entries(filters).forEach(([col, val]) => {
-                if (typeof val === 'string') url += `&${col}=eq.${encodeURIComponent(val)}`;
-                else if (typeof val === 'number') url += `&${col}=eq.${val}`;
-            });
-            const res = await fetch(url, {
-                headers: {
-                    'apikey': window.__ENV__.SUPABASE_ANON_KEY,
-                    'Authorization': `Bearer ${window.__ENV__.SUPABASE_ANON_KEY}`
-                }
-            });
-            return res.ok ? await res.json() : [];
-        },
-
-        async sbUpsert(table, data, onConflict) {
-            const url = `${window.__ENV__.SUPABASE_URL}/rest/v1/${table}${onConflict ? `?on_conflict=${onConflict}` : ''}`;
-            const res = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'apikey': window.__ENV__.SUPABASE_ANON_KEY,
-                    'Authorization': `Bearer ${window.__ENV__.SUPABASE_ANON_KEY}`,
-                    'Content-Type': 'application/json',
-                    'Prefer': 'resolution=merge-duplicates,return=minimal'
-                },
-                body: JSON.stringify(data)
-            });
-            return res.ok;
-        },
-
-        // ✅ Load every student_progress row for this student (cached per page load)
+        // Student progress is read/written through authenticated Laravel
+        // endpoints — the server ties every row to the session user, so this
+        // client never names a session_id.
         async loadRows(force = false) {
             if (!this.userId) {
                 console.warn('Student progress tracking disabled: User not authenticated');
@@ -550,12 +517,12 @@ document.addEventListener('DOMContentLoaded', function () {
             }
             if (this._rowsCache && !force) return this._rowsCache;
             try {
-                const rows = await this.sbSelect(
-                    'student_progress',
-                    'topic_key,phase,score,total,passed,created_at',
-                    { session_id: String(this.userId) }
-                );
-                this._rowsCache = Array.isArray(rows) ? rows : [];
+                const res = await fetch('/student/progress', {
+                    credentials: 'same-origin',
+                    headers: { 'Accept': 'application/json' },
+                });
+                const data = res.ok ? await res.json() : { progress: [] };
+                this._rowsCache = Array.isArray(data.progress) ? data.progress : [];
             } catch (err) {
                 console.error('Error loading progress:', err.message);
                 this._rowsCache = [];
@@ -570,16 +537,22 @@ document.addEventListener('DOMContentLoaded', function () {
                 return;
             }
             try {
-                await this.sbUpsert('student_progress', {
-                    session_id: String(this.userId),
-                    student_name: window.__USER__?.name ?? null,
-                    topic_key: 'summative',
-                    phase: 'post',
-                    score,
-                    total,
-                    passed: score >= Math.ceil(total * 0.6),
-                    created_at: new Date().toISOString(),
-                }, 'session_id,topic_key,phase');
+                await fetch('/student/progress', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? '',
+                    },
+                    body: JSON.stringify({
+                        topic_key: 'summative',
+                        phase: 'post',
+                        score,
+                        total,
+                        passed: score >= Math.ceil(total * 0.6),
+                    }),
+                });
                 this._rowsCache = null; // invalidate cache
                 console.log('Quiz score saved:', score, '/', total);
             } catch (err) {
@@ -896,39 +869,19 @@ document.addEventListener('DOMContentLoaded', function () {
     window.retakeQuiz = retakeQuiz;
 
 });
-window.handleDownload = async function(filePathOrUrl, isDirectUrl = false) {
+window.handleDownload = function(filePathOrUrl, isDirectUrl = false) {
     try {
         if (typeof toast === 'function') toast('info', 'Connecting...');
 
-        if (isDirectUrl) {
-            // Teacher-uploaded file: direct public URL from Supabase Storage
-            const link = document.createElement('a');
-            link.href     = filePathOrUrl;
-            link.target   = '_blank';
-            link.download = filePathOrUrl.split('/').pop();
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        } else {
-            // Hardcoded fallback: download from 'materials' bucket
-            const sb = await window.getSupabaseClient();
-                const { data, error } = await sb
-                    .storage
-                    .from('materials')
-                    .download(filePathOrUrl);
-            if (error) throw error;
-            const blobUrl = window.URL.createObjectURL(data);
-            const link    = document.createElement('a');
-            link.href     = blobUrl;
-            link.download = filePathOrUrl.split('/').pop();
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            window.URL.revokeObjectURL(blobUrl);
-        }
+        // isDirectUrl → an already-built /student/modules/... route.
+        // Otherwise → a curriculum PDF filename served by /student/modules/file.
+        const href = isDirectUrl
+            ? filePathOrUrl
+            : `/student/modules/file?name=${encodeURIComponent(filePathOrUrl)}`;
 
+        window.open(href, '_blank', 'noopener');
         if (typeof toast === 'function') toast('success', 'Download started!');
     } catch (err) {
         if (typeof toast === 'function') toast('error', 'Error: ' + err.message);
     }
-};  
+};

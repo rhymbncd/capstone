@@ -18,7 +18,7 @@ class SectionController extends Controller
     private function forgetSectionsCache(): void
     {
         Cache::forget('sections.all');
-        Cache::forget('sections.with_students');
+        Cache::forget('sections.public_list');
     }
 
     /**

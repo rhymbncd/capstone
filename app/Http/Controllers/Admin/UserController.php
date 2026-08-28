@@ -132,6 +132,13 @@ class UserController extends Controller
 
         $user->save();
 
+        ActivityLog::record(
+            'system',
+            'User Account Edited',
+            "{$user->name} ({$user->email}) — role: {$user->role}, status: {$user->approval_status}",
+            user: Auth::user(),
+        );
+
         // Role/status may have just changed — don't make the admin who did
         // it wait out the 5-minute TTL to see the Home tab tiles agree.
         Cache::forget(self::COUNTS_CACHE_KEY);
@@ -156,6 +163,8 @@ class UserController extends Controller
             ], 422);
         }
 
+        $deletedDescription = "{$user->name} ({$user->email}) — was {$user->role}";
+
         DB::transaction(function () use ($user) {
             // student_progress / student_quiz_answers reference the user via
             // a plain session_id string, not a real foreign key, so their
@@ -176,6 +185,8 @@ class UserController extends Controller
 
             $user->delete();
         });
+
+        ActivityLog::record('system', 'User Account Deleted', $deletedDescription, user: Auth::user());
 
         Cache::forget(self::COUNTS_CACHE_KEY);
 

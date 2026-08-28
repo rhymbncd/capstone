@@ -82,6 +82,23 @@ it('rejects a password reset with an invalid token', function () {
     $this->assertTrue(Hash::check('old-password', $teacher->fresh()->password));
 });
 
+it('shows one generic message for every reset failure', function () {
+    $generic = 'That password reset link is invalid or has expired. Please request a new one.';
+
+    // Unknown email
+    $this->post(route('teacher.password.update'), [
+        'token' => 'x', 'email' => 'nobody@example.com',
+        'password' => 'new-password-123', 'password_confirmation' => 'new-password-123',
+    ])->assertSessionHasErrors(['email' => $generic]);
+
+    // Known email, bad token
+    $teacher = User::factory()->teacher()->create();
+    $this->post(route('teacher.password.update'), [
+        'token' => 'wrong', 'email' => $teacher->email,
+        'password' => 'new-password-123', 'password_confirmation' => 'new-password-123',
+    ])->assertSessionHasErrors(['email' => $generic]);
+});
+
 it('rejects a reset token issued for a different role', function () {
     $student = User::factory()->create(['role' => 'student', 'password' => Hash::make('old-password')]);
     $token = app('auth.password.broker')->createToken($student);
