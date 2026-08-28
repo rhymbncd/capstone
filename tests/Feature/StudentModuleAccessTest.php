@@ -29,23 +29,28 @@ it('lists only approved, topic-tagged teacher modules', function () {
     expect($response->json('modules.0.title'))->toBe('Shown');
 });
 
-it('redirects to a signed URL for an approved module and 404s otherwise', function () {
+it('streams an approved module as a download and 404s otherwise', function () {
     $approved = ModuleStatus::create(['file_name' => '1_ok.pdf', 'status' => 'approved', 'module_title' => 'OK', 'module_topic' => 'Module 1: Sequences and Series']);
     $pending = ModuleStatus::create(['file_name' => '2_no.pdf', 'status' => 'pending', 'module_title' => 'No']);
+    Storage::disk('supabase')->put('1_ok.pdf', 'pdf-bytes');
 
     $this->actingAs($this->student)->get(route('student.modules.download', $approved))
-        ->assertRedirect('https://signed.test/mod/1_ok.pdf');
+        ->assertOk()
+        ->assertDownload('OK.pdf');
 
     $this->actingAs($this->student)->get(route('student.modules.download', $pending))
         ->assertNotFound();
 });
 
 it('serves a curriculum PDF by topic or name, but nothing off the whitelist', function () {
+    Storage::disk('supabase_materials')->put('Arithmetic Sequence.pdf', 'a');
+    Storage::disk('supabase_materials')->put('Geometric Sequence.pdf', 'g');
+
     $this->actingAs($this->student)->get(route('student.modules.file', ['topic' => 'ari']))
-        ->assertRedirect('https://signed.test/mat/Arithmetic Sequence.pdf');
+        ->assertOk()->assertDownload('Arithmetic Sequence.pdf');
 
     $this->actingAs($this->student)->get(route('student.modules.file', ['name' => 'Geometric Sequence.pdf']))
-        ->assertRedirect('https://signed.test/mat/Geometric Sequence.pdf');
+        ->assertOk()->assertDownload('Geometric Sequence.pdf');
 
     $this->actingAs($this->student)->get(route('student.modules.file', ['name' => '../secrets.pdf']))
         ->assertNotFound();
