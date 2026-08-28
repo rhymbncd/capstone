@@ -1780,7 +1780,9 @@ async function saveModule() {
 
     try {
         if (editId) {
-            await apiFetch(`/modules/${editId}`, { method: 'PATCH', body: form });
+            // PHP does not parse multipart bodies for PATCH — spoof the method.
+            form.append('_method', 'PATCH');
+            await apiFetch(`/modules/${editId}`, { method: 'POST', body: form });
             await logEvent('content', 'Module Updated', `"${title}" was edited by admin`, 'Updated');
             toast('success', `"${Security.escape(title)}" updated successfully!`);
         } else {
