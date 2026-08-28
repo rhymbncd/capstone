@@ -17,6 +17,14 @@
 		# running `frankenphp run --config /app/docker/Caddyfile`.
 		header X-Config-Source "app-caddyfile"
 
+		# Security hardening (applied to every response).
+		# HSTS: force HTTPS for a year. No `preload` — that's a hard-to-undo
+		# commitment to browser preload lists; add it deliberately later.
+		header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		# COOP: full origin isolation. Safe here — Google OAuth uses the
+		# redirect flow and nothing calls window.open()/window.opener.
+		header Cross-Origin-Opener-Policy "same-origin"
+
 		encode zstd gzip
 
 		# Non-hashed but stable — cache a year. No `immutable` so a renamed
