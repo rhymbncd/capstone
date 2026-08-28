@@ -56,3 +56,9 @@ it('is still loaded explicitly by the entrypoint', function () {
     expect(file_get_contents(base_path('docker/entrypoint.sh')))
         ->toContain('--config /app/docker/Caddyfile');
 });
+
+it('runs an explicit command instead of the web server when one is passed', function () {
+    expect(file_get_contents(base_path('docker/entrypoint.sh')))
+        ->toContain('if [ "$#" -gt 0 ]; then')
+        ->toMatch('/if \[ "\$#" -gt 0 \]; then\s+exec "\$@"/');
+});
