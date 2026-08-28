@@ -62,3 +62,9 @@ it('runs an explicit command instead of the web server when one is passed', func
         ->toContain('if [ "$#" -gt 0 ]; then')
         ->toMatch('/if \[ "\$#" -gt 0 \]; then\s+exec "\$@"/');
 });
+
+it('runs the scheduler and exits when RUN_SCHEDULER is set', function () {
+    expect(file_get_contents(base_path('docker/entrypoint.sh')))
+        ->toContain('if [ "${RUN_SCHEDULER:-false}" = "true" ]; then')
+        ->toMatch('/RUN_SCHEDULER:-false.*then\s+exec php artisan schedule:run/s');
+});
