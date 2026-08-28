@@ -48,3 +48,12 @@ it('declares font-display: swap for the self-hosted Inter face', function () {
     expect(file_get_contents(resource_path('css/homepage.css')))
         ->toContain('font-display: swap');
 });
+
+it('inlines the homepage stylesheet instead of a render-blocking link', function () {
+    $html = get('/')->getContent();
+
+    expect($html)
+        ->toContain('<style>')
+        ->toContain('font-display:swap')
+        ->not->toMatch('/<link[^>]+rel="stylesheet"[^>]+homepage-[^"]+\.css/');
+});

@@ -21,8 +21,17 @@
           fetchpriority="high">
 
     <!-- ================= CSS / JS ================= -->
+    {{-- homepage.css is the whole page's styling and only ~3 KB gzipped, so
+         it's inlined to keep it off the critical request path (no
+         render-blocking stylesheet). Falls back to a linked tag while the
+         Vite dev server is running. --}}
+    @if (app(\Illuminate\Foundation\Vite::class)->isRunningHot())
+        @vite('resources/css/homepage.css')
+    @else
+        <style>{!! \Illuminate\Support\Facades\Vite::content('resources/css/homepage.css') !!}</style>
+    @endif
+
     @vite([
-        'resources/css/homepage.css',
         'resources/js/homepage.js',
         'resources/js/nav-progress.js'
     ])
