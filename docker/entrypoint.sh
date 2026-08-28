@@ -1,6 +1,14 @@
 #!/bin/bash
 set -euo pipefail
 
+# The scheduler service starts this image with an explicit command
+# (`php artisan schedule:run`). Run that and exit — the config/route/view
+# cache and migrations belong to the web service, not this short-lived
+# cron container.
+if [ "$#" -gt 0 ]; then
+    exec "$@"
+fi
+
 # Laravel's caches are built here, at container start, not in the
 # Dockerfile — Railway's environment variables only exist at runtime, so
 # caching config/routes/views at build time would bake in wrong (or
