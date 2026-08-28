@@ -60,6 +60,36 @@ return [
             'report' => false,
         ],
 
+        // Supabase Storage over its S3-compatible endpoint. Module PDFs live
+        // here; the buckets are private and every read/write goes through an
+        // authenticated Laravel controller (see Teacher/Admin/Student
+        // ModuleController). Generate the S3 access keys in the Supabase
+        // dashboard under Project Settings → Storage.
+        'supabase' => [
+            'driver' => 's3',
+            'key' => env('SUPABASE_S3_ACCESS_KEY_ID'),
+            'secret' => env('SUPABASE_S3_SECRET_ACCESS_KEY'),
+            'region' => env('SUPABASE_S3_REGION', 'us-east-1'),
+            'bucket' => env('SUPABASE_S3_BUCKET', 'modules'),
+            'endpoint' => env('SUPABASE_S3_ENDPOINT'),
+            'use_path_style_endpoint' => true,
+            'throw' => false,
+            'report' => false,
+        ],
+
+        // The fixed curriculum PDFs shown in the student modules viewer.
+        'supabase_materials' => [
+            'driver' => 's3',
+            'key' => env('SUPABASE_S3_ACCESS_KEY_ID'),
+            'secret' => env('SUPABASE_S3_SECRET_ACCESS_KEY'),
+            'region' => env('SUPABASE_S3_REGION', 'us-east-1'),
+            'bucket' => env('SUPABASE_S3_MATERIALS_BUCKET', 'materials'),
+            'endpoint' => env('SUPABASE_S3_ENDPOINT'),
+            'use_path_style_endpoint' => true,
+            'throw' => false,
+            'report' => false,
+        ],
+
     ],
 
     /*

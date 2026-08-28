@@ -5,7 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>Complete Your Profile | Bubog NHS</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+        integrity="sha384-iw3OoTErCYJJB9mCa8LNS2hbsQ7M3C0EpIsO/H5+EGAkPGc6rk+V8i04oW/K5xq0"
+        crossorigin="anonymous" referrerpolicy="no-referrer">
   @vite(['resources/css/app.css', 'resources/js/nav-progress.js'])
 </head>
 <body class="auth-gradient-bg flex min-h-screen flex-col items-center justify-center p-4 font-sans sm:p-6">

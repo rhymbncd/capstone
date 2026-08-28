@@ -10,17 +10,35 @@ use Spatie\PdfToText\Pdf;
 
 class QuizController extends Controller
 {
-    public function generate(Request $request)
+    public function generate(Request $request): JsonResponse
     {
         // 1. I-validate ang required fields including difficulty
         $request->validate([
-            'module_file' => 'required|mimes:pdf|max:10000',
+            'module_file' => 'required|file|mimetypes:application/pdf|mimes:pdf|max:5120',
             'difficulty' => 'nullable|in:easy,medium,hard',
         ]);
 
+        $apiKey = config('services.gemini.key');
+        if (! $apiKey) {
+            Log::error('Gemini API key not configured');
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'AI service is not configured on the server.',
+            ], 500);
+        }
+
         // 2. Kunin ang file at basahin ang text
-        $file = $request->file('module_file');
-        $text = Pdf::getText($file->getPathname());
+        try {
+            $text = Pdf::getText($request->file('module_file')->getPathname());
+        } catch (\Throwable $e) {
+            Log::error('Quiz generate PDF extraction failed: '.$e->getMessage());
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Could not read text from that PDF.',
+            ], 422);
+        }
 
         // 3. Kunin ang difficulty level (default: medium)
         $difficulty = $request->input('difficulty', 'medium');
@@ -28,12 +46,12 @@ class QuizController extends Controller
         // 4. I-setup ang Prompt para sa AI with difficulty consideration
         $difficultyGuide = $this->getDifficultyGuide($difficulty);
 
-        $prompt = 'You are a math teacher. Read this module text: '.substr($text, 0, 5000).' 
-        
+        $prompt = 'You are a math teacher. Read this module text: '.substr($text, 0, 5000).'
+
 Difficulty Level: '.strtoupper($difficulty).'
 '.$difficultyGuide.'
 
-Generate a 15-item pre-test and a 15-item post-test based ONLY on this text. 
+Generate a 15-item pre-test and a 15-item post-test based ONLY on this text.
 Output MUST be pure JSON format. Do not use markdown blocks like ```json.
 Structure:
 {
@@ -41,28 +59,48 @@ Structure:
     "post_test": [ {"question": "...", "options": ["A", "B", "C", "D"], "answer": "A"} ]
 }';
 
-        // 5. Tawagin ang Gemini API
-        $apiKey = config('services.gemini.key');
-        $response = Http::withHeaders([
-            'Content-Type' => 'application/json',
-        ])->post("https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={$apiKey}", [
-            'contents' => [
-                ['parts' => [['text' => $prompt]]],
-            ],
-        ]);
+        // 5. Tawagin ang Gemini API — key goes in a header, never the URL.
+        try {
+            $response = Http::withHeaders([
+                'Content-Type' => 'application/json',
+                'x-goog-api-key' => $apiKey,
+            ])->timeout(60)->post('https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent', [
+                'contents' => [
+                    ['parts' => [['text' => $prompt]]],
+                ],
+            ]);
 
-        // 6. Kunin ang JSON response ng AI at ibato pabalik sa frontend
-        $aiResult = $response->json();
-        $generatedText = $aiResult['candidates'][0]['content']['parts'][0]['text'];
+            if (! $response->successful()) {
+                Log::error('Gemini quiz generation failed: '.$response->body());
 
-        // Convert ang string ng AI into actual PHP Array/JSON object
-        $quizData = json_decode($generatedText);
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'AI service failed to generate the quiz.',
+                ], 502);
+            }
 
-        return response()->json([
-            'status' => 'success',
-            'difficulty' => $difficulty,
-            'data' => $quizData,
-        ]);
+            $generatedText = $response->json('candidates.0.content.parts.0.text');
+
+            if (! $generatedText) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Empty response from AI service.',
+                ], 502);
+            }
+
+            return response()->json([
+                'status' => 'success',
+                'difficulty' => $difficulty,
+                'data' => json_decode($generatedText),
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Quiz generate exception: '.$e->getMessage());
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Server error generating the quiz.',
+            ], 500);
+        }
     }
 
     /**

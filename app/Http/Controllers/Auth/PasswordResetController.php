@@ -82,6 +82,8 @@ class PasswordResetController extends Controller
                 ->with('success', 'Your password has been reset. Please sign in.');
         }
 
-        return back()->withErrors(['email' => __($status)])->onlyInput('email');
+        return back()
+            ->withErrors(['email' => 'That password reset link is invalid or has expired. Please request a new one.'])
+            ->onlyInput('email');
     }
 }

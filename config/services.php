@@ -47,11 +47,6 @@ return [
         'key' => env('GEMINI_API_KEY'),
     ],
 
-    'supabase' => [
-        'url' => env('SUPABASE_URL'),
-        'anon_key' => env('SUPABASE_ANON_KEY'),
-    ],
-
     'google' => [
         'client_id' => env('GOOGLE_CLIENT_ID'),
         'client_secret' => env('GOOGLE_CLIENT_SECRET'),

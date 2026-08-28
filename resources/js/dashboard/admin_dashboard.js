@@ -11,83 +11,9 @@
  */
 
 import Swal from 'sweetalert2';
+import 'sweetalert2/dist/sweetalert2.min.css';
 
 'use strict';
-
-/* ============================================================
-   SUPABASE CONFIG  (reads from window.__ENV__ set in Blade)
-   ============================================================ */
-const SUPABASE_URL      = window.__ENV__?.SUPABASE_URL;
-const SUPABASE_ANON_KEY = window.__ENV__?.SUPABASE_ANON_KEY;
-const BUCKET_NAME       = 'modules';
-const STATUS_TABLE      = 'module_status';
-const ACTIVITY_TABLE    = 'activity_logs';
-const SETTINGS_TABLE    = 'platform_settings';
-
-/* ============================================================
-   SUPABASE REST HELPERS
-   ============================================================ */
-const sbHeaders = (extra = {}) => ({
-    'apikey':        SUPABASE_ANON_KEY,
-    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-    'Content-Type':  'application/json',
-    ...extra,
-});
-
-async function sbSelect(table, params = '') {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}${params}`, {
-        headers: sbHeaders(),
-    });
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || `DB read failed (${res.status})`);
-    }
-    return res.json();
-}
-
-async function sbUpsert(table, data) {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
-        method: 'POST',
-        headers: sbHeaders({ 'Prefer': 'resolution=merge-duplicates,return=representation' }),
-        body: JSON.stringify(data),
-    });
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || `DB upsert failed (${res.status})`);
-    }
-    return res.json();
-}
-
-async function sbUpdate(table, match, data) {
-    const query = Object.entries(match)
-        .map(([k, v]) => `${k}=eq.${encodeURIComponent(v)}`)
-        .join('&');
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query}`, {
-        method: 'PATCH',
-        headers: sbHeaders({ 'Prefer': 'return=representation' }),
-        body: JSON.stringify(data),
-    });
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || `DB update failed (${res.status})`);
-    }
-    return res.json();
-}
-
-async function sbDelete(table, match) {
-    const query = Object.entries(match)
-        .map(([k, v]) => `${k}=eq.${encodeURIComponent(v)}`)
-        .join('&');
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query}`, {
-        method: 'DELETE',
-        headers: sbHeaders(),
-    });
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || `DB delete failed (${res.status})`);
-    }
-    return true;
-}
 
 /* ============================================================
    SECURITY — XSS Prevention
@@ -160,7 +86,8 @@ async function apiFetch(url, options = {}) {
         headers: {
             'Accept': 'application/json',
             'X-CSRF-TOKEN': csrfToken() ?? '',
-            ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+            // Let the browser set the multipart boundary for FormData uploads.
+            ...(options.body && !(options.body instanceof FormData) ? { 'Content-Type': 'application/json' } : {}),
             ...options.headers,
         },
     });
@@ -382,17 +309,12 @@ async function loadActivity() {
  * back, hence the client-generated local id below.
  */
 async function logEvent(type, title, sub, badge) {
-    const entry = {
-        type, title, sub, badge: badge || 'Event',
-        user_id:   window.__USER__?.id ?? null,
-        user_name: window.__USER__?.name ?? null,
-        user_role: window.__USER__?.role ?? 'admin',
-    };
+    // Best-effort audit write — the server ties the entry to the session
+    // user, so no identity is sent from here.
     try {
-        await fetch(`${SUPABASE_URL}/rest/v1/${ACTIVITY_TABLE}`, {
+        await apiFetch('/activity-log', {
             method: 'POST',
-            headers: sbHeaders({ 'Prefer': 'return=minimal' }),
-            body: JSON.stringify(entry),
+            body: JSON.stringify({ type, title, sub: sub || null, badge: badge || 'Event' }),
         });
     } catch (err) {
         console.warn('logEvent failed:', err.message);
@@ -694,9 +616,8 @@ const ACTIVITY_EXPORT_HEADERS = ['#', 'Type', 'Title', 'Details', 'User', 'Role'
 /** Load all settings from Supabase and populate form fields */
 async function loadSettings() {
     try {
-        const rows = await sbSelect(SETTINGS_TABLE, '?select=*');
-        const map  = {};
-        rows.forEach(r => { map[r.key] = r.value; });
+        const { settings } = await apiFetch('/admin/settings');
+        const map = settings || {};
 
         // Text fields — Admin Email is server-rendered from the logged-in
         // account (see the Blade template) and read-only, so it's not
@@ -725,10 +646,10 @@ async function loadSettings() {
     }
 }
 
-/** Save a batch of key/value pairs to Supabase platform_settings */
+/** Save a batch of key/value pairs to platform_settings via Laravel. */
 async function saveSettingsToSupabase(pairs) {
-    const rows = Object.entries(pairs).map(([key, value]) => ({ key, value: String(value) }));
-    await sbUpsert(SETTINGS_TABLE, rows);
+    const settings = Object.fromEntries(Object.entries(pairs).map(([k, v]) => [k, String(v)]));
+    await apiFetch('/admin/settings', { method: 'PUT', body: JSON.stringify({ settings }) });
 }
 
 async function savePlatformInfo() {
@@ -827,71 +748,24 @@ async function confirmDanger(action, desc) {
 }
 
 /* ============================================================
-   CONTENT — Supabase Storage + module_status table
+   CONTENT — served by the Laravel /modules endpoint (Storage +
+   module_status merged server-side, behind the admin session).
    ============================================================ */
 async function fetchContentsFromSupabase() {
-    const listRes = await fetch(`${SUPABASE_URL}/storage/v1/object/list/${BUCKET_NAME}`, {
-        method: 'POST',
-        headers: sbHeaders(),
-        body: JSON.stringify({ prefix: '', limit: 200, offset: 0 }),
-    });
-    if (!listRes.ok) {
-        const err = await listRes.json().catch(() => ({}));
-        throw new Error(err.message || `Bucket list failed (${listRes.status})`);
-    }
-    const files = await listRes.json();
-
-    let statusRows = [];
-    try {
-        statusRows = await sbSelect(STATUS_TABLE, '?select=*');
-    } catch (e) {
-        console.warn('Could not fetch status table:', e.message);
-    }
-
-    const statusMap = {};
-    statusRows.forEach(r => { statusMap[r.file_name] = r; });
-
-    const merged = files
-        .filter(f => f.name && !f.name.startsWith('.'))
-        .map((f, idx) => {
-            const publicUrl   = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET_NAME}/${encodeURIComponent(f.name)}`;
-            const rawName     = f.name.replace(/^\d+_/, '');
-            const existing    = statusMap[f.name];
-            const fileSizeRaw = f.metadata?.size ?? 0;
-            return {
-                id:          f.id || `file_${idx}`,
-                storageName: f.name,
-                name:        existing?.module_title ?? rawName,
-                fileUrl:     publicUrl,
-                size:        formatSize(fileSizeRaw),
-                rawSize:     fileSizeRaw,
-                joined:      formatDate(f.created_at || f.updated_at),
-                status:      existing?.status ?? 'pending',
-                dbId:        existing?.id ?? null,
-                topic:       existing?.module_topic ?? '',
-                desc:        existing?.module_desc  ?? '',
-            };
-        });
-
-    const toInsert = merged
-        .filter(m => !m.dbId)
-        .map(m => ({ file_name: m.storageName, file_url: m.fileUrl, status: 'pending' }));
-
-    if (toInsert.length) {
-        try {
-            const inserted = await sbUpsert(STATUS_TABLE, toInsert);
-            if (Array.isArray(inserted)) {
-                inserted.forEach(row => {
-                    const item = merged.find(m => m.storageName === row.file_name);
-                    if (item) item.dbId = row.id;
-                });
-            }
-        } catch (e) {
-            console.warn('Auto-insert status rows failed:', e.message);
-        }
-    }
-
-    return merged;
+    const { modules } = await apiFetch('/modules');
+    return (modules || []).map(m => ({
+        id:          m.id,
+        storageName: m.storageName,
+        name:        m.title,
+        fileUrl:     m.fileUrl,
+        size:        formatSize(m.fileSize),
+        rawSize:     m.fileSize,
+        joined:      formatDate(m.date),
+        status:      m.dbStatus,
+        dbId:        m.dbId,
+        topic:       m.topic,
+        desc:        m.desc,
+    }));
 }
 
 function updateContentCounts() {
@@ -1043,7 +917,7 @@ async function approveContent(id) {
     const btn = document.querySelector(`#queue-item-${id} .btn-approve`);
     if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
     try {
-        await sbUpdate(STATUS_TABLE, { file_name: c.storageName }, { status: 'approved', reviewed_at: new Date().toISOString() });
+        await apiFetch(`/modules/${c.dbId}/status`, { method: 'PATCH', body: JSON.stringify({ status: 'approved' }) });
         c.status = 'approved';
         await logEvent('content', 'Material Approved', `"${c.name}" approved by admin`, 'Approved');
         renderContent(); renderHome();
@@ -1060,7 +934,7 @@ async function rejectContent(id) {
     const btn = document.querySelector(`#queue-item-${id} .btn-reject`);
     if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
     try {
-        await sbUpdate(STATUS_TABLE, { file_name: c.storageName }, { status: 'rejected', reviewed_at: new Date().toISOString() });
+        await apiFetch(`/modules/${c.dbId}/status`, { method: 'PATCH', body: JSON.stringify({ status: 'rejected' }) });
         c.status = 'rejected';
         await logEvent('content', 'Material Rejected', `"${c.name}" rejected by admin`, 'Rejected');
         renderContent(); renderHome();
@@ -1083,7 +957,7 @@ async function resetContentStatus(id) {
     }).then(async r => {
         if (!r.isConfirmed) return;
         try {
-            await sbUpdate(STATUS_TABLE, { file_name: c.storageName }, { status: 'pending', reviewed_at: null });
+            await apiFetch(`/modules/${c.dbId}/status`, { method: 'PATCH', body: JSON.stringify({ status: 'pending' }) });
             c.status = 'pending';
             await logEvent('content', 'Status Reset', `"${c.name}" moved back to pending`, 'Pending');
             renderContent(); renderHome();
@@ -1106,12 +980,7 @@ async function deleteContent(id) {
     }).then(async r => {
         if (!r.isConfirmed) return;
         try {
-            const storageRes = await fetch(
-                `${SUPABASE_URL}/storage/v1/object/${BUCKET_NAME}/${c.storageName}`,
-                { method: 'DELETE', headers: { 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` } }
-            );
-            if (!storageRes.ok) console.warn('Storage delete failed — may already be gone.');
-            if (c.dbId) await sbDelete(STATUS_TABLE, { id: c.dbId });
+            await apiFetch(`/modules/${c.dbId}`, { method: 'DELETE' });
             contents = contents.filter(x => String(x.id) !== String(id));
             await logEvent('content', 'Module Deleted', `"${c.name}" permanently deleted by admin`, 'Deleted');
             renderContent(); renderHome();
@@ -1165,7 +1034,8 @@ const MODULE_GROUPS = [
 /** Load every student_progress row (platform-wide) for real analytics. */
 async function loadProgressRows() {
     try {
-        return await sbSelect('student_progress', '?select=session_id,topic_key,phase,score,total,passed,created_at');
+        const { progress } = await apiFetch('/admin/analytics/progress');
+        return progress || [];
     } catch (err) {
         console.warn('loadProgressRows error:', err.message);
         return [];
@@ -1704,127 +1574,9 @@ function topicTheme(topic) {
    Content Management approval queue.
    ============================================================ */
 
-/** Guess the module group from the file title keywords */
-function guessModuleTopic(title) {
-    const t = title.toLowerCase();
-    if (/arithmetic|geometric|harmonic|fibonacci|finite|infinite|sequence|series/.test(t))
-        return 'Module 1: Sequences and Series';
-    if (/polynomial|remainder|factor|division/.test(t))
-        return 'Module 2: Polynomials';
-    if (/rational|radical|exponential|logarithm|system/.test(t))
-        return 'Module 3: Advanced Equations';
-    return 'General';
-}
-
-async function uploadFileToSupabase(file) {
-    const safeFileName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
-    const filePath      = `${Date.now()}_${safeFileName}`;
-    const uploadUrl     = `${SUPABASE_URL}/storage/v1/object/${BUCKET_NAME}/${filePath}`;
-
-    const res = await fetch(uploadUrl, {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-            'Content-Type':  file.type || 'application/octet-stream',
-            'x-upsert':      'false',
-        },
-        body: file,
-    });
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || `Upload failed (${res.status})`);
-    }
-
-    const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET_NAME}/${filePath}`;
-    return { publicUrl, path: filePath };
-}
-
-async function deleteFileFromSupabase(filePath) {
-    const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET_NAME}/${filePath}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
-    });
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || `Delete failed (${res.status})`);
-    }
-    return true;
-}
-
 async function fetchModulesFromSupabase() {
-    const listRes = await fetch(`${SUPABASE_URL}/storage/v1/object/list/${BUCKET_NAME}`, {
-        method: 'POST',
-        headers: sbHeaders(),
-        body: JSON.stringify({ prefix: '', limit: 200, offset: 0 }),
-    });
-    if (!listRes.ok) {
-        const err = await listRes.json().catch(() => ({}));
-        throw new Error(err.message || `Failed to list bucket (${listRes.status})`);
-    }
-    const files = await listRes.json();
-
-    let statusRows = [];
-    try {
-        statusRows = await sbSelect(STATUS_TABLE, '?select=*');
-    } catch (e) {
-        console.warn('Could not fetch module_status table:', e.message);
-    }
-
-    const statusMap = {};
-    statusRows.forEach(r => { statusMap[r.file_name] = r; });
-
-    const merged = files
-        .filter(f => f.name && !f.name.startsWith('.'))
-        .map((f, idx) => {
-            const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET_NAME}/${encodeURIComponent(f.name)}`;
-            const rawName   = f.name.replace(/^\d+_/, '');
-            const fileTitle = rawName.replace(/\.[^/.]+$/, '');
-            const existing  = statusMap[f.name];
-            const dbStatus  = existing?.status ?? 'pending';
-
-            const title = existing?.module_title ?? fileTitle;
-            const topic = existing?.module_topic ?? guessModuleTopic(fileTitle);
-            const desc  = existing?.module_desc ?? '';
-
-            const displayStatus =
-                dbStatus === 'approved' ? 'Published' :
-                dbStatus === 'rejected' ? 'Rejected'  :
-                'Pending Review';
-
-            return {
-                id:          f.id || idx + 1,
-                storageName: f.name,
-                title, desc, topic,
-                status:      displayStatus,
-                dbStatus,
-                completion:  0,
-                date:        formatDate(f.created_at || f.updated_at),
-                fileName:    rawName,
-                fileSize:    f.metadata?.size ?? 0,
-                fileUrl:     publicUrl,
-                dbId:        existing?.id ?? null,
-            };
-        });
-
-    const toInsert = merged
-        .filter(m => !m.dbId)
-        .map(m => ({ file_name: m.storageName, file_url: m.fileUrl, status: 'pending' }));
-
-    if (toInsert.length) {
-        try {
-            const inserted = await sbUpsert(STATUS_TABLE, toInsert);
-            if (Array.isArray(inserted)) {
-                inserted.forEach(row => {
-                    const item = merged.find(m => m.storageName === row.file_name);
-                    if (item) item.dbId = row.id;
-                });
-            }
-        } catch (e) {
-            console.warn('Auto-insert status rows failed:', e.message);
-        }
-    }
-
-    return merged;
+    const { modules } = await apiFetch('/modules');
+    return modules || [];
 }
 
 function getFilteredModules() {
@@ -2004,119 +1756,44 @@ async function saveModule() {
     if (!title || title.length < 3)
         return warn('Title required', 'Please enter a module title (at least 3 characters).');
 
+    if (!editId && !pendingFile)
+        return warn('File required', 'Please attach a file for the new module.');
+
+    if (pendingFile) {
+        const MAX_BYTES = 20 * 1024 * 1024;
+        if (pendingFile.size > MAX_BYTES)
+            return warn('File too large', 'Please select a file smaller than 20 MB.');
+        const ALLOWED_EXTENSIONS = ['pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'txt', 'png', 'jpg', 'jpeg'];
+        const ext = pendingFile.name.split('.').pop()?.toLowerCase();
+        if (!ext || !ALLOWED_EXTENSIONS.includes(ext))
+            return warn('Unsupported file type', `Allowed types: ${ALLOWED_EXTENSIONS.join(', ')}`);
+    }
+
     const saveBtn = document.querySelector('#modal-add-module .btn-save');
-    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = pendingFile ? 'Uploading…' : 'Saving…'; }
+
+    const form = new FormData();
+    form.append('module_title', title);
+    form.append('module_desc', desc);
+    form.append('module_topic', topic);
+    if (pendingFile) form.append('file', pendingFile);
 
     try {
-        let fileName = null, fileSize = null, fileUrl = null, storageName = null;
-
-        if (pendingFile) {
-            const MAX_BYTES = 20 * 1024 * 1024;
-            if (pendingFile.size > MAX_BYTES) {
-                if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save Module'; }
-                return warn('File too large', 'Please select a file smaller than 20 MB.');
-            }
-            const ALLOWED_EXTENSIONS = ['pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'txt', 'png', 'jpg', 'jpeg'];
-            const ext = pendingFile.name.split('.').pop()?.toLowerCase();
-            if (!ext || !ALLOWED_EXTENSIONS.includes(ext)) {
-                if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save Module'; }
-                return warn('Unsupported file type', `Allowed types: ${ALLOWED_EXTENSIONS.join(', ')}`);
-            }
-            if (saveBtn) saveBtn.textContent = 'Uploading…';
-
-            fileName = pendingFile.name;
-            fileSize = pendingFile.size;
-            const result = await uploadFileToSupabase(pendingFile);
-            fileUrl     = result.publicUrl;
-            storageName = result.path;
-        }
-
         if (editId) {
-            const moduleIndex = modulesData.findIndex(m => String(m.id) === String(editId));
-            if (moduleIndex === -1) {
-                if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save Module'; }
-                return warn('Error', 'Module not found in local data.');
-            }
-            const existing = modulesData[moduleIndex];
-
-            modulesData[moduleIndex] = {
-                ...existing, title, desc, topic,
-                fileName:    pendingFile ? fileName    : existing.fileName,
-                fileSize:    pendingFile ? fileSize    : existing.fileSize,
-                fileUrl:     pendingFile ? fileUrl     : existing.fileUrl,
-                storageName: pendingFile ? storageName : existing.storageName,
-            };
-
-            if (existing.dbId) {
-                try {
-                    if (saveBtn) saveBtn.textContent = 'Updating database…';
-                    await sbUpdate(STATUS_TABLE, { id: existing.dbId }, {
-                        module_title: title,
-                        module_desc: desc,
-                        module_topic: topic,
-                        ...(pendingFile && { file_name: storageName, file_url: fileUrl }),
-                    });
-                } catch (err) {
-                    warn('Save Failed', `Could not save to database: ${err.message}`);
-                    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save Module'; }
-                    return;
-                }
-            } else {
-                try {
-                    const inserted = await sbUpsert(STATUS_TABLE, [{
-                        file_name: existing.storageName || null,
-                        file_url: existing.fileUrl || null,
-                        status: 'pending',
-                        module_title: title,
-                        module_desc: desc,
-                        module_topic: topic,
-                    }]);
-                    if (Array.isArray(inserted) && inserted[0]) modulesData[moduleIndex].dbId = inserted[0].id;
-                } catch (err) {
-                    console.warn('Upsert fallback failed:', err.message);
-                }
-            }
-
+            await apiFetch(`/modules/${editId}`, { method: 'PATCH', body: form });
             await logEvent('content', 'Module Updated', `"${title}" was edited by admin`, 'Updated');
-            pendingFile = null;
-            closeModal('modal-add-module');
-            renderModules();
             toast('success', `"${Security.escape(title)}" updated successfully!`);
         } else {
-            if (saveBtn) saveBtn.textContent = 'Saving to database…';
-            let dbId = null;
-            try {
-                const inserted = await sbUpsert(STATUS_TABLE, [{
-                    file_name: storageName || null,
-                    file_url: fileUrl || null,
-                    status: 'pending',
-                    module_title: title,
-                    module_desc: desc,
-                    module_topic: topic,
-                }]);
-                if (Array.isArray(inserted) && inserted[0]) dbId = inserted[0].id;
-            } catch (err) {
-                console.warn('Could not create database row:', err.message);
-            }
-
-            modulesData.push({
-                id: Date.now(), storageName: storageName || null,
-                title, desc, topic,
-                status: 'Pending Review', dbStatus: 'pending', completion: 0,
-                date: formatDate(new Date().toISOString()),
-                fileName: fileName || null, fileSize: fileSize || 0, fileUrl: fileUrl || null,
-                dbId,
-            });
-
+            await apiFetch('/modules', { method: 'POST', body: form });
             await logEvent('content', 'Module Uploaded', `"${title}" uploaded by admin`, 'Created');
-            pendingFile = null;
-            closeModal('modal-add-module');
-            renderModules();
             toast('success', `"${Security.escape(title)}" uploaded!`);
         }
+        pendingFile = null;
+        closeModal('modal-add-module');
+        await loadAndRenderModules();
     } catch (err) {
         console.error('saveModule error:', err);
-        warn('Upload Failed', err.message || 'Could not save the module. Please try again.');
+        warn('Save Failed', err.message || 'Could not save the module. Please try again.');
     } finally {
         if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save Module'; }
     }
@@ -2204,23 +1881,9 @@ async function deleteModule(id) {
     }).then(async r => {
         if (!r.isConfirmed) return;
         try {
-            if (m.storageName) {
-                try {
-                    await deleteFileFromSupabase(m.storageName);
-                } catch (fileErr) {
-                    console.warn('Could not delete file from storage:', fileErr.message);
-                }
-            }
-            if (m.dbId) {
-                try {
-                    await sbDelete(STATUS_TABLE, { id: m.dbId });
-                } catch (dbErr) {
-                    console.warn('Could not delete from database:', dbErr.message);
-                }
-            }
-            modulesData = modulesData.filter(x => String(x.id) !== String(id));
+            await apiFetch(`/modules/${m.dbId}`, { method: 'DELETE' });
             await logEvent('content', 'Module Deleted', `"${m.title}" permanently deleted by admin`, 'Deleted');
-            renderModules();
+            await loadAndRenderModules();
             toast('success', 'Module permanently deleted.');
         } catch (err) {
             console.error('Delete error:', err);

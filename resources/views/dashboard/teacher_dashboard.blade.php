@@ -9,46 +9,17 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+    {{-- SweetAlert2 (JS + CSS) is bundled through Vite in teacher_dashboard.js. --}}
 
     {{-- PDF/Excel export (Reports tab) is lazy-loaded by loadExportLibs() in
          teacher_dashboard.js on first use, not loaded here. --}}
 
-    <!-- Expose environment variables to frontend -->
     <script>
-        window.__ENV__ = {
-            SUPABASE_URL:      "{{ config('services.supabase.url') }}",
-            SUPABASE_ANON_KEY: "{{ config('services.supabase.anon_key') }}",
-        };
-
         window.__USER__ = {
             id: {{ auth()->user()->id }},
             name: "{{ auth()->user()->name }}",
             role: "{{ auth()->user()->role }}",
         };
-
-        // Provide safe Supabase init helper (used by module/teacher JS)
-        window.getSupabaseClient = function(timeout = 3000) {
-            return new Promise((resolve, reject) => {
-                if (window.supabaseClient) return resolve(window.supabaseClient);
-                const interval = 75; let waited = 0;
-                const id = setInterval(() => {
-                    if (typeof supabase !== 'undefined' && supabase && typeof supabase.createClient === 'function') {
-                        try {
-                            window.supabaseClient = supabase.createClient(window.__ENV__.SUPABASE_URL, window.__ENV__.SUPABASE_ANON_KEY);
-                            clearInterval(id);
-                            return resolve(window.supabaseClient);
-                        } catch (e) {
-                            clearInterval(id);
-                            return reject(e);
-                        }
-                    }
-                    waited += interval;
-                    if (waited >= timeout) { clearInterval(id); return reject(new Error('Supabase client not initialized (supabase.js may have failed to load)')); }
-                }, interval);
-            });
-        };
-
     </script>
 
     @vite([

@@ -58,7 +58,7 @@ class TeacherApprovalTest extends TestCase
         ]);
 
         $response->assertRedirect(route('teacher.login'));
-        $response->assertSessionHasErrors('email', 'No account found with this email. Please register first.');
+        $response->assertSessionHasErrors('email');
         $this->assertGuest();
     }
 
@@ -95,6 +95,21 @@ class TeacherApprovalTest extends TestCase
         $response->assertRedirect(route('teacher.login'));
         $response->assertSessionHasErrors('email');
         $this->assertGuest();
+    }
+
+    public function test_teacher_rejected_after_login_loses_dashboard_access(): void
+    {
+        $teacher = User::factory()->create([
+            'role' => 'teacher',
+            'approval_status' => 'approved',
+        ]);
+
+        $this->actingAs($teacher)->get(route('teacher.dashboard'))->assertOk();
+
+        $teacher->update(['approval_status' => 'rejected']);
+
+        $this->actingAs($teacher)->get(route('teacher.dashboard'))
+            ->assertRedirect(route('teacher.login'));
     }
 
     public function test_admin_can_see_pending_teachers_in_dashboard(): void
@@ -203,7 +218,7 @@ class TeacherApprovalTest extends TestCase
         ]);
 
         $response->assertRedirect(route('student.login'));
-        $response->assertSessionHasErrors('email', 'No account found with this email. Please register first.');
+        $response->assertSessionHasErrors('email');
         $this->assertGuest();
     }
 
@@ -215,7 +230,7 @@ class TeacherApprovalTest extends TestCase
         ]);
 
         $response->assertRedirect(route('admin.login'));
-        $response->assertSessionHasErrors('email', 'No account found with this email. Please register first.');
+        $response->assertSessionHasErrors('email');
         $this->assertGuest();
     }
 

@@ -3,16 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>Learning Modules</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
-  @vite(['resources/js/nav-progress.js'])
-  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.js"></script>
+  @vite(['resources/js/nav-progress.js', 'resources/js/swal-global.js'])
 
   <!-- PDF.js — renders module PDFs inline for viewing (no forced download) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"
+          integrity="sha384-/1qUCSGwTur9vjf/z9lmu/eCUYbpOTgSjmpbMQZ1/CtX2v/WcAIKqRv+U1DUCG6e"
+          crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <script>
     window.addEventListener('load', function () {
       if (typeof pdfjsLib !== 'undefined') {
@@ -300,44 +301,13 @@ html,body { min-height:100%; font-family:'Plus Jakarta Sans',sans-serif; backgro
 .swal2-confirm { border-radius: 8px; padding: 8px 24px; font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 600; }
   </style>
 
-  <!-- SUPABASE -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
-    window.__ENV__ = {
-      SUPABASE_URL:      "{{ config('services.supabase.url') }}",
-      SUPABASE_ANON_KEY: "{{ config('services.supabase.anon_key') }}",
-    };
-
-    // Expose authenticated user so quiz progress can be tied to a real account
+    // Expose the authenticated user so quiz progress can be tied to a real account.
     window.__USER__ = {
       id:    "{{ auth()->user()->id }}",
       name:  "{{ auth()->user()->name }}",
-      email: "{{ auth()->user()->email }}",
       role:  "{{ auth()->user()->role ?? 'student' }}",
     };
-
-    // Wait for supabase CDN to load
-    window.addEventListener('load', function() {
-      if (typeof supabase !== 'undefined') {
-        const { createClient } = supabase;
-        window.supabaseClient = createClient(window.__ENV__.SUPABASE_URL, window.__ENV__.SUPABASE_ANON_KEY);
-
-        window.getSupabaseClient = function(timeout = 2000) {
-            return new Promise((resolve, reject) => {
-                if (window.supabaseClient) return resolve(window.supabaseClient);
-                const interval = 50; let waited = 0;
-                const id = setInterval(() => {
-                    if (window.supabaseClient) { clearInterval(id); return resolve(window.supabaseClient); }
-                    waited += interval;
-                    if (waited >= timeout) { clearInterval(id); return reject(new Error('Supabase client not initialized')); }
-                }, interval);
-            });
-        };
-        console.log('✓ Supabase initialized on modules page');
-      } else {
-        console.error('✗ Supabase CDN failed to load');
-      }
-    });
   </script>
 </head>
 <body>
@@ -696,33 +666,45 @@ const MQ_TOPICS = {
   },
 };
 
-/* ════════════════════════════════════════════════════════════
-   FETCH TEACHER QUIZZES FROM SUPABASE
-   ════════════════════════════════════════════════════════════ */
-const SUPABASE_URL_M      = window.__ENV__?.SUPABASE_URL      ?? '';
-const SUPABASE_ANON_KEY_M = window.__ENV__?.SUPABASE_ANON_KEY ?? '';
+/* Student progress + saved answers go through authenticated Laravel
+   endpoints, never the public anon key — the server derives the student
+   from the session, so one student can only ever read/write their own. */
+const STUDENT_ROUTES = {
+    progressList:     '{{ route('student.progress.index') }}',
+    progress:         '{{ route('student.progress.store') }}',
+    quizAnswers:      '{{ route('student.quiz-answers.store') }}',
+    modulesPublished: '{{ route('student.modules.published') }}',
+};
+const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]')?.content ?? '';
+
+async function studentApiPost(url, body) {
+    const res = await fetch(url, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN },
+        body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error(`Save failed (${res.status})`);
+    return res.json();
+}
+
+async function studentApiGet(url) {
+    const res = await fetch(url, { credentials: 'same-origin', headers: { 'Accept': 'application/json' } });
+    if (!res.ok) throw new Error(`Load failed (${res.status})`);
+    return res.json();
+}
 
 /**
- * Fetches all rows from quiz_published.
- * Returns an array of { topic_key, pretest, posttest, activity } objects.
+ * Fetches the teacher-published quizzes plus custom topic names for this
+ * student in one authenticated request.
+ * Returns { published: [...], customTopics: [...] }.
  */
-async function loadTeacherQuizzes() {
-    if (!SUPABASE_URL_M || !SUPABASE_ANON_KEY_M) return [];
+async function loadModuleContent() {
     try {
-        const res = await fetch(
-            `${SUPABASE_URL_M}/rest/v1/quiz_published?select=topic_key,pretest,posttest,activity`,
-            {
-                headers: {
-                    'apikey':        SUPABASE_ANON_KEY_M,
-                    'Authorization': `Bearer ${SUPABASE_ANON_KEY_M}`,
-                },
-            }
-        );
-        if (!res.ok) return [];
-        return await res.json();
+        return await studentApiGet(STUDENT_ROUTES.modulesPublished);
     } catch (e) {
         console.warn('Could not load teacher quizzes:', e.message);
-        return [];
+        return { published: [], customTopics: [] };
     }
 }
 
@@ -803,30 +785,14 @@ function applyTeacherQuizzes(publishedRows) {
 }
 
 /**
- * Load custom topic names from quiz_custom_topics
+ * Apply custom topic names (from quiz_custom_topics) onto MQ_TOPICS.
  */
-async function loadAndApplyCustomTopicNames() {
-    if (!SUPABASE_URL_M || !SUPABASE_ANON_KEY_M) return;
-    try {
-        const res = await fetch(
-            `${SUPABASE_URL_M}/rest/v1/quiz_custom_topics?select=topic_key,topic_name,module_key`,
-            {
-                headers: {
-                    'apikey':        SUPABASE_ANON_KEY_M,
-                    'Authorization': `Bearer ${SUPABASE_ANON_KEY_M}`,
-                },
-            }
-        );
-        if (!res.ok) return;
-        const rows = await res.json();
-        rows.forEach(r => {
-            if (MQ_TOPICS[r.topic_key]) {
-                MQ_TOPICS[r.topic_key].name = r.topic_name;
-            }
-        });
-    } catch (e) {
-        console.warn('Could not load custom topic names:', e.message);
-    }
+function applyCustomTopicNames(rows) {
+    (rows || []).forEach(r => {
+        if (MQ_TOPICS[r.topic_key]) {
+            MQ_TOPICS[r.topic_key].name = r.topic_name;
+        }
+    });
 }
 
 /**
@@ -878,7 +844,12 @@ function injectCustomTopicsIntoPage() {
         const li = document.createElement('li');
         li.className = 'topic-item mq-topic--locked';
         li.setAttribute('data-topic', key);
-        li.innerHTML = `<span class="topic-dot"></span>${topicData.name || key}<span class="lock-icon">🔒</span>`;
+        const topicDot = document.createElement('span');
+        topicDot.className = 'topic-dot';
+        const lockIcon = document.createElement('span');
+        lockIcon.className = 'lock-icon';
+        lockIcon.textContent = '🔒';
+        li.append(topicDot, document.createTextNode(topicData.name || key), lockIcon);
         li.addEventListener('click', function () { openTopic(key); });
         list.appendChild(li);
 
@@ -900,30 +871,8 @@ let mqTimerInterval=null, mqTimeLeft=POST_TIMER_SECS;
  * Upserts on the table's (session_id, topic_key, phase) unique key.
  */
 async function mqSaveProgress(topicKey, phase, score, total, passed) {
-    if (!SUPABASE_URL_M || !SUPABASE_ANON_KEY_M || !window.__USER__?.id) return;
     try {
-        await fetch(
-            `${SUPABASE_URL_M}/rest/v1/student_progress?on_conflict=session_id,topic_key,phase`,
-            {
-                method: 'POST',
-                headers: {
-                    'apikey':        SUPABASE_ANON_KEY_M,
-                    'Authorization': `Bearer ${SUPABASE_ANON_KEY_M}`,
-                    'Content-Type':  'application/json',
-                    'Prefer':        'resolution=merge-duplicates,return=minimal',
-                },
-                body: JSON.stringify({
-                    session_id:   String(window.__USER__.id),
-                    student_name: window.__USER__.name,
-                    topic_key:    topicKey,
-                    phase,
-                    score,
-                    total,
-                    passed,
-                    created_at:   new Date().toISOString(),
-                }),
-            }
-        );
+        await studentApiPost(STUDENT_ROUTES.progress, { topic_key: topicKey, phase, score, total, passed });
     } catch (e) {
         console.warn('Could not save progress:', e.message);
     }
@@ -936,29 +885,8 @@ async function mqSaveProgress(topicKey, phase, score, total, passed) {
  * (session_id, topic_key, phase) key as student_progress.
  */
 async function mqSaveQuizAnswers(topicKey, phase, answers, score, total) {
-    if (!SUPABASE_URL_M || !SUPABASE_ANON_KEY_M || !window.__USER__?.id) return;
     try {
-        await fetch(
-            `${SUPABASE_URL_M}/rest/v1/student_quiz_answers?on_conflict=session_id,topic_key,phase`,
-            {
-                method: 'POST',
-                headers: {
-                    'apikey':        SUPABASE_ANON_KEY_M,
-                    'Authorization': `Bearer ${SUPABASE_ANON_KEY_M}`,
-                    'Content-Type':  'application/json',
-                    'Prefer':        'resolution=merge-duplicates,return=minimal',
-                },
-                body: JSON.stringify({
-                    session_id:   String(window.__USER__.id),
-                    student_name: window.__USER__.name,
-                    topic_key:    topicKey,
-                    phase,
-                    answers,
-                    score,
-                    total,
-                }),
-            }
-        );
+        await studentApiPost(STUDENT_ROUTES.quizAnswers, { topic_key: topicKey, phase, answers, score, total });
     } catch (e) {
         console.warn('Could not save quiz answers:', e.message);
     }
@@ -969,20 +897,9 @@ async function mqSaveQuizAnswers(topicKey, phase, answers, score, total) {
  * student_progress and rehydrate mqState.completed + stateFlags.
  */
 async function mqLoadProgress() {
-    if (!SUPABASE_URL_M || !SUPABASE_ANON_KEY_M || !window.__USER__?.id) return;
     try {
-        const res = await fetch(
-            `${SUPABASE_URL_M}/rest/v1/student_progress?select=topic_key,phase&session_id=eq.${encodeURIComponent(String(window.__USER__.id))}&phase=eq.post`,
-            {
-                headers: {
-                    'apikey':        SUPABASE_ANON_KEY_M,
-                    'Authorization': `Bearer ${SUPABASE_ANON_KEY_M}`,
-                },
-            }
-        );
-        if (!res.ok) return;
-        const rows = await res.json();
-        rows.forEach(r => {
+        const { progress } = await studentApiGet(STUDENT_ROUTES.progressList);
+        (progress || []).filter(r => r.phase === 'post').forEach(r => {
             mqState.completed[r.topic_key] = true;
             if (stateFlags[r.topic_key]) {
                 stateFlags[r.topic_key].pre = true;
@@ -1004,20 +921,9 @@ const mqReadPct = {};
  * can show how much of the PDF they've already read.
  */
 async function mqLoadReadingProgress() {
-    if (!SUPABASE_URL_M || !SUPABASE_ANON_KEY_M || !window.__USER__?.id) return;
     try {
-        const res = await fetch(
-            `${SUPABASE_URL_M}/rest/v1/student_progress?select=topic_key,score&session_id=eq.${encodeURIComponent(String(window.__USER__.id))}&phase=eq.reading`,
-            {
-                headers: {
-                    'apikey':        SUPABASE_ANON_KEY_M,
-                    'Authorization': `Bearer ${SUPABASE_ANON_KEY_M}`,
-                },
-            }
-        );
-        if (!res.ok) return;
-        const rows = await res.json();
-        rows.forEach(r => { mqReadPct[r.topic_key] = r.score ?? 0; });
+        const { progress } = await studentApiGet(STUDENT_ROUTES.progressList);
+        (progress || []).filter(r => r.phase === 'reading').forEach(r => { mqReadPct[r.topic_key] = r.score ?? 0; });
     } catch (e) {
         console.warn('Could not load reading progress:', e.message);
     }
@@ -1223,7 +1129,10 @@ function mqRenderQuestion() {
     if(i>=q.choices.length)return;
     const btn=document.createElement('button');
     btn.className='mq-choice';
-    btn.innerHTML=`<span class="mq-choice-letter">${letter}</span>${q.choices[i]}`;
+    const letterEl=document.createElement('span');
+    letterEl.className='mq-choice-letter';
+    letterEl.textContent=letter;
+    btn.append(letterEl, document.createTextNode(q.choices[i]));
     btn.addEventListener('click',()=>mqSelectChoice(i));
     choicesEl.appendChild(btn);
   });
@@ -1302,9 +1211,19 @@ function mqRenderActivity() {
   act.items.forEach((item,i)=>{
     const div=document.createElement('div');
     div.className='mq-activity-item';
-    div.innerHTML=`<div class="mq-activity-q">${i+1}. ${item.q}</div>
-      <input class="mq-activity-input" type="text" id="mq-act-input-${i}" placeholder="Type your answer…" autocomplete="off"/>
-      <div class="mq-activity-hint" id="mq-act-hint-${i}"></div>`;
+    const qEl=document.createElement('div');
+    qEl.className='mq-activity-q';
+    qEl.textContent=`${i+1}. ${item.q}`;
+    const inputEl=document.createElement('input');
+    inputEl.className='mq-activity-input';
+    inputEl.type='text';
+    inputEl.id=`mq-act-input-${i}`;
+    inputEl.placeholder='Type your answer…';
+    inputEl.autocomplete='off';
+    const hintEl=document.createElement('div');
+    hintEl.className='mq-activity-hint';
+    hintEl.id=`mq-act-hint-${i}`;
+    div.append(qEl, inputEl, hintEl);
     container.appendChild(div);
   });
 }
@@ -1483,12 +1402,10 @@ document.addEventListener('DOMContentLoaded', async function () {
     // NEW: Load and apply teacher quizzes before page is usable
     // ────────────────────────────────────────────────────────
     try {
-        const [publishedRows] = await Promise.all([
-            loadTeacherQuizzes(),
-            loadAndApplyCustomTopicNames(),
-        ]);
+        const { published, customTopics } = await loadModuleContent();
 
-        applyTeacherQuizzes(publishedRows);
+        applyCustomTopicNames(customTopics);
+        applyTeacherQuizzes(published);
         updateModuleSubtitles();
         console.log('✓ Teacher quizzes loaded and applied.');
     } catch (e) {
@@ -1521,21 +1438,9 @@ document.addEventListener('DOMContentLoaded', async function () {
     }
 });
 
-/* ── View Module: maps each topic key to its download PDF ── */
-const TOPIC_MODULE_FILES = {
-  ari:  'Arithmetic Sequence.pdf',
-  geo:  'Geometric Sequence.pdf',
-  har:  'Harmonic Sequence.pdf',
-  fib:  'Fibonacci Sequence.pdf',
-  fin:  'Finite and Infinite Sequence.pdf',
-  div:  'Division of Polynomials.pdf',
-  rem:  'The Remainder and Factor Theorem.pdf',
-  poly: 'Polynomial Equation.pdf',
-  rat:  'Rational Functions.pdf',
-  rad:  'Radical Equations.pdf',
-  exp:  'Exponential Functions.pdf',
-  log:  'Logarithmic Functions.pdf',
-};
+/* The curriculum topics that have a module PDF (the file itself is served
+   only through the authenticated /student/modules/file route). */
+const TOPIC_MODULE_FILES = ['ari','geo','har','fib','fin','div','rem','poly','rat','rad','exp','log'];
 
 /* ════════════════════════════════════════════════════════════
    INLINE PDF VIEWER — opens the module PDF for reading in-page
@@ -1545,17 +1450,16 @@ const TOPIC_MODULE_FILES = {
 const mqPdfState = { topicKey:null, maxScrollPct:0, saveTimer:null };
 
 function mqViewModule() {
-  const key  = mqState.topicKey;
-  const file = TOPIC_MODULE_FILES[key];
-  if (file) openPdfViewer(key, file);
+  const key = mqState.topicKey;
+  if (TOPIC_MODULE_FILES.includes(key)) openPdfViewer(key);
 }
 
-async function openPdfViewer(topicKey, filename) {
+async function openPdfViewer(topicKey) {
   const overlay   = document.getElementById('mq-pdf-overlay');
   const pagesEl   = document.getElementById('mq-pdf-pages');
   const titleEl   = document.getElementById('mq-pdf-title');
 
-  titleEl.textContent = MQ_TOPICS[topicKey]?.name || filename;
+  titleEl.textContent = MQ_TOPICS[topicKey]?.name || 'Module';
   pagesEl.innerHTML    = '<div class="mq-pdf-loading">Loading module…</div>';
   overlay.classList.add('mq-open');
 
@@ -1564,18 +1468,14 @@ async function openPdfViewer(topicKey, filename) {
   updatePdfProgressUI(mqPdfState.maxScrollPct);
 
   try {
-    if (!window.supabaseClient) {
-      throw new Error('Supabase client not initialized. Please refresh the page.');
-    }
     if (typeof pdfjsLib === 'undefined') {
       throw new Error('PDF viewer failed to load. Check your connection and try again.');
     }
 
-    const sb = await window.getSupabaseClient();
-    const { data, error } = await sb.storage.from('materials').download(filename);
-    if (error) throw error;
+    const res = await fetch(`/student/modules/file?topic=${encodeURIComponent(topicKey)}`, { credentials: 'same-origin' });
+    if (!res.ok) throw new Error(`Could not load the module (${res.status})`);
 
-    const arrayBuffer = await data.arrayBuffer();
+    const arrayBuffer = await res.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
 
     pagesEl.innerHTML = '';
@@ -1636,30 +1536,15 @@ function closePdfViewer() {
 
 /** Persist this student's reading-progress percentage for a topic (student_progress, phase='reading'). */
 async function mqSaveReadingProgress(topicKey, pct) {
-  if (!SUPABASE_URL_M || !SUPABASE_ANON_KEY_M || !window.__USER__?.id || !topicKey) return;
+  if (!topicKey) return;
   try {
-    await fetch(
-      `${SUPABASE_URL_M}/rest/v1/student_progress?on_conflict=session_id,topic_key,phase`,
-      {
-        method: 'POST',
-        headers: {
-          'apikey':        SUPABASE_ANON_KEY_M,
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY_M}`,
-          'Content-Type':  'application/json',
-          'Prefer':        'resolution=merge-duplicates,return=minimal',
-        },
-        body: JSON.stringify({
-          session_id:   String(window.__USER__.id),
-          student_name: window.__USER__.name,
-          topic_key:    topicKey,
-          phase:        'reading',
-          score:        pct,
-          total:        100,
-          passed:       pct >= 100,
-          created_at:   new Date().toISOString(),
-        }),
-      }
-    );
+    await studentApiPost(STUDENT_ROUTES.progress, {
+      topic_key: topicKey,
+      phase:     'reading',
+      score:     pct,
+      total:     100,
+      passed:    pct >= 100,
+    });
   } catch (e) {
     console.warn('Could not save reading progress:', e.message);
   }

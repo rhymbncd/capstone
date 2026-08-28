@@ -117,8 +117,10 @@ class ActivityLogController extends Controller
      * Permanently delete a single log entry. Confirmed client-side before
      * this is ever called; admin-only via the role:admin route middleware.
      */
-    public function destroy(ActivityLog $activityLog): JsonResponse
+    public function destroy(Request $request, ActivityLog $activityLog): JsonResponse
     {
+        ActivityLog::record('system', 'Activity Log Entry Deleted', "\"{$activityLog->title}\"", user: $request->user());
+
         $activityLog->delete();
 
         return response()->json(['message' => 'Activity log deleted.']);

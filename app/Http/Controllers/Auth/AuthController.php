@@ -37,22 +37,15 @@ class AuthController extends Controller
             'password' => 'required',
         ]);
 
-        $userExists = User::where('email', $request->email)->exists();
-        if (! $userExists) {
-            return redirect()->route('student.login')
-                ->withErrors(['email' => 'No account found with this email. Please register first.'])
-                ->onlyInput('email');
-        }
-
         if (Auth::attempt($request->only('email', 'password'))) {
             $user = Auth::user();
 
             if ($user->role !== 'student') {
                 Auth::logout();
 
-                return redirect()->route('student.login')->withErrors([
-                    'email' => "This account is registered as a {$user->role}. Please use the {$user->role} login portal.",
-                ]);
+                return redirect()->route('student.login')
+                    ->withErrors(['email' => 'These credentials do not match our records.'])
+                    ->onlyInput('email');
             }
 
             if ($user->approval_status !== 'approved') {
@@ -70,8 +63,10 @@ class AuthController extends Controller
             return redirect()->route('student.dashboard');
         }
 
+        ActivityLog::record('login', 'Failed Login Attempt', "{$request->input('email')} from {$request->ip()}");
+
         return redirect()->route('student.login')
-            ->withErrors(['email' => 'Invalid email or password.'])
+            ->withErrors(['email' => 'These credentials do not match our records.'])
             ->onlyInput('email');
     }
 
@@ -177,13 +172,6 @@ class AuthController extends Controller
             'password' => 'required',
         ]);
 
-        $userExists = User::where('email', $request->email)->exists();
-        if (! $userExists) {
-            return redirect()->route('teacher.login')
-                ->withErrors(['email' => 'No account found with this email. Please register first.'])
-                ->onlyInput('email');
-        }
-
         if (Auth::attempt($request->only('email', 'password'))) {
             /** @var User $user */
             $user = Auth::user();
@@ -191,9 +179,9 @@ class AuthController extends Controller
             if ($user->role !== 'teacher') {
                 Auth::logout();
 
-                return redirect()->route('teacher.login')->withErrors([
-                    'email' => "This account is registered as a {$user->role}. Please use the {$user->role} login portal.",
-                ]);
+                return redirect()->route('teacher.login')
+                    ->withErrors(['email' => 'These credentials do not match our records.'])
+                    ->onlyInput('email');
             }
 
             if ($user->approval_status !== 'approved') {
@@ -211,8 +199,10 @@ class AuthController extends Controller
             return redirect()->route('teacher.dashboard');
         }
 
+        ActivityLog::record('login', 'Failed Login Attempt', "{$request->input('email')} from {$request->ip()}");
+
         return redirect()->route('teacher.login')
-            ->withErrors(['email' => 'Invalid email or password.'])
+            ->withErrors(['email' => 'These credentials do not match our records.'])
             ->onlyInput('email');
     }
 
@@ -247,11 +237,6 @@ class AuthController extends Controller
         return view('login.signin', ['portalType' => 'admin']);
     }
 
-    public function showAdminRegisterForm()
-    {
-        return view('login.signup', ['portalType' => 'admin']);
-    }
-
     public function adminLogin(Request $request)
     {
         $request->validate([
@@ -259,22 +244,15 @@ class AuthController extends Controller
             'password' => 'required',
         ]);
 
-        $userExists = User::where('email', $request->email)->exists();
-        if (! $userExists) {
-            return redirect()->route('admin.login')
-                ->withErrors(['email' => 'No account found with this email. Please register first.'])
-                ->onlyInput('email');
-        }
-
         if (Auth::attempt($request->only('email', 'password'))) {
             $user = Auth::user();
 
             if ($user->role !== 'admin') {
                 Auth::logout();
 
-                return redirect()->route('admin.login')->withErrors([
-                    'email' => "This account is registered as a {$user->role}. Please use the {$user->role} login portal.",
-                ]);
+                return redirect()->route('admin.login')
+                    ->withErrors(['email' => 'These credentials do not match our records.'])
+                    ->onlyInput('email');
             }
 
             $request->session()->regenerate();
@@ -282,51 +260,11 @@ class AuthController extends Controller
             return redirect()->route('admin.dashboard');
         }
 
+        ActivityLog::record('login', 'Failed Login Attempt', "{$request->input('email')} from {$request->ip()}");
+
         return redirect()->route('admin.login')
-            ->withErrors(['email' => 'Invalid email or password.'])
+            ->withErrors(['email' => 'These credentials do not match our records.'])
             ->onlyInput('email');
-    }
-
-    public function adminRegister(Request $request)
-    {
-        // List of approved admin emails
-        $approvedEmails = [
-            'tardio@gmail.com',
-            'carman@gmail.com',
-            'villamor@gmail.com',
-            'tamayuza@gmail.com',
-            'embanecido@gmail.com',
-        ];
-
-        $validated = $request->validate([
-            'firstName' => 'required|string|max:255',
-            'lastName' => 'required|string|max:255',
-            'email' => [
-                'required',
-                'string',
-                'email',
-                'max:255',
-                'unique:users,email',
-                function ($attribute, $value, $fail) use ($approvedEmails) {
-                    if (! in_array($value, $approvedEmails)) {
-                        $fail('This email is not authorized to register as admin.');
-                    }
-                },
-            ],
-            'password' => 'required|string|min:8|confirmed',
-        ]);
-
-        $fullName = $validated['firstName'].' '.$validated['lastName'];
-
-        User::create([
-            'name' => $fullName,
-            'email' => $validated['email'],
-            'password' => Hash::make($validated['password']),
-            'role' => 'admin',
-        ]);
-
-        return redirect()->route('admin.login')
-            ->with('success', 'Account created successfully! Please log in.');
     }
 
     // ============ LOGOUT ============
@@ -350,8 +288,8 @@ class AuthController extends Controller
         // Store the role in session for later use
         session(['oauth_role' => $role]);
 
-        // Check if using mock mode for testing
-        if (config('services.google.mode') === 'mock') {
+        // Mock mode is a local test/dev shortcut only — never a bypass in production.
+        if (config('services.google.mode') === 'mock' && ! app()->isProduction()) {
             return $this->mockGoogleLogin();
         }
 
@@ -362,7 +300,7 @@ class AuthController extends Controller
         return redirect($url.$separator.'prompt=select_account');
     }
 
-    public function handleGoogleCallback()
+    public function handleGoogleCallback(Request $request)
     {
         try {
             $googleUser = Socialite::driver('google')->user();
@@ -378,24 +316,21 @@ class AuthController extends Controller
                 ->with('notification_error', 'Failed to retrieve Google user data.');
         }
 
+        // Never trust an unverified Google email — it could belong to someone else.
+        if (! filter_var($googleUser->user['email_verified'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
+            return redirect()->route('student.login')
+                ->withErrors(['error' => 'Your Google email address is not verified.'])
+                ->with('notification_error', 'Your Google email address is not verified.');
+        }
+
         // Get the stored role from session
         $role = session('oauth_role') ?? 'student';
 
         // Validate admin email authorization
-        if ($role === 'admin') {
-            $approvedEmails = [
-                'tardio@gmail.com',
-                'carman@gmail.com',
-                'villamor@gmail.com',
-                'tamayuza@gmail.com',
-                'embanecido@gmail.com',
-            ];
-
-            if (! in_array($googleUser->getEmail(), $approvedEmails)) {
-                return redirect()->route('admin.login')
-                    ->withErrors(['error' => 'This email is not authorized to register as admin.'])
-                    ->with('notification_error', 'This email is not authorized to register as admin.');
-            }
+        if ($role === 'admin' && ! in_array($googleUser->getEmail(), config('admin.emails'), true)) {
+            return redirect()->route('admin.login')
+                ->withErrors(['error' => 'This email is not authorized to sign in as admin.'])
+                ->with('notification_error', 'This email is not authorized to sign in as admin.');
         }
 
         // Find an existing account: first one already linked to this Google
@@ -406,6 +341,14 @@ class AuthController extends Controller
             ?? User::where('email', $googleUser->getEmail())->first();
 
         $isNewUser = $user === null;
+
+        // Admin accounts are provisioned directly (seeder / console), never
+        // self-registered — block Google sign-in from creating a new admin.
+        if ($isNewUser && $role === 'admin') {
+            return redirect()->route('admin.login')
+                ->withErrors(['email' => 'Admin accounts cannot be self-registered.'])
+                ->with('notification_error', 'Admin accounts cannot be self-registered.');
+        }
 
         if ($isNewUser) {
             $user = User::create([
@@ -463,6 +406,7 @@ class AuthController extends Controller
 
         // Log the user in
         Auth::login($user);
+        $request->session()->regenerate();
 
         ActivityLog::record('login', ucfirst($role).' Logged In (Google)', "{$user->name} ({$user->email})", user: $user);
 
@@ -476,10 +420,12 @@ class AuthController extends Controller
     // Mock Google Login for Testing
     private function mockGoogleLogin()
     {
+        abort_if(app()->isProduction(), 404);
+
         $testEmails = [
             'student' => 'test.student@gmail.com',
             'teacher' => 'test.teacher@gmail.com',
-            'admin' => 'tardio@gmail.com',
+            'admin' => config('admin.emails')[0] ?? 'test.admin@gmail.com',
         ];
 
         $role = session('oauth_role') ?? 'student';
@@ -515,6 +461,7 @@ class AuthController extends Controller
 
         // Log the user in
         Auth::login($user);
+        request()->session()->regenerate();
 
         // Show success message
         session(['google_auth_success' => true, 'google_auth_email' => $email]);

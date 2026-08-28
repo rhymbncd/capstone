@@ -6,283 +6,19 @@
  */
 
 import Swal from 'sweetalert2';
+import 'sweetalert2/dist/sweetalert2.min.css';
 
 'use strict';
 
-/* ============================================================
-   SUPABASE CONFIG
-   ============================================================ */
-const SUPABASE_URL      = window.__ENV__?.SUPABASE_URL      ?? '';
-const SUPABASE_ANON_KEY = window.__ENV__?.SUPABASE_ANON_KEY ?? '';
-const BUCKET_NAME    = 'modules';
-const STATUS_TABLE   = 'module_status';
-const ACTIVITY_TABLE = 'activity_logs';
-
-/* ---------------------------------------------------------------
-   Supabase REST helper — read all rows from a table
---------------------------------------------------------------- */
-async function sbSelect(table, params = '') {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}${params}`, {
-        headers: {
-            'apikey':        SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-            'Content-Type':  'application/json',
-        },
-    });
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || `DB read failed (${res.status})`);
-    }
-    return res.json();
-}
-
-/* ---------------------------------------------------------------
-   Supabase REST helper — insert a row
---------------------------------------------------------------- */
-async function sbInsert(table, data) {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
-        method: 'POST',
-        headers: {
-            'apikey':        SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-            'Content-Type':  'application/json',
-            // Tables like activity_logs are intentionally locked down to
-            // INSERT-only for the anon key (no SELECT), so this must not ask
-            // PostgREST to hand the row back — that requires SELECT too.
-            'Prefer':        'return=minimal',
-        },
-        body: JSON.stringify(data),
-    });
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || `DB insert failed (${res.status})`);
-    }
-    const text = await res.text();
-    return text ? JSON.parse(text) : null;
-}
-
-/* ---------------------------------------------------------------
-   Supabase REST helper — upsert rows (insert or update on conflict)
---------------------------------------------------------------- */
-async function sbUpsert(table, data) {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
-        method: 'POST',
-        headers: {
-            'apikey':        SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-            'Content-Type':  'application/json',
-            'Prefer':        'resolution=merge-duplicates,return=representation',
-        },
-        body: JSON.stringify(data),
-    });
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || `DB upsert failed (${res.status})`);
-    }
-    return res.json();
-}
-
-/* ---------------------------------------------------------------
-   Supabase REST helper — update rows by ID (PATCH)
---------------------------------------------------------------- */
-async function sbUpdate(table, id, data) {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
-        method: 'PATCH',
-        headers: {
-            'apikey':        SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-            'Content-Type':  'application/json',
-            'Prefer':        'return=representation',
-        },
-        body: JSON.stringify(data),
-    });
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || `DB update failed (${res.status})`);
-    }
-    return res.json();
-}
-
-/* ---------------------------------------------------------------
-   Supabase REST helper — delete rows by ID
---------------------------------------------------------------- */
-async function sbDelete(table, id) {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
-        method: 'DELETE',
-        headers: {
-            'apikey':        SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-            'Content-Type':  'application/json',
-        },
-    });
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || `DB delete failed (${res.status})`);
-    }
-    return true;
-}
-
 /* ---------------------------------------------------------------
    fetchModulesFromSupabase
-   1. List all files in the "modules" bucket
-   2. Fetch all rows from module_status table
-   3. Merge: status from DB drives the badge shown to the teacher
-      - 'approved'  → "Published" (green)
-      - 'rejected'  → "Rejected"  (red)
-      - 'pending'   → "Pending Review" (orange) — waiting for admin
-   4. Auto-insert a "pending" row for any new file not yet in DB
+   The Laravel /modules endpoint lists the Storage bucket, joins the
+   module_status moderation rows, and opens a pending row for any new
+   file — all server-side, behind the teacher's session.
 --------------------------------------------------------------- */
 async function fetchModulesFromSupabase() {
-    // 1. List bucket files
-    const listRes = await fetch(`${SUPABASE_URL}/storage/v1/object/list/${BUCKET_NAME}`, {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-            'Content-Type':  'application/json',
-        },
-        body: JSON.stringify({ prefix: '', limit: 200, offset: 0 }),
-    });
-    if (!listRes.ok) {
-        const err = await listRes.json().catch(() => ({}));
-        throw new Error(err.message || `Failed to list bucket (${listRes.status})`);
-    }
-    const files = await listRes.json();
-
-    // 2. Fetch status rows
-    let statusRows = [];
-    try {
-        statusRows = await sbSelect(STATUS_TABLE, '?select=*');
-    } catch (e) {
-        console.warn('Could not fetch module_status table:', e.message);
-    }
-
-    // 3. Build lookup map: storageName → DB row
-    const statusMap = {};
-    statusRows.forEach(r => { statusMap[r.file_name] = r; });
-
-    // 4. Merge files + status
-    const merged = files
-        .filter(f => f.name && !f.name.startsWith('.'))
-        .map((f, idx) => {
-            const publicUrl   = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET_NAME}/${encodeURIComponent(f.name)}`;
-            const rawName     = f.name.replace(/^\d+_/, '');
-            const fileTitle   = rawName.replace(/\.[^/.]+$/, '');
-            const existing    = statusMap[f.name];
-            const dbStatus    = existing?.status ?? 'pending';
-
-            // Use saved title/topic/desc from DB if available, otherwise use defaults
-            const title       = existing?.module_title ?? fileTitle;
-            const topic       = existing?.module_topic ?? guessTopic(fileTitle);
-            const desc        = existing?.module_desc ?? '';
-
-            // Map admin DB status → teacher-visible label
-            const displayStatus =
-                dbStatus === 'approved' ? 'Published' :
-                dbStatus === 'rejected' ? 'Rejected'  :
-                'Pending Review';
-
-            return {
-                id:          f.id || idx + 1,
-                storageName: f.name,
-                title,
-                desc,
-                topic,
-                status:      displayStatus,
-                dbStatus,                          // raw value for logic checks
-                completion:  0,
-                date:        formatDate(f.created_at || f.updated_at),
-                fileName:    rawName,
-                fileSize:    f.metadata?.size ?? 0,
-                fileUrl:     publicUrl,
-                dbId:        existing?.id ?? null,
-            };
-        });
-
-    // 5. Auto-insert pending rows for files with no DB record yet
-    const toInsert = merged
-        .filter(m => !m.dbId)
-        .map(m => ({
-            file_name: m.storageName,
-            file_url:  m.fileUrl,
-            status:    'pending',
-        }));
-
-    if (toInsert.length) {
-        try {
-            const inserted = await sbUpsert(STATUS_TABLE, toInsert);
-            if (Array.isArray(inserted)) {
-                inserted.forEach(row => {
-                    const item = merged.find(m => m.storageName === row.file_name);
-                    if (item) item.dbId = row.id;
-                });
-            }
-        } catch (e) {
-            console.warn('Auto-insert status rows failed:', e.message);
-        }
-    }
-
-    return merged;
-}
-
-/** Guess the module group from the file title keywords */
-function guessTopic(title) {
-    const t = title.toLowerCase();
-    if (/arithmetic|geometric|harmonic|fibonacci|finite|infinite|sequence|series/.test(t))
-        return 'Module 1: Sequences and Series';
-    if (/polynomial|remainder|factor|division/.test(t))
-        return 'Module 2: Polynomials';
-    if (/rational|radical|exponential|logarithm|system/.test(t))
-        return 'Module 3: Advanced Equations';
-    return 'General';
-}
-
-/* ---------------------------------------------------------------
-   Upload a new file to Supabase Storage.
-   Returns { publicUrl, path } on success, throws on failure.
---------------------------------------------------------------- */
-async function uploadFileToSupabase(file) {
-    const safeFileName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
-    const filePath     = `${Date.now()}_${safeFileName}`;
-    const uploadUrl    = `${SUPABASE_URL}/storage/v1/object/${BUCKET_NAME}/${filePath}`;
-
-    const res = await fetch(uploadUrl, {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-            'Content-Type':  file.type || 'application/octet-stream',
-            'x-upsert':      'false',
-        },
-        body: file,
-    });
-
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || `Upload failed (${res.status})`);
-    }
-
-    const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET_NAME}/${filePath}`;
-    return { publicUrl, path: filePath };
-}
-
-/* ============================================================
-   DELETE FILE FROM SUPABASE STORAGE
-   ============================================================ */
-async function deleteFileFromSupabase(filePath) {
-    const deleteUrl = `${SUPABASE_URL}/storage/v1/object/${BUCKET_NAME}/${filePath}`;
-    
-    const res = await fetch(deleteUrl, {
-        method: 'DELETE',
-        headers: {
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-        },
-    });
-
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || `Delete failed (${res.status})`);
-    }
-    
-    return true;
+    const { modules } = await apiFetch('/modules');
+    return modules || [];
 }
 
 /* ============================================================
@@ -321,7 +57,8 @@ async function apiFetch(url, options = {}) {
         headers: {
             'Accept': 'application/json',
             ...(csrfToken && { 'X-CSRF-TOKEN': csrfToken }),
-            ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+            // Let the browser set the multipart boundary for FormData uploads.
+            ...(options.body && !(options.body instanceof FormData) ? { 'Content-Type': 'application/json' } : {}),
             ...options.headers,
         },
     });
@@ -1498,173 +1235,49 @@ async function saveModule() {
     const title   = Security.sanitize(document.getElementById('mod-title').value.trim());
     const desc    = Security.sanitize(document.getElementById('mod-desc').value.trim());
     const topic   = document.getElementById('mod-topic').value.trim();
-    const editId  = document.getElementById('mod-edit-id').value.trim(); // ← CRITICAL: check this
+    const editId  = document.getElementById('mod-edit-id').value.trim();
 
     if (!title || title.length < 3)
         return warn('Title required', 'Please enter a module title (at least 3 characters).');
 
+    if (!editId && !pendingFile)
+        return warn('File required', 'Please attach a file for the new module.');
+
+    if (pendingFile) {
+        const MAX_BYTES = 20 * 1024 * 1024;
+        if (pendingFile.size > MAX_BYTES)
+            return warn('File too large', 'Please select a file smaller than 20 MB.');
+        const ALLOWED_EXTENSIONS = ['pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'txt', 'png', 'jpg', 'jpeg'];
+        const ext = pendingFile.name.split('.').pop()?.toLowerCase();
+        if (!ext || !ALLOWED_EXTENSIONS.includes(ext))
+            return warn('Unsupported file type', `Allowed types: ${ALLOWED_EXTENSIONS.join(', ')}`);
+    }
+
     const saveBtn = document.querySelector('#modal-add-module .btn-save');
-    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = pendingFile ? 'Uploading…' : 'Saving…'; }
+
+    const form = new FormData();
+    form.append('module_title', title);
+    form.append('module_desc', desc);
+    form.append('module_topic', topic);
+    if (pendingFile) form.append('file', pendingFile);
 
     try {
-        let fileName    = null;
-        let fileSize    = null;
-        let fileUrl     = null;
-        let storageName = null;
-
-        // Upload NEW file if selected
-        if (pendingFile) {
-            const MAX_BYTES = 20 * 1024 * 1024;
-            if (pendingFile.size > MAX_BYTES) {
-                if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save Module'; }
-                return warn('File too large', 'Please select a file smaller than 20 MB.');
-            }
-            const ALLOWED_EXTENSIONS = ['pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'txt', 'png', 'jpg', 'jpeg'];
-            const ext = pendingFile.name.split('.').pop()?.toLowerCase();
-            // The <input accept> attribute is advisory only — drag-and-drop
-            // bypasses it entirely, so re-check the extension here too.
-            if (!ext || !ALLOWED_EXTENSIONS.includes(ext)) {
-                if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save Module'; }
-                return warn('Unsupported file type', `Allowed types: ${ALLOWED_EXTENSIONS.join(', ')}`);
-            }
-            if (saveBtn) saveBtn.textContent = 'Uploading…';
-            
-            fileName = pendingFile.name;
-            fileSize = pendingFile.size;
-            const result = await uploadFileToSupabase(pendingFile);
-            fileUrl     = result.publicUrl;
-            storageName = result.path;
-        }
-
-        // ─────────────────────────────────────────────────────────────
-        // EDIT MODE: update existing module
-        // ─────────────────────────────────────────────────────────────
         if (editId) {
-            const moduleIndex = modulesData.findIndex(m => String(m.id) === String(editId));
-            if (moduleIndex === -1) {
-                if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save Module'; }
-                return warn('Error', 'Module not found in local data.');
-            }
-
-            const existing = modulesData[moduleIndex];
-
-            // Update array with new data, but preserve id/dbId/status/completion
-            modulesData[moduleIndex] = {
-                ...existing,
-                title,
-                desc,
-                topic,
-                // Keep old file if no new file uploaded, otherwise use new file
-                fileName:    pendingFile ? fileName    : existing.fileName,
-                fileSize:    pendingFile ? fileSize    : existing.fileSize,
-                fileUrl:     pendingFile ? fileUrl     : existing.fileUrl,
-                storageName: pendingFile ? storageName : existing.storageName,
-            };
-
-            // Update Supabase DB if has dbId
-            console.log('dbId:', existing.dbId);
-            console.log('Saving:', { module_title: title, module_desc: desc, module_topic: topic });
-
-            if (existing.dbId) {
-                try {
-                    if (saveBtn) saveBtn.textContent = 'Updating database…';
-                    const updateResult = await sbUpdate(STATUS_TABLE, existing.dbId, {
-                        module_title: title,
-                        module_desc: desc,
-                        module_topic: topic,
-                        ...(pendingFile && {
-                            file_name: storageName,
-                            file_url: fileUrl,
-                        }),
-                    });
-                    console.log('✅ DB updated:', updateResult);
-                } catch (err) {
-                    console.error('❌ DB update failed:', err.message);
-                    // Show error to teacher so they know it failed
-                    warn('Save Failed', `Could not save to database: ${err.message}`);
-                    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save Module'; }
-                    return; // ← stop here, don't close modal
-                }
-            } else {
-                // dbId is missing — upsert as new row instead
-                console.warn('No dbId found, upserting instead…');
-                try {
-                    const inserted = await sbUpsert(STATUS_TABLE, [{
-                        file_name: existing.storageName || null,
-                        file_url: existing.fileUrl || null,
-                        status: 'pending',
-                        module_title: title,
-                        module_desc: desc,
-                        module_topic: topic,
-                    }]);
-                    if (Array.isArray(inserted) && inserted[0]) {
-                        modulesData[moduleIndex].dbId = inserted[0].id;
-                        console.log('✅ Upserted with new dbId:', inserted[0].id);
-                    }
-                } catch (err) {
-                    console.error('Upsert fallback failed:', err.message);
-                }
-            }
-
+            await apiFetch(`/modules/${editId}`, { method: 'PATCH', body: form });
             logActivity('Module Updated', `"${title}" was edited`, 'module');
-            pendingFile = null;
-            closeModal('modal-add-module');
-            renderModules();
             toast('success', `"${Security.escape(title)}" updated successfully!`);
-
-        // ─────────────────────────────────────────────────────────────
-        // CREATE MODE: make new module
-        // ─────────────────────────────────────────────────────────────
         } else {
-            // Create status row in Supabase (new file or just metadata)
-            if (saveBtn) saveBtn.textContent = 'Saving to database…';
-            
-            let dbId = null;
-            try {
-                const statusData = {
-                    file_name: storageName || null,
-                    file_url: fileUrl || null,
-                    status: 'pending',
-                    module_title: title,
-                    module_desc: desc,
-                    module_topic: topic,
-                };
-                const inserted = await sbUpsert(STATUS_TABLE, [statusData]);
-                if (Array.isArray(inserted) && inserted[0]) {
-                    dbId = inserted[0].id;
-                }
-            } catch (err) {
-                console.warn('Could not create database row:', err.message);
-            }
-
-            // Add to local array
-            const newModule = {
-                id:          Date.now(),
-                storageName: storageName || null,
-                title,
-                desc,
-                topic,
-                status:      'Pending Review',
-                dbStatus:    'pending',
-                completion:  0,
-                date:        dateNow(),
-                fileName:    fileName || null,
-                fileSize:    fileSize || 0,
-                fileUrl:     fileUrl || null,
-                dbId:        dbId,
-            };
-            modulesData.push(newModule);
-
+            await apiFetch('/modules', { method: 'POST', body: form });
             logActivity('Module Uploaded', `"${title}" submitted for admin review`, 'module');
-            pendingFile = null;
-            closeModal('modal-add-module');
-            renderModules();
             toast('success', `"${Security.escape(title)}" uploaded! Waiting for admin approval.`);
         }
-
+        pendingFile = null;
+        closeModal('modal-add-module');
+        await loadAndRenderModules();
     } catch (err) {
         console.error('saveModule error:', err);
-        warn('Upload Failed', err.message || 'Could not save the module. Please try again.');
+        warn('Save Failed', err.message || 'Could not save the module. Please try again.');
     } finally {
         if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save Module'; }
     }
@@ -1764,28 +1377,9 @@ async function deleteModule(id) {
         if (!r.isConfirmed) return;
         
         try {
-            // Delete file from Supabase Storage if it exists
-            if (m.storageName) {
-                try {
-                    await deleteFileFromSupabase(m.storageName);
-                } catch (fileErr) {
-                    console.warn('Could not delete file from storage:', fileErr.message);
-                    // Continue with database deletion even if file deletion fails
-                }
-            }
-            
-            // Delete from database if it has a dbId
-            if (m.dbId) {
-                try {
-                    await sbDelete(STATUS_TABLE, m.dbId);
-                } catch (dbErr) {
-                    console.warn('Could not delete from database:', dbErr.message);
-                }
-            }
-            
-            modulesData = modulesData.filter(x => String(x.id) !== String(id));
+            await apiFetch(`/modules/${m.dbId}`, { method: 'DELETE' });
             logActivity('Module Deleted', `"${m.title}" permanently deleted`, 'module');
-            renderModules();
+            await loadAndRenderModules();
             toast('success', 'Module permanently deleted.');
         } catch (err) {
             console.error('Delete error:', err);
@@ -1895,9 +1489,7 @@ function sendToDownloads(id) {
         if (!chosenTopic) return warn('No selection', 'Please pick a module group.');
 
         try {
-            if (m.dbId) {
-                await sbUpdate(STATUS_TABLE, m.dbId, { module_topic: chosenTopic });
-            }
+            await apiFetch(`/modules/${m.dbId}/topic`, { method: 'PATCH', body: JSON.stringify({ module_topic: chosenTopic }) });
             // Update local cache
             const idx = modulesData.findIndex(x => String(x.id) === String(id));
             if (idx !== -1) modulesData[idx].topic = chosenTopic;
@@ -2067,15 +1659,17 @@ function logActivity(title, sub, type) {
     activity.unshift({ title, sub, type: type || 'general', time: 'just now', ts: Date.now() });
     if (activity.length > 30) activity.pop();
 
-    // Best-effort: also post to the shared activity_logs table so this
-    // shows up on the admin dashboard's Activity tab. Never block the
-    // teacher's own UI on this — it's observability, not a requirement.
-    const teacherName = window.__USER__?.name || 'A teacher';
-    sbInsert(ACTIVITY_TABLE, {
-        type:  ADMIN_ACTIVITY_TYPE[type] || 'system',
-        title: `${title} (Teacher)`,
-        sub:   `${sub} — by ${teacherName}`,
-        badge: 'Teacher',
+    // Best-effort: also record on the shared activity feed (admin Activity
+    // tab). The server ties it to the session, so no identity is sent here.
+    // Never block the teacher's own UI on this — it's observability.
+    apiFetch('/activity-log', {
+        method: 'POST',
+        body: JSON.stringify({
+            type:  ADMIN_ACTIVITY_TYPE[type] || 'system',
+            title: `${title} (Teacher)`,
+            sub:   sub || null,
+            badge: 'Teacher',
+        }),
     }).catch(e => console.warn('Could not sync activity to admin log:', e.message));
 }
 
@@ -3298,11 +2892,9 @@ async function saveQuizToSupabase() {
         const existingDbId = currentQuiz._dbId ?? (editIdx !== null ? savedQuizzes[editIdx]?.id : null);
 
         if (existingDbId) {
-            // UPDATE existing row
-            await sbUpdate('quizzes', existingDbId, payload);
+            await apiFetch(`/teacher/quiz/drafts/${existingDbId}`, { method: 'PUT', body: JSON.stringify(payload) });
         } else {
-            // INSERT new row
-            await sbUpsert('quizzes', [payload]);
+            await apiFetch('/teacher/quiz/drafts', { method: 'POST', body: JSON.stringify(payload) });
         }
 
         // Clear regen tracker
@@ -3356,8 +2948,8 @@ async function saveQuizToSupabase() {
 ------------------------------------------------------------------ */
 async function loadSavedQuizzes() {
     try {
-        const rows = await sbSelect('quizzes', '?select=*&order=created_at.desc&limit=20');
-        savedQuizzes = (rows || []).map(r => ({
+        const { drafts } = await apiFetch('/teacher/quiz/drafts');
+        savedQuizzes = (drafts || []).map(r => ({
             id:            r.id,
             topicLabel:    r.topic,
             activityLabel: r.activity_label || r.topic, // ← use activity_label if available
@@ -3628,9 +3220,9 @@ async function deleteSavedQuiz(idx) {
     if (!conf.isConfirmed) return;
 
     try {
-        // 1. Delete from quizzes table
+        // 1. Delete the draft
         if (q.id) {
-            await sbDelete('quizzes', q.id);
+            await apiFetch(`/teacher/quiz/drafts/${q.id}`, { method: 'DELETE' });
         }
 
         // 2. Find the topic key from activity label
@@ -3720,9 +3312,10 @@ async function publishCurrentQuiz({ skipConfirm = false } = {}) {
 
     try {
         // Check if already published for this topic
-        const existing = await sbSelect('quiz_published', `?topic_key=eq.${encodeURIComponent(topicKey)}`);
-        
-        if (existing && existing.length > 0) {
+        const { published } = await apiFetch('/teacher/quiz/published');
+        const existing = (published || []).filter(r => r.topic_key === topicKey);
+
+        if (existing.length > 0) {
             const { isConfirmed } = await Swal.fire({
                 title:             'Quiz Already Published',
                 html:              `<p style="font-size:13px;color:#6b7280;font-family:'Plus Jakarta Sans',sans-serif">
@@ -3758,30 +3351,15 @@ async function publishCurrentQuiz({ skipConfirm = false } = {}) {
 async function publishQuizToStudents(topicKey, quiz) {
     if (!quiz) return;
 
-    const payload = {
-        topic_key:   topicKey,
-        pretest:     JSON.stringify(quiz.pretest  || []),
-        posttest:    JSON.stringify(quiz.posttest || []),
-        activity:    JSON.stringify(quiz.activity || []),
-        published_at: new Date().toISOString(),
-    };
-
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/quiz_published?on_conflict=topic_key`, {
-        method:  'POST',
-        headers: {
-            'apikey':        SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-            'Content-Type':  'application/json',
-            'Prefer':        'resolution=merge-duplicates,return=representation',
-        },
-        body: JSON.stringify([payload]),
+    return apiFetch('/teacher/quiz/published', {
+        method: 'POST',
+        body: JSON.stringify({
+            topic_key: topicKey,
+            pretest:   JSON.stringify(quiz.pretest  || []),
+            posttest:  JSON.stringify(quiz.posttest || []),
+            activity:  JSON.stringify(quiz.activity || []),
+        }),
     });
-
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || `Publish failed (${res.status})`);
-    }
-    return res.json();
 }
 
 /**
@@ -3789,7 +3367,8 @@ async function publishQuizToStudents(topicKey, quiz) {
  */
 async function loadPublishedQuizzes() {
     try {
-        return await sbSelect('quiz_published', '?select=*');
+        const { published } = await apiFetch('/teacher/quiz/published');
+        return published || [];
     } catch (e) {
         console.warn('Could not load published quizzes:', e.message);
         return [];
@@ -3800,21 +3379,8 @@ async function loadPublishedQuizzes() {
  * Unpublish quiz - removes from students' view
  */
 async function unpublishQuiz(topicKey) {
-    const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/quiz_published?topic_key=eq.${encodeURIComponent(topicKey)}`,
-        {
-            method:  'DELETE',
-            headers: {
-                'apikey':        SUPABASE_ANON_KEY,
-                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-            },
-        }
-    );
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || `Unpublish failed (${res.status})`);
-    }
-    
+    await apiFetch(`/teacher/quiz/published/${encodeURIComponent(topicKey)}`, { method: 'DELETE' });
+
     // Clear from student browser cache if it exists
     if (window._publishedTopicKeys && typeof window._publishedTopicKeys.delete === 'function') {
         window._publishedTopicKeys.delete(topicKey);
@@ -3906,7 +3472,8 @@ async function confirmUnpublish(topicKey, label) {
  */
 async function loadCustomTopics() {
     try {
-        return await sbSelect('quiz_custom_topics', '?select=*&order=created_at.asc');
+        const { customTopics } = await apiFetch('/teacher/quiz/custom-topics');
+        return customTopics || [];
     } catch (e) {
         console.warn('Could not load custom topics:', e.message);
         return [];
@@ -3917,28 +3484,17 @@ async function loadCustomTopics() {
  * Add a custom topic
  */
 async function addCustomTopic(moduleKey, topicKey, topicName) {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/quiz_custom_topics`, {
-        method:  'POST',
-        headers: {
-            'apikey':        SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-            'Content-Type':  'application/json',
-            'Prefer':        'return=representation',
-        },
-        body: JSON.stringify([{ module_key: moduleKey, topic_key: topicKey, topic_name: topicName }]),
+    return apiFetch('/teacher/quiz/custom-topics', {
+        method: 'POST',
+        body: JSON.stringify({ module_key: moduleKey, topic_key: topicKey, topic_name: topicName }),
     });
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || `Add topic failed (${res.status})`);
-    }
-    return res.json();
 }
 
 /**
  * Delete a custom topic
  */
 async function deleteCustomTopic(id) {
-    return sbDelete('quiz_custom_topics', id);
+    return apiFetch(`/teacher/quiz/custom-topics/${id}`, { method: 'DELETE' });
 }
 
 /**
