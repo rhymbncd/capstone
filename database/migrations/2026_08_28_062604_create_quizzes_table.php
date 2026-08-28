@@ -17,7 +17,7 @@ return new class extends Migration
         }
 
         Schema::create('quizzes', function (Blueprint $table) {
-            $table->id();
+            $table->uuid('id')->primary();
             $table->string('topic')->nullable();
             $table->string('activity_label')->nullable();
             $table->string('grade')->nullable();

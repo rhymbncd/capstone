@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasUuidPrimaryKey;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -12,6 +13,8 @@ use Illuminate\Database\Eloquent\Model;
  */
 class Quiz extends Model
 {
+    use HasUuidPrimaryKey;
+
     protected $table = 'quizzes';
 
     protected $fillable = [

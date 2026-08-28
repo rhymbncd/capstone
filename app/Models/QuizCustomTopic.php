@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasUuidPrimaryKey;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -10,6 +11,8 @@ use Illuminate\Database\Eloquent\Model;
  */
 class QuizCustomTopic extends Model
 {
+    use HasUuidPrimaryKey;
+
     protected $table = 'quiz_custom_topics';
 
     protected $fillable = [
