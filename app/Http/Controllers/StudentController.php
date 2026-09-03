@@ -17,6 +17,13 @@ class StudentController extends Controller
      *
      * @var list<string>
      */
+    /**
+     * Bumped whenever the shape or derivation of this endpoint's payload
+     * changes (e.g. new status rules) so already-cached client copies are
+     * invalidated instead of being served stale behind a 304.
+     */
+    private const PAYLOAD_VERSION = '2025-09-03-not-started-status';
+
     private const CURRICULUM_TOPICS = [
         'ari', 'geo', 'har', 'fib', 'fin',
         'div', 'rem', 'poly',
@@ -93,7 +100,7 @@ class StudentController extends Controller
                 'email' => $student->email,
                 'studentId' => $student->student_id,
                 'section_id' => $student->section_id,
-                'status' => $this->getStudentStatus($student, $progress),
+                'status' => $this->getStudentStatus($student, $progress, $rows->isNotEmpty()),
                 'progress' => $progress,
                 'avgPre' => $this->averageScorePercent($rows->where('phase', 'pre')),
                 'avgPost' => $this->averageScorePercent($postRows),
@@ -105,7 +112,7 @@ class StudentController extends Controller
             'students' => $studentData,
             'subjectCompletion' => $this->subjectCompletion($allProgressRows, $students->count()),
         ]);
-        $response->setEtag(md5($rosterFingerprint.'#'.$progressFingerprint));
+        $response->setEtag(md5(self::PAYLOAD_VERSION.'#'.$rosterFingerprint.'#'.$progressFingerprint));
 
         if ($response->isNotModified($request)) {
             return $response;
@@ -157,11 +164,19 @@ class StudentController extends Controller
 
     /**
      * Determine student status based on approval status and real progress.
+     *
+     * A freshly approved student who has not attempted a single pre- or
+     * post-test yet is "Not Started" rather than "Needs Help" — there is
+     * nothing to be alarmed about until they've actually engaged.
      */
-    private function getStudentStatus(User $student, int $progress): string
+    private function getStudentStatus(User $student, int $progress, bool $hasActivity): string
     {
         if ($student->approval_status !== 'approved') {
             return 'Pending';
+        }
+
+        if (! $hasActivity) {
+            return 'Not Started';
         }
 
         if ($progress >= 80) {

@@ -351,6 +351,7 @@
                             <option value="Good">Good</option>
                             <option value="Average">Average</option>
                             <option value="Needs Help">Needs Help</option>
+                            <option value="Not Started">Not Started</option>
                         </select>
                     </div>
                     <div class="table-wrap">
