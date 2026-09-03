@@ -273,7 +273,7 @@
                 </div>
 
                 <div class="metrics-scroll-wrap">
-                    <div class="metrics-grid">
+                    <div class="metrics-grid metrics-grid--5">
                         <div class="metric-card">
                             <div class="metric-header"><span class="metric-label">Total</span>
                                 <div class="icon-container blue-theme">
@@ -291,6 +291,15 @@
                             </div>
                             <div class="metric-value" id="s-avg">0%</div>
                             <div class="metric-sub">class average</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-header"><span class="metric-label">Not Started</span>
+                                <div class="icon-container slate-theme">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+                                </div>
+                            </div>
+                            <div class="metric-value" id="s-not-started">0</div>
+                            <div class="metric-sub">no attempts yet</div>
                         </div>
                         <div class="metric-card">
                             <div class="metric-header"><span class="metric-label">Need Help</span>
