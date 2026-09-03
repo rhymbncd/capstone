@@ -114,6 +114,13 @@ class StudentController extends Controller
         ]);
         $response->setEtag(md5(self::PAYLOAD_VERSION.'#'.$rosterFingerprint.'#'.$progressFingerprint));
 
+        // Force the browser to revalidate with If-None-Match on every poll
+        // rather than serving a heuristically "fresh" copy from its HTTP
+        // cache — otherwise a payload change with an unchanged roster (e.g.
+        // new status rules) can keep showing stale data until something
+        // else moves.
+        $response->headers->set('Cache-Control', 'no-cache, private');
+
         if ($response->isNotModified($request)) {
             return $response;
         }
