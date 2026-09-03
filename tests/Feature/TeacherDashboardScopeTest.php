@@ -28,3 +28,12 @@ it('only shows a teacher their own pending students on the dashboard, not every 
     $response->assertSee($ownPending->name);
     $response->assertDontSee('Should Not Leak');
 });
+
+it('serves the dashboard shell with no-store so a redeploy is not masked by browser cache', function () {
+    $teacher = User::factory()->teacher()->create(['approval_status' => 'approved']);
+
+    $response = $this->actingAs($teacher)->get(route('teacher.dashboard'));
+
+    $response->assertOk();
+    expect($response->headers->get('Cache-Control'))->toContain('no-store');
+});
