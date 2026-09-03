@@ -57,9 +57,55 @@ it('returns the teacher\'s students with real progress computed from student_pro
 
     $freshData = $students->firstWhere('id', $freshStart->id);
     expect($freshData['progress'])->toBe(0);
-    expect($freshData['status'])->toBe('Needs Help');
+    expect($freshData['status'])->toBe('Not Started');
     expect($freshData['avgPre'])->toBeNull();
     expect($freshData['avgPost'])->toBeNull();
+});
+
+it('marks an approved student with no test attempts as Not Started, not Needs Help', function () {
+    $teacher = User::factory()->teacher()->create(['approval_status' => 'approved']);
+    $section = Section::factory()->create(['teacher_id' => $teacher->id]);
+
+    $student = User::factory()->create([
+        'role' => 'student',
+        'approval_status' => 'approved',
+        'section_id' => $section->id,
+    ]);
+
+    $response = $this->actingAs($teacher)->getJson(route('teacher.students.index'));
+
+    $response->assertOk();
+    $data = collect($response->json('students'))->firstWhere('id', $student->id);
+    expect($data['status'])->toBe('Not Started');
+});
+
+it('marks an active but low-progress student as Needs Help', function () {
+    $teacher = User::factory()->teacher()->create(['approval_status' => 'approved']);
+    $section = Section::factory()->create(['teacher_id' => $teacher->id]);
+
+    $student = User::factory()->create([
+        'role' => 'student',
+        'approval_status' => 'approved',
+        'section_id' => $section->id,
+    ]);
+
+    // Attempted the pre-test for one topic but completed no post-tests => 0% progress.
+    StudentProgress::create([
+        'session_id' => (string) $student->id,
+        'topic_key' => 'ari',
+        'phase' => 'pre',
+        'score' => 2,
+        'total' => 10,
+        'passed' => false,
+        'student_name' => $student->name,
+    ]);
+
+    $response = $this->actingAs($teacher)->getJson(route('teacher.students.index'));
+
+    $response->assertOk();
+    $data = collect($response->json('students'))->firstWhere('id', $student->id);
+    expect($data['progress'])->toBe(0);
+    expect($data['status'])->toBe('Needs Help');
 });
 
 it('computes per-module subject completion rates for the teacher\'s class', function () {

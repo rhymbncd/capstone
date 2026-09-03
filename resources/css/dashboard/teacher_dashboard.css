@@ -790,6 +790,10 @@ html, body {
     background: #dbeafe;
     color: #1d4ed8;
 }
+.badge-not-started {
+    background: #e5e7eb;
+    color: #4b5563;
+}
 .badge-system {
     background: #fef3c7;
     color: #b45309;

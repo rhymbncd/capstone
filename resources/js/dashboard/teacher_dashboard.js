@@ -40,7 +40,7 @@ const Security = {
         if (str == null) return '';
         return String(str).replace(/[<>"'`]/g, '').trim();
     },
-    isValidStatus(s) { return ['Excellent','Good','Average','Needs Help'].includes(s); },
+    isValidStatus(s) { return ['Excellent','Good','Average','Needs Help','Not Started'].includes(s); },
 };
 
 /* ============================================================
@@ -1721,7 +1721,7 @@ function avgProgress() {
     return Math.round(students.reduce((sum, s) => sum + s.progress, 0) / students.length);
 }
 function badgeClass(status) {
-    return { Excellent: 'badge-excellent', Good: 'badge-good', Average: 'badge-average', 'Needs Help': 'badge-needs-help' }[status] || 'badge-needs-help';
+    return { Excellent: 'badge-excellent', Good: 'badge-good', Average: 'badge-average', 'Needs Help': 'badge-needs-help', 'Not Started': 'badge-not-started' }[status] || 'badge-needs-help';
 }
 function progressColor(pct) {
     if (pct >= 80) return '#2563eb';
