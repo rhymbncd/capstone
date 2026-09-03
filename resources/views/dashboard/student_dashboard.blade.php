@@ -437,6 +437,8 @@
                     <p class="welcome-subtitle">Download assessments and worksheets to practice offline</p>
                 </div>
 
+                <p class="materials-attribution">These learning materials are based on the Grade 10 Mathematics modules provided by Bubog School and are incorporated into this system for interactive learning.</p>
+
                 <section class="modules-container" id="section-mod1">
                     <div class="section-label">Module 1 — Sequences and Series</div>
                     <div class="section-sub">Practice worksheets and assessment sheets</div>
