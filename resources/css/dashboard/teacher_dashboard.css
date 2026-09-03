@@ -119,6 +119,7 @@
 @media (min-width: 640px) {
 .metrics-scroll-wrap { margin: 0 0 24px; padding: 0; overflow: visible; }
 .metrics-grid { width: auto; display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.metrics-grid--5 { grid-template-columns: repeat(5, 1fr); }
 .metric-card { width: auto; }
 .metric-value { font-size: 30px; }
 }
@@ -566,6 +567,9 @@ html, body {
 .metric-card:nth-child(4) {
     animation-delay: 0.20s;
 }
+.metric-card:nth-child(5) {
+    animation-delay: 0.25s;
+}
 .metric-header {
     display: flex;
     align-items: center;
@@ -619,6 +623,10 @@ html, body {
     background: var(--red-light);
     color: var(--red);
 }
+.slate-theme {
+    background: var(--border);
+    color: var(--text-3);
+}
 .metric-value {
     font-size: 28px;
     font-weight: 800;
@@ -639,6 +647,7 @@ html, body {
 @media (min-width: 640px) {
 .metrics-scroll-wrap { margin: 0 0 24px; padding: 0; overflow: visible; }
 .metrics-grid { width: auto; display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.metrics-grid--5 { grid-template-columns: repeat(5, 1fr); }
 .metric-card { width: auto; }
 .metric-value { font-size: 30px; }
 }

@@ -188,6 +188,7 @@ function getFilteredStudents() {
 function renderStudents() {
     setText('s-total',     students.length);
     setText('s-avg',       avgProgress() + '%');
+    setText('s-not-started', students.filter(s => s.status === 'Not Started').length);
     setText('s-help',      students.filter(s => s.status === 'Needs Help').length);
     setText('s-excellent', students.filter(s => s.status === 'Excellent').length);
 
