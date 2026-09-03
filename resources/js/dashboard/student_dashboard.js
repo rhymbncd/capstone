@@ -10,9 +10,18 @@ document.addEventListener('DOMContentLoaded', function () {
     /* ================================
        NAVIGATION
        ================================ */
+    // Which learning modules the student has unlocked — a later module opens
+    // only once the previous one is 100% complete. Kept in sync by
+    // loadDashboardAnalytics() from the same per-module stats the cards use.
+    const moduleUnlocked = { 1: true, 2: false, 3: false };
+
     function navigate(page, moduleNum) {
         // Modules is a separate Blade view — use Laravel route
         if (page === 'modules') {
+            if (moduleNum && !moduleUnlocked[moduleNum]) {
+                window.toast?.('warning', `🔒 Finish Module ${moduleNum - 1} first to unlock this module.`);
+                return;
+            }
             // The route URL is injected by the Blade template via a meta tag
             const modulesUrl = document.querySelector('meta[name="modules-url"]');
             const base = modulesUrl ? modulesUrl.getAttribute('content') : '/student/modules';
@@ -636,6 +645,20 @@ document.addEventListener('DOMContentLoaded', function () {
             setText(`home-${mod}-pct`, stats.perModule[mod].pct + '%');
             setWidth(`home-${mod}-fill`, stats.perModule[mod].pct);
             setText(`home-${mod}-icon`, stats.perModule[mod].done === stats.perModule[mod].total ? '✓' : '—');
+        });
+
+        // Gate Module 2/3: their "View Topics" button stays locked until the
+        // previous module is fully complete.
+        moduleUnlocked[2] = stats.perModule.mod1.pct === 100;
+        moduleUnlocked[3] = stats.perModule.mod2.pct === 100;
+        [2, 3].forEach(n => {
+            const btn = document.getElementById(`home-mod${n}-topics-btn`);
+            if (!btn) return;
+            const unlocked = moduleUnlocked[n];
+            // Left clickable so navigate() can explain why it's locked.
+            btn.textContent = unlocked ? 'View Topics' : '🔒 Locked';
+            btn.setAttribute('aria-disabled', String(!unlocked));
+            btn.closest('.module-item')?.classList.toggle('locked', !unlocked);
         });
 
         // Progress page

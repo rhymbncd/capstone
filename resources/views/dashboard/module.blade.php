@@ -101,6 +101,26 @@ html,body { min-height:100%; font-family:'Plus Jakarta Sans',sans-serif; backgro
 @keyframes lockShake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-4px)} 40%{transform:translateX(4px)} 60%{transform:translateX(-3px)} 80%{transform:translateX(3px)} }
 .mq-topic--locked.shake { animation:lockShake 0.4s ease; }
 
+/* MODULE TABS — only one module is shown at a time; a later module stays
+   locked until every topic in the previous module has a passed post-test. */
+.mq-module-tabs { display:flex; gap:8px; margin-bottom:20px; }
+.mq-module-tab {
+  flex:1; display:flex; align-items:center; justify-content:center; gap:6px;
+  padding:10px 8px; border-radius:10px; cursor:pointer;
+  background:var(--bg); border:1px solid var(--border);
+  font-size:12px; font-weight:700; color:var(--text-2);
+  transition:all 0.15s; white-space:nowrap;
+}
+.mq-module-tab:hover:not(.mq-module-tab--locked):not(.mq-module-tab--active) { border-color:var(--blue-mid); color:var(--blue); }
+.mq-module-tab--active { background:var(--blue-light); border-color:var(--blue); color:var(--blue); }
+.mq-module-tab--done { border-color:var(--green); color:#065f46; }
+.mq-module-tab--done.mq-module-tab--active { background:var(--green-light); }
+.mq-module-tab--locked { opacity:0.55; cursor:not-allowed; }
+.mq-module-tab.shake { animation:lockShake 0.4s ease; }
+.mq-tab-state { font-size:11px; }
+.mq-module-hidden { display:none !important; }
+@media(max-width:380px) { .mq-module-tab { font-size:11px; padding:9px 4px; } }
+
 /* OVERLAY */
 .mq-overlay {
   position:fixed; inset:0; z-index:500;
@@ -333,6 +353,12 @@ html,body { min-height:100%; font-family:'Plus Jakarta Sans',sans-serif; backgro
       <h1 class="welcome-title">Learning Modules</h1>
       <p class="welcome-subtitle">Pre-Test → Lesson → Activity → Post-Test · Complete each step to unlock the next</p>
     </div>
+
+    <nav class="mq-module-tabs" id="mq-module-tabs">
+      <button type="button" class="mq-module-tab" data-module="1">Module 1<span class="mq-tab-state"></span></button>
+      <button type="button" class="mq-module-tab" data-module="2">Module 2<span class="mq-tab-state"></span></button>
+      <button type="button" class="mq-module-tab" data-module="3">Module 3<span class="mq-tab-state"></span></button>
+    </nav>
 
     <section class="modules-container" id="module1">
       <div class="section-label">Module 1: Sequences and Series</div>
@@ -804,6 +830,85 @@ function safeParseJSON(str, fallback) {
     try { return JSON.parse(str); } catch { return fallback; }
 }
 
+/* Curriculum topics grouped by module number — the single source of truth
+   for both the subtitle percentages and the module-level lock. */
+const MODULE_TOPICS_BY_NUM = {
+  1: ['ari', 'geo', 'har', 'fib', 'fin'],
+  2: ['div', 'rem', 'poly'],
+  3: ['rat', 'rad', 'exp', 'log'],
+};
+
+/* A module is unlocked when it's the first one, or every topic in the
+   previous module has a passed post-test (mqState.completed). */
+function isModuleUnlocked(n) {
+  if (n <= 1) return true;
+  return MODULE_TOPICS_BY_NUM[n - 1].every(k => mqState.completed[k]);
+}
+
+function moduleCompletion(n) {
+  const topics = MODULE_TOPICS_BY_NUM[n] || [];
+  const done = topics.filter(k => mqState.completed[k]).length;
+  return { done, total: topics.length, pct: topics.length ? Math.round(done / topics.length * 100) : 0 };
+}
+
+let activeModule = 1;
+
+/* Show a single module section; the others are hidden. A locked module
+   shakes its tab and warns instead of opening. */
+function showModule(n) {
+  const tab = document.querySelector('.mq-module-tab[data-module="' + n + '"]');
+
+  if (!isModuleUnlocked(n)) {
+    if (tab) {
+      tab.classList.remove('shake');
+      void tab.offsetWidth;
+      tab.classList.add('shake');
+      setTimeout(() => tab.classList.remove('shake'), 500);
+    }
+    Swal.fire({
+      toast: true, position: 'top', icon: 'warning',
+      title: 'Finish Module ' + (n - 1) + ' first to unlock this module.',
+      showConfirmButton: false, timer: 2600, timerProgressBar: true,
+    });
+    return;
+  }
+
+  activeModule = n;
+  [1, 2, 3].forEach(m => {
+    const section = document.getElementById('module' + m);
+    if (section) section.classList.toggle('mq-module-hidden', m !== n);
+  });
+  history.replaceState(null, '', '#module' + n);
+  refreshModuleTabs();
+}
+
+/* Paint the tab bar: active / locked / done state for each module. */
+function refreshModuleTabs() {
+  [1, 2, 3].forEach(n => {
+    const tab = document.querySelector('.mq-module-tab[data-module="' + n + '"]');
+    if (!tab) return;
+    const unlocked = isModuleUnlocked(n);
+    const done = moduleCompletion(n).pct === 100;
+    tab.classList.toggle('mq-module-tab--active', n === activeModule);
+    tab.classList.toggle('mq-module-tab--locked', !unlocked);
+    tab.classList.toggle('mq-module-tab--done', done);
+    // Kept clickable on purpose so a tap on a locked tab can shake + explain.
+    tab.setAttribute('aria-disabled', String(!unlocked));
+    const state = tab.querySelector('.mq-tab-state');
+    if (state) state.textContent = !unlocked ? '🔒' : (done ? '✓' : '');
+  });
+}
+
+/* Which module to land on: the one from the URL hash if it's unlocked,
+   otherwise the furthest module the student has unlocked. */
+function pickStartModule() {
+  const fromHash = parseInt((location.hash.match(/module([123])/) || [])[1], 10);
+  if (fromHash && isModuleUnlocked(fromHash)) return fromHash;
+  if (isModuleUnlocked(3)) return 3;
+  if (isModuleUnlocked(2)) return 2;
+  return 1;
+}
+
 /**
  * Update module subtitle completion percentages
  */
@@ -813,9 +918,10 @@ function updateModuleSubtitles() {
     const total=arr.length;
     document.getElementById(id).textContent=Math.round(done/total*100)+'% complete · '+done+' of '+total+' topics done';
   }
-  setSub('mod1-sub',['ari','geo','har','fib','fin']);
-  setSub('mod2-sub',['div','rem','poly']);
-  setSub('mod3-sub',['rat','rad','exp','log']);
+  setSub('mod1-sub', MODULE_TOPICS_BY_NUM[1]);
+  setSub('mod2-sub', MODULE_TOPICS_BY_NUM[2]);
+  setSub('mod3-sub', MODULE_TOPICS_BY_NUM[3]);
+  refreshModuleTabs();
 }
 
 /**
@@ -823,9 +929,9 @@ function updateModuleSubtitles() {
  */
 function injectCustomTopicsIntoPage() {
     const containerMap = {
-        sequences:   '.modules-container:nth-child(1) .topic-list',
-        polynomials: '.modules-container:nth-child(2) .topic-list',
-        advanced:    '.modules-container:nth-child(3) .topic-list',
+        sequences:   '#module1 .topic-list',
+        polynomials: '#module2 .topic-list',
+        advanced:    '#module3 .topic-list',
     };
 
     const builtinKeys = new Set(TOPIC_ORDER);
@@ -1365,23 +1471,19 @@ function mqMarkDone() {
     updateModuleSubtitles();
 }
 
-function updateModuleSubtitles() {
-  function setSub(id,arr){
-    const done=arr.filter(k=>mqState.completed[k]).length;
-    const total=arr.length;
-    document.getElementById(id).textContent=Math.round(done/total*100)+'% complete · '+done+' of '+total+' topics done';
-  }
-  setSub('mod1-sub',['ari','geo','har','fib','fin']);
-  setSub('mod2-sub',['div','rem','poly']);
-  setSub('mod3-sub',['rat','rad','exp','log']);
-}
-
 document.addEventListener('DOMContentLoaded', async function () {
 
     // ── Wire up topic clicks ──
     document.querySelectorAll('.topic-item[data-topic]').forEach(item => {
         item.addEventListener('click', function () { openTopic(this.getAttribute('data-topic')); });
     });
+
+    // ── Wire up module tabs (only one module visible at a time) ──
+    document.querySelectorAll('.mq-module-tab').forEach(tab => {
+        tab.addEventListener('click', () => showModule(parseInt(tab.dataset.module, 10)));
+    });
+    showModule(1);
+    refreshModuleTabs();
 
     // ── Wire up modal buttons ──
     document.getElementById('mq-close-btn').addEventListener('click', mqClose);
@@ -1424,17 +1526,14 @@ document.addEventListener('DOMContentLoaded', async function () {
         console.warn('Progress restore failed:', e.message);
     }
 
-    // ── Jump straight to the module the student clicked on the dashboard
-    //    (e.g. "View Topics" on Module 2), instead of always landing on
-    //    Module 1 at the top. Done last, after layout has settled from
-    //    the async content above. ──
-    if (location.hash) {
-        const target = document.querySelector(location.hash);
-        if (target) {
-            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            target.classList.add('mq-module-highlight');
-            setTimeout(() => target.classList.remove('mq-module-highlight'), 1800);
-        }
+    // ── Land on the right module: the one the student clicked on the
+    //    dashboard (URL hash) if it's unlocked, otherwise the furthest
+    //    module they've unlocked. Done last, after progress has loaded. ──
+    showModule(pickStartModule());
+    const landed = document.getElementById('module' + activeModule);
+    if (landed) {
+        landed.classList.add('mq-module-highlight');
+        setTimeout(() => landed.classList.remove('mq-module-highlight'), 1800);
     }
 });
 
