@@ -21,6 +21,10 @@ class PublishedQuizController extends Controller
 
     /**
      * Publish (or replace) the quiz for a topic. Upserts on topic_key.
+     *
+     * When this replaces an existing quiz with different pre/post questions,
+     * QuizPublishedObserver clears every student's recorded attempts for the
+     * topic so nobody keeps a score against questions that are now gone.
      */
     public function store(Request $request): JsonResponse
     {

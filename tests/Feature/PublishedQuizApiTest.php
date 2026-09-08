@@ -66,6 +66,49 @@ it('resets every student\'s pre/post progress for a topic when its quiz is unpub
     $this->assertDatabaseHas('student_progress', ['session_id' => (string) $alice->id, 'topic_key' => 'ari', 'phase' => 'post']);
 });
 
+it('resets every student\'s pre/post progress when a published quiz is replaced with new questions', function () {
+    QuizPublished::create(['topic_key' => 'geo', 'pretest' => '[]', 'posttest' => $this->sampleQuiz, 'activity' => '[]']);
+
+    $alice = User::factory()->create(['role' => 'student', 'approval_status' => 'approved', 'section_id' => Section::factory()->create()->id]);
+    $bob = User::factory()->create(['role' => 'student', 'approval_status' => 'approved', 'section_id' => Section::factory()->create()->id]);
+
+    foreach ([$alice, $bob] as $student) {
+        StudentProgress::create(['session_id' => (string) $student->id, 'topic_key' => 'geo', 'phase' => 'pre', 'score' => 8, 'total' => 10, 'passed' => true]);
+        StudentProgress::create(['session_id' => (string) $student->id, 'topic_key' => 'geo', 'phase' => 'post', 'score' => 9, 'total' => 10, 'passed' => true]);
+    }
+
+    StudentProgress::create(['session_id' => (string) $alice->id, 'topic_key' => 'geo', 'phase' => 'reading', 'score' => 100, 'total' => 100]);
+    StudentProgress::create(['session_id' => (string) $alice->id, 'topic_key' => 'ari', 'phase' => 'post', 'score' => 10, 'total' => 10, 'passed' => true]);
+
+    $this->actingAs($this->teacher)->postJson(route('teacher.quiz.published.store'), [
+        'topic_key' => 'geo',
+        'pretest' => json_encode([['question' => 'brand new', 'options' => ['A' => '1'], 'answer' => 'A']]),
+        'posttest' => $this->sampleQuiz,
+        'activity' => json_encode([]),
+    ])->assertOk();
+
+    expect(StudentProgress::where('topic_key', 'geo')->whereIn('phase', ['pre', 'post'])->count())->toBe(0);
+
+    $this->assertDatabaseHas('student_progress', ['session_id' => (string) $alice->id, 'topic_key' => 'geo', 'phase' => 'reading']);
+    $this->assertDatabaseHas('student_progress', ['session_id' => (string) $alice->id, 'topic_key' => 'ari', 'phase' => 'post']);
+});
+
+it('keeps student progress when a re-publish does not change the questions', function () {
+    QuizPublished::create(['topic_key' => 'geo', 'pretest' => $this->sampleQuiz, 'posttest' => $this->sampleQuiz, 'activity' => '[]']);
+
+    $alice = User::factory()->create(['role' => 'student', 'approval_status' => 'approved', 'section_id' => Section::factory()->create()->id]);
+    StudentProgress::create(['session_id' => (string) $alice->id, 'topic_key' => 'geo', 'phase' => 'post', 'score' => 9, 'total' => 10, 'passed' => true]);
+
+    $this->actingAs($this->teacher)->postJson(route('teacher.quiz.published.store'), [
+        'topic_key' => 'geo',
+        'pretest' => $this->sampleQuiz,
+        'posttest' => $this->sampleQuiz,
+        'activity' => json_encode([]),
+    ])->assertOk();
+
+    $this->assertDatabaseHas('student_progress', ['session_id' => (string) $alice->id, 'topic_key' => 'geo', 'phase' => 'post']);
+});
+
 it('rejects a non-JSON pretest', function () {
     $this->actingAs($this->teacher)->postJson(route('teacher.quiz.published.store'), [
         'topic_key' => 'ari',
