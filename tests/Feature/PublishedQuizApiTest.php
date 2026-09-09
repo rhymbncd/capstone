@@ -4,6 +4,7 @@ use App\Models\QuizCustomTopic;
 use App\Models\QuizPublished;
 use App\Models\Section;
 use App\Models\StudentProgress;
+use App\Models\StudentQuizAnswer;
 use App\Models\User;
 
 beforeEach(function () {
@@ -46,24 +47,31 @@ it('resets every student\'s pre/post progress for a topic when its quiz is unpub
     $alice = User::factory()->create(['role' => 'student', 'approval_status' => 'approved', 'section_id' => Section::factory()->create()->id]);
     $bob = User::factory()->create(['role' => 'student', 'approval_status' => 'approved', 'section_id' => Section::factory()->create()->id]);
 
-    // Both finished the geo pre + post test.
+    // Both finished the geo pre + post test and the activity.
     foreach ([$alice, $bob] as $student) {
         StudentProgress::create(['session_id' => (string) $student->id, 'topic_key' => 'geo', 'phase' => 'pre', 'score' => 8, 'total' => 10, 'passed' => true]);
         StudentProgress::create(['session_id' => (string) $student->id, 'topic_key' => 'geo', 'phase' => 'post', 'score' => 9, 'total' => 10, 'passed' => true]);
+
+        foreach (['pre', 'post', 'activity'] as $phase) {
+            StudentQuizAnswer::create(['session_id' => (string) $student->id, 'topic_key' => 'geo', 'phase' => $phase, 'answers' => ['A'], 'score' => 1, 'total' => 1]);
+        }
     }
 
     // Untouched: geo reading progress, and a different topic entirely.
     StudentProgress::create(['session_id' => (string) $alice->id, 'topic_key' => 'geo', 'phase' => 'reading', 'score' => 100, 'total' => 100]);
     StudentProgress::create(['session_id' => (string) $alice->id, 'topic_key' => 'ari', 'phase' => 'post', 'score' => 10, 'total' => 10, 'passed' => true]);
+    StudentQuizAnswer::create(['session_id' => (string) $alice->id, 'topic_key' => 'ari', 'phase' => 'post', 'answers' => ['B'], 'score' => 1, 'total' => 1]);
 
     $this->actingAs($this->teacher)
         ->deleteJson(route('teacher.quiz.published.destroy', 'geo'))
         ->assertOk();
 
     expect(StudentProgress::where('topic_key', 'geo')->whereIn('phase', ['pre', 'post'])->count())->toBe(0);
+    expect(StudentQuizAnswer::where('topic_key', 'geo')->count())->toBe(0);
 
     $this->assertDatabaseHas('student_progress', ['session_id' => (string) $alice->id, 'topic_key' => 'geo', 'phase' => 'reading']);
     $this->assertDatabaseHas('student_progress', ['session_id' => (string) $alice->id, 'topic_key' => 'ari', 'phase' => 'post']);
+    $this->assertDatabaseHas('student_quiz_answers', ['session_id' => (string) $alice->id, 'topic_key' => 'ari', 'phase' => 'post']);
 });
 
 it('resets every student\'s pre/post progress when a published quiz is replaced with new questions', function () {
@@ -75,6 +83,7 @@ it('resets every student\'s pre/post progress when a published quiz is replaced 
     foreach ([$alice, $bob] as $student) {
         StudentProgress::create(['session_id' => (string) $student->id, 'topic_key' => 'geo', 'phase' => 'pre', 'score' => 8, 'total' => 10, 'passed' => true]);
         StudentProgress::create(['session_id' => (string) $student->id, 'topic_key' => 'geo', 'phase' => 'post', 'score' => 9, 'total' => 10, 'passed' => true]);
+        StudentQuizAnswer::create(['session_id' => (string) $student->id, 'topic_key' => 'geo', 'phase' => 'activity', 'answers' => ['A'], 'score' => 1, 'total' => 1]);
     }
 
     StudentProgress::create(['session_id' => (string) $alice->id, 'topic_key' => 'geo', 'phase' => 'reading', 'score' => 100, 'total' => 100]);
@@ -88,6 +97,7 @@ it('resets every student\'s pre/post progress when a published quiz is replaced 
     ])->assertOk();
 
     expect(StudentProgress::where('topic_key', 'geo')->whereIn('phase', ['pre', 'post'])->count())->toBe(0);
+    expect(StudentQuizAnswer::where('topic_key', 'geo')->count())->toBe(0);
 
     $this->assertDatabaseHas('student_progress', ['session_id' => (string) $alice->id, 'topic_key' => 'geo', 'phase' => 'reading']);
     $this->assertDatabaseHas('student_progress', ['session_id' => (string) $alice->id, 'topic_key' => 'ari', 'phase' => 'post']);
