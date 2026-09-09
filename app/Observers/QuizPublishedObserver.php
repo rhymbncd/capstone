@@ -4,6 +4,7 @@ namespace App\Observers;
 
 use App\Models\QuizPublished;
 use App\Models\StudentProgress;
+use App\Models\StudentQuizAnswer;
 
 class QuizPublishedObserver
 {
@@ -38,7 +39,7 @@ class QuizPublishedObserver
     public function updated(QuizPublished $quizPublished): void
     {
         if ($quizPublished->wasChanged(self::QUESTION_COLUMNS)) {
-            $this->resetStudentProgress($quizPublished->topic_key);
+            $this->clearStudentQuizAttempts($quizPublished->topic_key);
         }
     }
 
@@ -55,17 +56,26 @@ class QuizPublishedObserver
      */
     public function deleted(QuizPublished $quizPublished): void
     {
-        $this->resetStudentProgress($quizPublished->topic_key);
+        $this->clearStudentQuizAttempts($quizPublished->topic_key);
     }
 
     /**
-     * Wipe every student's pre/post attempts for a topic.
+     * Wipe every student's pre-test, post-test and activity work for a
+     * topic: the pre/post rows in student_progress that drive completion,
+     * plus every saved answer list in student_quiz_answers (pre, post and
+     * activity) so the teacher's answer review no longer shows attempts
+     * against questions that are gone. Reading progress (the module PDF,
+     * phase "reading" in student_progress) is deliberately kept.
      */
-    private function resetStudentProgress(string $topicKey): void
+    private function clearStudentQuizAttempts(string $topicKey): void
     {
         StudentProgress::query()
             ->where('topic_key', $topicKey)
             ->whereIn('phase', self::QUIZ_PHASES)
+            ->delete();
+
+        StudentQuizAnswer::query()
+            ->where('topic_key', $topicKey)
             ->delete();
     }
 }
