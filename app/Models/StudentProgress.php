@@ -9,6 +9,26 @@ class StudentProgress extends Model
 {
     use HasFactory;
 
+    /**
+     * Attempt phases whose completion is defined by a teacher-published
+     * quiz. Once that quiz is unpublished these rows no longer describe
+     * anything a student can currently do, so they are hidden from the
+     * dashboard and pruned from the table. Reading progress (phase
+     * "reading") tracks the module PDF instead and is left untouched.
+     *
+     * @var list<string>
+     */
+    public const QUIZ_PHASES = ['pre', 'post'];
+
+    /**
+     * Topic keys for attempts that are not backed by a teacher-published
+     * quiz and must survive an unpublish — currently just the dashboard's
+     * own summative review test.
+     *
+     * @var list<string>
+     */
+    public const SELF_DIRECTED_TOPIC_KEYS = ['summative'];
+
     protected $table = 'student_progress';
 
     protected $fillable = [

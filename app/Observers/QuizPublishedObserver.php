@@ -9,15 +9,6 @@ use App\Models\StudentQuizAnswer;
 class QuizPublishedObserver
 {
     /**
-     * The pre/post attempt phases whose completion depends on the published
-     * quiz. Reading progress (phase "reading") tracks the module PDF, not
-     * the quiz, so it is deliberately left untouched.
-     *
-     * @var list<string>
-     */
-    private const QUIZ_PHASES = ['pre', 'post'];
-
-    /**
      * The question columns whose contents students are actually graded on.
      * A change to either means the answers on file were given against a
      * different set of questions.
@@ -71,7 +62,7 @@ class QuizPublishedObserver
     {
         StudentProgress::query()
             ->where('topic_key', $topicKey)
-            ->whereIn('phase', self::QUIZ_PHASES)
+            ->whereIn('phase', StudentProgress::QUIZ_PHASES)
             ->delete();
 
         StudentQuizAnswer::query()
