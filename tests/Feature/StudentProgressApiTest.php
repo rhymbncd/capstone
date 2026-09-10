@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\QuizPublished;
 use App\Models\Section;
 use App\Models\StudentProgress;
 use App\Models\User;
@@ -95,6 +96,8 @@ it('accepts the reading phase and rejects an unknown phase', function () {
 });
 
 it('returns only the authenticated student\'s progress rows', function () {
+    QuizPublished::create(['topic_key' => 'ari', 'pretest' => '[]', 'posttest' => '[]', 'activity' => '[]']);
+
     $other = User::factory()->create([
         'role' => 'student',
         'approval_status' => 'approved',
@@ -102,7 +105,7 @@ it('returns only the authenticated student\'s progress rows', function () {
     ]);
 
     StudentProgress::create(['session_id' => (string) $this->student->id, 'topic_key' => 'ari', 'phase' => 'post', 'score' => 9, 'total' => 10, 'passed' => true]);
-    StudentProgress::create(['session_id' => (string) $other->id, 'topic_key' => 'geo', 'phase' => 'post', 'score' => 3, 'total' => 10, 'passed' => false]);
+    StudentProgress::create(['session_id' => (string) $other->id, 'topic_key' => 'ari', 'phase' => 'post', 'score' => 3, 'total' => 10, 'passed' => false]);
 
     $response = $this->actingAs($this->student)->getJson(route('student.progress.index'));
 
@@ -110,6 +113,56 @@ it('returns only the authenticated student\'s progress rows', function () {
     $rows = collect($response->json('progress'));
     expect($rows)->toHaveCount(1);
     expect($rows->first()['topic_key'])->toBe('ari');
+});
+
+it('withholds pre/post progress for a topic that has no published quiz', function () {
+    QuizPublished::create(['topic_key' => 'ari', 'pretest' => '[]', 'posttest' => '[]', 'activity' => '[]']);
+
+    StudentProgress::create(['session_id' => (string) $this->student->id, 'topic_key' => 'ari', 'phase' => 'post', 'score' => 9, 'total' => 10, 'passed' => true]);
+    StudentProgress::create(['session_id' => (string) $this->student->id, 'topic_key' => 'geo', 'phase' => 'pre', 'score' => 4, 'total' => 10, 'passed' => false]);
+    StudentProgress::create(['session_id' => (string) $this->student->id, 'topic_key' => 'geo', 'phase' => 'post', 'score' => 8, 'total' => 10, 'passed' => true]);
+
+    $rows = collect($this->actingAs($this->student)->getJson(route('student.progress.index'))->json('progress'));
+
+    expect($rows->pluck('topic_key')->all())->toBe(['ari']);
+});
+
+it('still returns reading progress and summative attempts without a published quiz', function () {
+    StudentProgress::create(['session_id' => (string) $this->student->id, 'topic_key' => 'geo', 'phase' => 'reading', 'score' => 100, 'total' => 100]);
+    StudentProgress::create(['session_id' => (string) $this->student->id, 'topic_key' => 'summative', 'phase' => 'post', 'score' => 12, 'total' => 20, 'passed' => true]);
+
+    $rows = collect($this->actingAs($this->student)->getJson(route('student.progress.index'))->json('progress'));
+
+    expect($rows->pluck('topic_key')->sort()->values()->all())->toBe(['geo', 'summative']);
+});
+
+it('shows the topic\'s progress again once the quiz is re-published', function () {
+    StudentProgress::create(['session_id' => (string) $this->student->id, 'topic_key' => 'geo', 'phase' => 'post', 'score' => 8, 'total' => 10, 'passed' => true]);
+
+    $route = route('student.progress.index');
+    expect(collect($this->actingAs($this->student)->getJson($route)->json('progress')))->toHaveCount(0);
+
+    QuizPublished::create(['topic_key' => 'geo', 'pretest' => '[]', 'posttest' => '[]', 'activity' => '[]']);
+
+    expect(collect($this->actingAs($this->student)->getJson($route)->json('progress')))->toHaveCount(1);
+});
+
+it('prunes orphaned pre/post rows but keeps reading, summative and published topics', function () {
+    QuizPublished::create(['topic_key' => 'ari', 'pretest' => '[]', 'posttest' => '[]', 'activity' => '[]']);
+
+    StudentProgress::create(['session_id' => (string) $this->student->id, 'topic_key' => 'ari', 'phase' => 'post', 'score' => 9, 'total' => 10, 'passed' => true]);
+    StudentProgress::create(['session_id' => (string) $this->student->id, 'topic_key' => 'geo', 'phase' => 'pre', 'score' => 4, 'total' => 10, 'passed' => false]);
+    StudentProgress::create(['session_id' => (string) $this->student->id, 'topic_key' => 'geo', 'phase' => 'post', 'score' => 8, 'total' => 10, 'passed' => true]);
+    StudentProgress::create(['session_id' => (string) $this->student->id, 'topic_key' => 'geo', 'phase' => 'reading', 'score' => 100, 'total' => 100]);
+    StudentProgress::create(['session_id' => (string) $this->student->id, 'topic_key' => 'summative', 'phase' => 'post', 'score' => 12, 'total' => 20, 'passed' => true]);
+
+    $this->artisan('progress:prune-orphaned')->assertSuccessful();
+
+    $this->assertDatabaseMissing('student_progress', ['topic_key' => 'geo', 'phase' => 'pre']);
+    $this->assertDatabaseMissing('student_progress', ['topic_key' => 'geo', 'phase' => 'post']);
+    $this->assertDatabaseHas('student_progress', ['topic_key' => 'geo', 'phase' => 'reading']);
+    $this->assertDatabaseHas('student_progress', ['topic_key' => 'summative', 'phase' => 'post']);
+    $this->assertDatabaseHas('student_progress', ['topic_key' => 'ari', 'phase' => 'post']);
 });
 
 it('requires authentication', function () {

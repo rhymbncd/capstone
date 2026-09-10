@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Student;
 
 use App\Http\Controllers\Controller;
+use App\Models\QuizPublished;
 use App\Models\StudentProgress;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -12,14 +13,26 @@ use Illuminate\Validation\Rule;
 class ProgressController extends Controller
 {
     /**
-     * Every student_progress row for the authenticated student — the module
-     * page's completed-topics / reading-progress rehydration and the
-     * dashboard's analytics both read from this.
+     * Every visible student_progress row for the authenticated student —
+     * the module page's completed-topics / reading-progress rehydration and
+     * the dashboard's analytics both read from this.
+     *
+     * Pre/post attempts for a topic whose teacher-published quiz no longer
+     * exists are withheld, so unpublishing a quiz immediately drops the
+     * topic's progress from the student's view even if the row has not yet
+     * been pruned. Reading progress and the dashboard's own summative
+     * attempts are always returned.
      */
     public function index(): JsonResponse
     {
+        $publishedTopicKeys = QuizPublished::query()->pluck('topic_key');
+
         $rows = StudentProgress::where('session_id', (string) Auth::id())
-            ->get(['topic_key', 'phase', 'score', 'total', 'passed', 'created_at']);
+            ->get(['topic_key', 'phase', 'score', 'total', 'passed', 'created_at'])
+            ->filter(fn (StudentProgress $row): bool => ! in_array($row->phase, StudentProgress::QUIZ_PHASES, true)
+                || in_array($row->topic_key, StudentProgress::SELF_DIRECTED_TOPIC_KEYS, true)
+                || $publishedTopicKeys->contains($row->topic_key))
+            ->values();
 
         return response()->json(['progress' => $rows]);
     }
