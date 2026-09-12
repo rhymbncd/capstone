@@ -21,6 +21,7 @@ class FeedbackController extends Controller
     public function index(Request $request): JsonResponse
     {
         $rows = TeacherFeedback::where('student_id', Auth::id())
+            ->whereNull('student_deleted_at')
             ->with('teacher:id,name')
             ->latest()
             ->get();
@@ -50,6 +51,23 @@ class FeedbackController extends Controller
         }
 
         return $response;
+    }
+
+    /**
+     * Remove one feedback entry from this student's own inbox. This only
+     * hides it from the student's side (student_deleted_at) — it does not
+     * touch the teacher's copy, so the teacher's Feedback History for this
+     * student is unaffected.
+     */
+    public function destroy(TeacherFeedback $feedback): JsonResponse
+    {
+        if ($feedback->student_id !== Auth::id()) {
+            return response()->json(['message' => 'Not found.'], 404);
+        }
+
+        $feedback->update(['student_deleted_at' => now()]);
+
+        return response()->json(['message' => 'Feedback removed.']);
     }
 
     /**

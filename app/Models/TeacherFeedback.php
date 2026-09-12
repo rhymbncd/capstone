@@ -20,12 +20,14 @@ class TeacherFeedback extends Model
         'type',
         'message',
         'read_at',
+        'student_deleted_at',
     ];
 
     protected function casts(): array
     {
         return [
             'read_at' => 'datetime',
+            'student_deleted_at' => 'datetime',
         ];
     }
 

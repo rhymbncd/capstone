@@ -172,6 +172,57 @@ it('lets a student see only their own received feedback', function () {
     expect($messages)->not->toContain('Not for you');
 });
 
+it('lets a student remove a feedback entry from their own inbox without affecting the teacher\'s copy', function () {
+    $teacher = User::factory()->teacher()->create(['approval_status' => 'approved']);
+    $section = Section::factory()->create(['teacher_id' => $teacher->id]);
+    $student = User::factory()->create([
+        'role' => 'student',
+        'approval_status' => 'approved',
+        'section_id' => $section->id,
+    ]);
+    $feedback = TeacherFeedback::factory()->create([
+        'teacher_id' => $teacher->id,
+        'student_id' => $student->id,
+        'message' => 'dont give up kid',
+    ]);
+
+    $response = $this->actingAs($student)->deleteJson(route('student.feedback.destroy', $feedback));
+    $response->assertOk();
+
+    // Gone from the student's own inbox...
+    $studentView = $this->actingAs($student)->getJson(route('student.feedback.index'));
+    expect(collect($studentView->json('feedback'))->pluck('message'))->not->toContain('dont give up kid');
+
+    // ...but still intact in the teacher's own record of what they sent.
+    $teacherView = $this->actingAs($teacher)->getJson(route('teacher.feedback.index'));
+    expect(collect($teacherView->json('feedback'))->pluck('message'))->toContain('dont give up kid');
+    $this->assertDatabaseHas('teacher_feedback', ['id' => $feedback->id]);
+});
+
+it('prevents a student from removing another student\'s feedback', function () {
+    $teacher = User::factory()->teacher()->create(['approval_status' => 'approved']);
+    $section = Section::factory()->create(['teacher_id' => $teacher->id]);
+    $student = User::factory()->create([
+        'role' => 'student',
+        'approval_status' => 'approved',
+        'section_id' => $section->id,
+    ]);
+    $otherStudent = User::factory()->create([
+        'role' => 'student',
+        'approval_status' => 'approved',
+        'section_id' => $section->id,
+    ]);
+    $feedback = TeacherFeedback::factory()->create([
+        'teacher_id' => $teacher->id,
+        'student_id' => $otherStudent->id,
+    ]);
+
+    $response = $this->actingAs($student)->deleteJson(route('student.feedback.destroy', $feedback));
+
+    $response->assertNotFound();
+    $this->assertDatabaseHas('teacher_feedback', ['id' => $feedback->id, 'student_deleted_at' => null]);
+});
+
 it('marks all of a student\'s feedback as read', function () {
     $teacher = User::factory()->teacher()->create(['approval_status' => 'approved']);
     $section = Section::factory()->create(['teacher_id' => $teacher->id]);

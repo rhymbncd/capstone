@@ -759,7 +759,11 @@ document.addEventListener('DOMContentLoaded', function () {
                 <div class="module-item">
                     <div class="module-title-row">
                         <span class="module-name">${FEEDBACK_ICONS[f.type] || '💬'} ${f.teacherName}</span>
-                        ${f.read ? '' : '<span class="status-badge badge-warn">New</span>'}
+                        <span style="display:flex;align-items:center;gap:8px">
+                            ${f.read ? '' : '<span class="status-badge badge-warn">New</span>'}
+                            <button type="button" onclick="deleteFeedbackEntry(${f.id})" title="Remove this feedback"
+                                style="background:none;border:none;color:#9ca3af;cursor:pointer;font-size:14px;line-height:1;padding:0">✕</button>
+                        </span>
                     </div>
                     <p style="margin:6px 0 4px;font-size:14px;color:var(--text-2)">${escapeHtml(f.message)}</p>
                     <div class="section-sub" style="margin:0">${f.date}</div>
@@ -787,6 +791,39 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
     }
+
+    /** Remove one feedback entry from this student's own inbox (doesn't affect the teacher's copy). */
+    window.deleteFeedbackEntry = function (feedbackId) {
+        Swal.fire({
+            title: 'Remove this feedback?',
+            text: 'It will be removed from your inbox.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Remove',
+            confirmButtonColor: '#ef4444',
+            cancelButtonText: 'Cancel',
+        }).then(async r => {
+            if (!r.isConfirmed) return;
+
+            try {
+                const res = await fetch(`/student/feedback/${feedbackId}`, {
+                    method: 'DELETE',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? '',
+                    },
+                });
+                if (!res.ok) throw new Error('Could not remove this feedback.');
+
+                lastFeedbackItems = lastFeedbackItems.filter(f => f.id !== feedbackId);
+                loadFeedback();
+                window.toast('success', 'Feedback removed.');
+            } catch (e) {
+                window.toast('error', e.message || 'Could not remove this feedback.');
+            }
+        });
+    };
 
     // Initialize progress tracking + analytics on page load
     Progress.init().then(loadDashboardAnalytics);
