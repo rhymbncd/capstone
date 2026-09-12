@@ -229,7 +229,6 @@ function renderStudents() {
     setText('s-not-started', students.filter(s => s.status === 'Not Started').length);
     setText('s-help',      students.filter(s => s.status === 'Needs Help').length);
     setText('s-excellent', students.filter(s => s.status === 'Excellent').length);
-    renderTopPerformingStudents();
 
     const filtered   = getFilteredStudents();
     const totalPages = Math.max(1, Math.ceil(filtered.length / STUDENTS_PER_PAGE));
@@ -522,6 +521,8 @@ async function saveFeedback() {
    PROGRESS
    ============================================================ */
 function renderProgress() {
+    renderTopPerformingStudents();
+
     const progEl = document.getElementById('progress-list');
 
     if (!students.length) {
