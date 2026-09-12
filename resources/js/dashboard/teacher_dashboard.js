@@ -567,14 +567,23 @@ function renderAnswersDetail() {
                             <span style="font-size:12px;font-weight:700;color:#2563eb">${a.score}/${a.total}</span>
                         </div>
                         <div style="padding:8px 14px">
-                            ${(a.answers || []).map((qa, i) => `
+                            ${(a.answers || []).map((qa, i) => {
+                                // Open-ended activity items have no fixed answer to grade
+                                // against (correct is null) — any non-empty response just
+                                // gets recorded, so don't claim it was checked as "Correct".
+                                const ungraded = qa.correct === null || qa.correct === undefined;
+                                const color = ungraded ? '#6b7280' : (qa.isCorrect ? '#059669' : '#dc2626');
+                                const icon   = ungraded ? '•' : (qa.isCorrect ? '✓' : '✗');
+                                const label  = ungraded ? 'Recorded' : 'Answered';
+                                return `
                                 <div style="padding:8px 0;${i > 0 ? 'border-top:1px solid #f3f4f6' : ''}">
                                     <div style="font-size:12.5px;font-weight:600;color:#374151;margin-bottom:4px">${i + 1}. ${Security.escape(qa.question)}</div>
-                                    <div style="font-size:12px;color:${qa.isCorrect ? '#059669' : '#dc2626'}">
-                                        ${qa.isCorrect ? '✓' : '✗'} Answered: <strong>${Security.escape(String(qa.selected ?? '—'))}</strong>
-                                        ${!qa.isCorrect && qa.correct ? ` — Correct: <strong>${Security.escape(String(qa.correct))}</strong>` : ''}
+                                    <div style="font-size:12px;color:${color}">
+                                        ${icon} ${label}: <strong>${Security.escape(String(qa.selected ?? '—'))}</strong>
+                                        ${!ungraded && !qa.isCorrect && qa.correct ? ` — Correct: <strong>${Security.escape(String(qa.correct))}</strong>` : ''}
                                     </div>
-                                </div>`).join('')}
+                                </div>`;
+                            }).join('')}
                         </div>
                         ${when ? `<div style="padding:6px 14px;background:#fafbfc;font-size:10.5px;color:#9ca3af;border-top:1px solid #f3f4f6">${Security.escape(when)}</div>` : ''}
                     </div>`;
@@ -620,13 +629,19 @@ async function exportAnswersDetailPdf() {
             doc.autoTable({
                 startY: y,
                 head: [['#', 'Question', 'Answered', 'Correct', 'Result']],
-                body: (a.answers || []).map((qa, i) => [
-                    i + 1,
-                    qa.question,
-                    String(qa.selected ?? '—'),
-                    qa.isCorrect ? '—' : String(qa.correct ?? '—'),
-                    qa.isCorrect ? 'Correct' : 'Incorrect',
-                ]),
+                // Open-ended activity items have no fixed answer to grade
+                // against (correct is null) — record the response as-is
+                // instead of claiming it was checked as "Correct".
+                body: (a.answers || []).map((qa, i) => {
+                    const ungraded = qa.correct === null || qa.correct === undefined;
+                    return [
+                        i + 1,
+                        qa.question,
+                        String(qa.selected ?? '—'),
+                        ungraded || qa.isCorrect ? '—' : String(qa.correct ?? '—'),
+                        ungraded ? 'Recorded' : (qa.isCorrect ? 'Correct' : 'Incorrect'),
+                    ];
+                }),
                 headStyles: { fillColor: [37, 99, 235] },
                 styles: { fontSize: 8 },
                 columnStyles: { 1: { cellWidth: 70 } },
