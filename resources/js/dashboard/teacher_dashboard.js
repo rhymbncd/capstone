@@ -1940,9 +1940,10 @@ async function generateQuizWithRetry(prompt, maxRetries = 3) {
 }
 
 /* ------------------------------------------------------------------
-   generateQuiz — makes TWO separate API calls (pretest + posttest)
-   to avoid token truncation that caused missing posttest questions.
-   Now uses teacher-configured item counts.
+   generateQuiz — makes up to FOUR API calls: one to generate each of
+   pretest/posttest (kept separate to avoid token truncation), and one
+   to independently verify each set's answers afterward.
+   Uses teacher-configured item counts.
 ------------------------------------------------------------------ */
 async function generateQuiz() {
     const topicKey      = document.getElementById('quiz-topic').value;
@@ -1972,16 +1973,23 @@ async function generateQuiz() {
             buildQuizPrompt(topicLabel, activityLabel, grade, difficulty, 'posttest', counts.post)
         );
 
-        const pretest  = parseQuizArray(rawPre);
-        const posttest = parseQuizArray(rawPost);
+        let pretest  = parseQuizArray(rawPre);
+        let posttest = parseQuizArray(rawPost);
+
+        // --- Verify: independently re-check each answer before showing it ---
+        if (subtitle) subtitle.textContent = `Verifying pre-test answers…`;
+        pretest = await verifyQuizItems(pretest);
+
+        if (subtitle) subtitle.textContent = `Verifying post-test answers…`;
+        posttest = await verifyQuizItems(posttest);
 
         const minPre  = Math.floor(counts.pre  * 0.6);
         const minPost = Math.floor(counts.post * 0.6);
 
         if (!pretest  || pretest.length  < minPre)
-            throw new Error(`Pre-test only returned ${pretest?.length ?? 0} questions. Please retry.`);
+            throw new Error(`Pre-test only returned ${pretest?.length ?? 0} verified questions. Please retry.`);
         if (!posttest || posttest.length < minPost)
-            throw new Error(`Post-test only returned ${posttest?.length ?? 0} questions. Please retry.`);
+            throw new Error(`Post-test only returned ${posttest?.length ?? 0} verified questions. Please retry.`);
 
         // Pad or trim to exact counts
         const pad = (arr, n) => {
@@ -2108,6 +2116,73 @@ function parseQuizArray(raw) {
     } catch (e) {
         console.error('JSON parse error:', e.message, '| Raw:', raw.substring(0, 400));
         return null;
+    }
+}
+
+/* ------------------------------------------------------------------
+   buildVerificationPrompt — asks the AI to independently re-derive
+   the correct option for already-built questions, blind to which
+   option was originally labeled correct.
+------------------------------------------------------------------ */
+function buildVerificationPrompt(items) {
+    const list = items.map((q, i) => {
+        const opts = Object.entries(q.options || {})
+            .map(([letter, val]) => `${letter}) ${val}`)
+            .join('\n');
+        return `${i + 1}. ${q.question}\n${opts}`;
+    }).join('\n\n');
+
+    return `You are a meticulous Philippine Grade 10 math teacher checking an exam key.
+For EACH numbered question below, solve it completely from scratch, then determine which option letter (A, B, C, or D) is mathematically correct. Do not assume the given order or position is a hint — verify independently.
+
+If NONE of the four options matches your computed answer, use "X" for that item instead.
+
+${list}
+
+Return ONLY a valid JSON array of ${items.length} letters, in the same order as the questions, e.g. ["B","A","X","D"]. No markdown, no explanation, no backticks.`;
+}
+
+/* ------------------------------------------------------------------
+   verifyQuizItems — sends already-built questions back to the AI for
+   an independent, blind re-check of which option is truly correct.
+   Corrects the answer letter when verification disagrees, and drops
+   items it couldn't confirm. Falls back to the unverified items if the
+   verification call itself fails, so a flaky check never blocks
+   generation entirely.
+------------------------------------------------------------------ */
+async function verifyQuizItems(items) {
+    if (!items || items.length === 0) return items;
+
+    try {
+        const raw = await generateQuizWithRetry(buildVerificationPrompt(items));
+
+        let clean = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+        const start = clean.indexOf('[');
+        const end   = clean.lastIndexOf(']');
+        if (start === -1 || end === -1 || end <= start) {
+            console.warn('Verification response had no JSON array; keeping unverified answers.');
+            return items;
+        }
+
+        const letters = JSON.parse(clean.slice(start, end + 1));
+        if (!Array.isArray(letters) || letters.length !== items.length) {
+            console.warn('Verification array length mismatch; keeping unverified answers.');
+            return items;
+        }
+
+        return items.reduce((out, q, i) => {
+            const letter = String(letters[i] ?? '').trim().toUpperCase();
+            if (!q.options[letter]) {
+                console.warn('Verification could not confirm a correct option for:', q.question);
+                return out;
+            }
+            out.push(letter === q.answer ? q : { ...q, answer: letter });
+            return out;
+        }, []);
+
+    } catch (e) {
+        console.error('Answer verification failed, keeping unverified answers:', e.message);
+        return items;
     }
 }
 
