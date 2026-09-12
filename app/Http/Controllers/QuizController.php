@@ -170,7 +170,7 @@ Structure:
                 'messages' => [
                     [
                         'role' => 'system',
-                        'content' => 'You are a meticulous Philippine mathematics teacher. Solve every problem completely and verify your arithmetic before answering. The four options for each question must include the exact value you computed as the correct answer — never write options that omit your computed answer. Respond ONLY with a valid JSON array. No markdown, no backticks, no explanation.',
+                        'content' => 'You are a meticulous Philippine mathematics teacher. Solve every problem completely and verify your arithmetic before answering, then report the verified value as "correctAnswer" and 3 distinct wrong values as "distractors". Respond ONLY with a valid JSON array. No markdown, no backticks, no explanation.',
                     ],
                     ['role' => 'user', 'content' => $validated['prompt']],
                 ],
