@@ -97,7 +97,7 @@ class FeedbackController extends Controller
     }
 
     /**
-     * @return array{id: int, studentId: int, studentName: string, sender: string, replyToId: ?int, type: string, message: string, date: string, read: bool}
+     * @return array{id: int, studentId: int, studentName: string, type: string, message: string, date: string, read: bool}
      */
     private function toPayload(TeacherFeedback $feedback): array
     {
@@ -105,8 +105,6 @@ class FeedbackController extends Controller
             'id' => $feedback->id,
             'studentId' => $feedback->student_id,
             'studentName' => $feedback->student->name ?? 'Unknown',
-            'sender' => $feedback->sender,
-            'replyToId' => $feedback->reply_to_id,
             'type' => $feedback->type,
             'message' => $feedback->message,
             'date' => $feedback->created_at->diffForHumans(),

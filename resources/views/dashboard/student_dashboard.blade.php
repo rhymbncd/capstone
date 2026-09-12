@@ -360,14 +360,14 @@
             <div class="page" id="page-feedback">
                 <div class="hero-section">
                     <h1 class="welcome-title">Feedback</h1>
-                    <p class="welcome-subtitle">Messages between you and your teacher</p>
+                    <p class="welcome-subtitle">Messages from your teacher</p>
                 </div>
 
                 <section class="modules-container">
                     <div class="empty-state" id="feedback-empty">
                         <div class="empty-icon">💬</div>
-                        <h4>No messages yet</h4>
-                        <p>Feedback from your teacher, and messages you send them, will appear here.</p>
+                        <h4>No feedback yet</h4>
+                        <p>Your teacher's feedback will appear here.</p>
                     </div>
                     <div id="feedback-list" style="display:none"></div>
                 </section>

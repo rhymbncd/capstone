@@ -755,48 +755,15 @@ document.addEventListener('DOMContentLoaded', function () {
         } else {
             emptyEl.style.display = 'none';
             listEl.style.display  = '';
-
-            const feedbackCard = (f, isReply) => {
-                const sentByMe = f.sender === 'student';
-                const icon = sentByMe ? '📤' : (FEEDBACK_ICONS[f.type] || '💬');
-                const label = sentByMe ? 'You' : f.teacherName;
-                return `
-                <div class="module-item"${isReply ? ' style="margin-left:22px;margin-top:6px;border-left:3px solid var(--border,#e5e7eb)"' : ''}>
+            listEl.innerHTML = items.map(f => `
+                <div class="module-item">
                     <div class="module-title-row">
-                        <span class="module-name">${icon} ${escapeHtml(label)}</span>
+                        <span class="module-name">${FEEDBACK_ICONS[f.type] || '💬'} ${f.teacherName}</span>
                         ${f.read ? '' : '<span class="status-badge badge-warn">New</span>'}
                     </div>
                     <p style="margin:6px 0 4px;font-size:14px;color:var(--text-2)">${escapeHtml(f.message)}</p>
                     <div class="section-sub" style="margin:0">${f.date}</div>
-                    ${sentByMe ? '' : `
-                    <div style="margin-top:8px">
-                        <button type="button" onclick="toggleFeedbackReply(${f.id})"
-                            style="background:none;border:none;color:var(--primary,#2563eb);font-size:12.5px;font-weight:600;cursor:pointer;padding:0">↩ Reply</button>
-                        <div id="reply-box-${f.id}" style="display:none;margin-top:8px">
-                            <textarea id="reply-input-${f.id}" rows="2" maxlength="500"
-                                      placeholder="Type your reply…" style="width:100%;box-sizing:border-box"></textarea>
-                            <div style="display:flex;gap:8px;margin-top:6px">
-                                <button type="button" class="btn-save" onclick="sendFeedbackReply(${f.id})" style="padding:6px 14px;font-size:12.5px">Send</button>
-                                <button type="button" class="btn-cancel" onclick="toggleFeedbackReply(${f.id})" style="padding:6px 14px;font-size:12.5px">Cancel</button>
-                            </div>
-                        </div>
-                    </div>`}
-                </div>`;
-            };
-
-            // Thread each reply directly under the specific message it
-            // answers (replyToId), instead of a flat chronological list.
-            const topLevel = items.filter(f => !f.replyToId);
-            const repliesByParent = new Map();
-            items.filter(f => f.replyToId).forEach(f => {
-                if (!repliesByParent.has(f.replyToId)) repliesByParent.set(f.replyToId, []);
-                repliesByParent.get(f.replyToId).push(f);
-            });
-
-            listEl.innerHTML = topLevel.map(f => {
-                const replies = (repliesByParent.get(f.id) || []).map(r => feedbackCard(r, true)).join('');
-                return `<div style="margin-bottom:10px">${feedbackCard(f, false)}${replies}</div>`;
-            }).join('');
+                </div>`).join('');
         }
 
         // Mark everything as read now that the student has actually seen the list.
@@ -820,49 +787,6 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
     }
-
-    /** Show/hide the inline reply box under a specific teacher message. */
-    window.toggleFeedbackReply = function (feedbackId) {
-        const box = document.getElementById(`reply-box-${feedbackId}`);
-        if (box) box.style.display = box.style.display === 'none' ? '' : 'none';
-    };
-
-    /** Reply to a specific teacher message — threaded via reply_to_id so it renders nested under that message, for both the student and the teacher. */
-    window.sendFeedbackReply = async function (feedbackId) {
-        const input = document.getElementById(`reply-input-${feedbackId}`);
-        const message = (input?.value || '').trim();
-
-        if (message.length < 5) {
-            window.toast('warning', 'Please write a bit more before sending (at least 5 characters).');
-            return;
-        }
-
-        const res = await fetch('/student/feedback', {
-            method: 'POST',
-            credentials: 'same-origin',
-            headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? '',
-            },
-            body: JSON.stringify({ message, reply_to_id: feedbackId }),
-        });
-        if (res.status === 419) {
-            window.toast('error', 'Your session has expired. Please refresh the page and try again.');
-            return;
-        }
-
-        const data = await res.json().catch(() => ({}));
-
-        if (!res.ok) {
-            const firstError = data.errors ? Object.values(data.errors)[0]?.[0] : null;
-            window.toast('error', firstError || data.message || 'Could not send your reply.');
-            return;
-        }
-
-        window.toast('success', 'Reply sent to your teacher!');
-        loadFeedback();
-    };
 
     // Initialize progress tracking + analytics on page load
     Progress.init().then(loadDashboardAnalytics);
