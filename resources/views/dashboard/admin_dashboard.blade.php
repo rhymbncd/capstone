@@ -356,7 +356,7 @@
                     <div class="chart-sub">Students with the highest overall scores</div>
                     <div class="table-wrap">
                         <table>
-                            <thead><tr><th>Rank</th><th>Student</th><th>Score</th><th>Modules</th><th>Streak</th></tr></thead>
+                            <thead><tr><th>Rank</th><th>Student</th><th>Section</th><th>Score</th><th>Modules</th><th>Streak</th></tr></thead>
                             <tbody id="top-students-tbody"></tbody>
                         </table>
                     </div>

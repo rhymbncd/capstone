@@ -55,8 +55,9 @@ class UserController extends Controller
             $query->where('role', $validated['role']);
         }
 
-        $users = $query->orderByDesc('created_at')
-            ->paginate(self::PER_PAGE, ['id', 'name', 'email', 'student_id', 'role', 'approval_status', 'created_at', 'updated_at'])
+        $users = $query->with('section:id,name')
+            ->orderByDesc('created_at')
+            ->paginate(self::PER_PAGE, ['id', 'name', 'email', 'student_id', 'role', 'approval_status', 'section_id', 'created_at', 'updated_at'])
             ->withQueryString();
 
         // Home tab tiles poll this every 30s across however many admins have
@@ -80,8 +81,8 @@ class UserController extends Controller
         // style text (there isn't any here, but same principle as the
         // other polled endpoints: fingerprint stable data, not prose).
         $fingerprint = collect($users->items())
-            ->map(fn (User $user) => $user->id.':'.$user->role.':'.$user->approval_status.':'.$user->updated_at->timestamp)
-            ->implode('|').'#'.implode(',', $counts);
+            ->map(fn (User $user) => $user->id.':'.$user->role.':'.$user->approval_status.':'.$user->section_id.':'.$user->updated_at->timestamp)
+            ->implode('|').'#'.implode(',', $counts).'#section-payload-2026-09-13';
 
         $response = response()->json([
             'users' => $payload,
@@ -204,6 +205,12 @@ class UserController extends Controller
             default => 'Pending',
         };
 
+        // Safe no-op when index() already eager-loaded it via with(); loads
+        // it here for single-user callers like update() so this never trips
+        // the app's lazy-loading guard (Model::preventLazyLoading in
+        // non-production) or causes a silent N+1 in production.
+        $user->loadMissing('section');
+
         return [
             'id' => $user->id,
             'name' => $user->name,
@@ -211,6 +218,7 @@ class UserController extends Controller
             'studentId' => $user->student_id,
             'role' => $user->role,
             'status' => $status,
+            'section' => $user->section?->name,
             'joined' => $user->created_at->format('M j, Y'),
         ];
     }

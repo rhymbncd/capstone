@@ -69,6 +69,33 @@ it('includes each student\'s student ID for the admin', function () {
     expect($data['studentId'])->toBe('24-8181');
 });
 
+it('includes each student\'s section name for the admin (Top Performing Students widget)', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $section = Section::factory()->create(['name' => 'Grade 10 - Bonifacio']);
+    $student = User::factory()->create([
+        'role' => 'student',
+        'approval_status' => 'approved',
+        'section_id' => $section->id,
+    ]);
+
+    $response = $this->actingAs($admin)->getJson(route('admin.users.index'));
+
+    $response->assertOk();
+    $data = collect($response->json('users'))->firstWhere('id', $student->id);
+    expect($data['section'])->toBe('Grade 10 - Bonifacio');
+});
+
+it('returns a null section for a user with no section assigned', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $teacher = User::factory()->create(['role' => 'teacher', 'approval_status' => 'approved']);
+
+    $response = $this->actingAs($admin)->getJson(route('admin.users.index'));
+
+    $response->assertOk();
+    $data = collect($response->json('users'))->firstWhere('id', $teacher->id);
+    expect($data['section'])->toBeNull();
+});
+
 it('lets an admin update another user\'s name, email, and role', function () {
     $admin = User::factory()->create(['role' => 'admin']);
     $section = Section::factory()->create();

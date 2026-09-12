@@ -1143,19 +1143,20 @@ async function renderAnalytics() {
         .map(s => {
             const entry = byStudent.get(String(s.id));
             const avg = entry?.scores.length ? Math.round(entry.scores.reduce((a, b) => a + b, 0) / entry.scores.length) : null;
-            return { name: s.name, avg, modules: entry?.topics.size ?? 0 };
+            return { name: s.name, section: s.section, avg, modules: entry?.topics.size ?? 0 };
         })
         .filter(s => s.avg !== null)
         .sort((a, b) => b.avg - a.avg);
 
     if (!ranked.length) {
-        tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><div class="empty-icon">🏆</div><h4>No completed quizzes yet</h4></div></td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">🏆</div><h4>No completed quizzes yet</h4></div></td></tr>`;
     } else {
         const medals = ['🥇','🥈','🥉'];
         tbody.innerHTML = ranked.slice(0, 5).map((s, i) => `
             <tr>
                 <td>${medals[i] || (i + 1)}</td>
                 <td><b>${Security.escape(s.name)}</b></td>
+                <td>${Security.escape(s.section || '—')}</td>
                 <td style="color:var(--green);font-weight:700">${s.avg}%</td>
                 <td>${s.modules}/${CURRICULUM_TOPICS.length}</td><td>—</td>
             </tr>`).join('');
