@@ -421,6 +421,17 @@ const ANSWERS_PHASE_META = {
     activity: { icon: '📋', label: 'Activity' },
 };
 
+// Matches MODULE_GROUPS in StudentController.php / admin_dashboard.js —
+// groups the short topic_key codes student_quiz_answers stores by module,
+// so a teacher picks Module -> Topic before seeing any answer detail.
+const ANSWERS_MODULE_GROUPS = [
+    { label: 'Module 1: Sequences and Series', topics: ['ari', 'geo', 'har', 'fib', 'fin'] },
+    { label: 'Module 2: Polynomials',          topics: ['div', 'rem', 'poly'] },
+    { label: 'Module 3: Advanced Equations',   topics: ['rat', 'rad', 'exp', 'log'] },
+];
+
+let answersModalState = { studentName: '', attempts: [], module: null, topicKey: null };
+
 /** Show a student's saved pre-test/post-test/activity answers, fetched from the backend. */
 async function viewStudentAnswers(studentId, studentName) {
     Swal.fire({
@@ -440,14 +451,107 @@ async function viewStudentAnswers(studentId, studentName) {
         return;
     }
 
+    answersModalState = { studentName, attempts, module: null, topicKey: null };
+
     if (!attempts.length) {
         Swal.update({ html: '<p style="color:#9ca3af;font-size:13px;padding:20px 0">This student hasn\'t attempted any pre-test, post-test, or activity yet.</p>' });
         return;
     }
 
+    renderAnswersModuleList();
+}
+
+function answersNavButton(label, onclick) {
+    return `<button type="button" onclick="${onclick}" style="background:none;border:none;color:#2563eb;font-size:12.5px;font-weight:600;cursor:pointer;padding:0 0 10px;display:flex;align-items:center;gap:4px">‹ ${Security.escape(label)}</button>`;
+}
+
+function answersDrillRow(title, subtitle, disabled, onclick) {
+    return `
+        <button type="button" onclick="${disabled ? '' : onclick}"
+            style="width:100%;text-align:left;display:flex;justify-content:space-between;align-items:center;
+                   padding:12px 14px;margin-bottom:8px;border:1px solid #e5e7eb;border-radius:10px;
+                   background:${disabled ? '#f9fafb' : '#fff'};cursor:${disabled ? 'not-allowed' : 'pointer'};
+                   opacity:${disabled ? '0.55' : '1'}">
+            <span style="font-size:13px;font-weight:700;color:#111827">${Security.escape(title)}</span>
+            <span style="font-size:12px;color:#6b7280">${Security.escape(subtitle)}</span>
+        </button>`;
+}
+
+/** Step 1: pick a module. */
+function renderAnswersModuleList() {
+    const { attempts } = answersModalState;
+    const html = `
+        <div style="text-align:left;padding:4px 2px">
+            <p style="font-size:12.5px;color:#6b7280;margin:0 0 10px">Select a module to review this student's answers.</p>
+            ${ANSWERS_MODULE_GROUPS.map(group => {
+                const attempted = group.topics.filter(tk => attempts.some(a => a.topic_key === tk));
+                const disabled = attempted.length === 0;
+                return answersDrillRow(
+                    group.label,
+                    `${attempted.length}/${group.topics.length} topics attempted ${disabled ? '' : '›'}`,
+                    disabled,
+                    `selectAnswersModule('${group.label}')`
+                );
+            }).join('')}
+        </div>`;
+    Swal.update({ html });
+}
+
+/** Step 2: pick a topic within the chosen module. */
+function selectAnswersModule(label) {
+    answersModalState.module = ANSWERS_MODULE_GROUPS.find(g => g.label === label) || null;
+    answersModalState.topicKey = null;
+    renderAnswersTopicList();
+}
+
+function renderAnswersTopicList() {
+    const { attempts, module } = answersModalState;
+    if (!module) return renderAnswersModuleList();
+
+    const html = `
+        <div style="text-align:left;padding:4px 2px">
+            ${answersNavButton('Back to Modules', 'backToAnswersModules()')}
+            <p style="font-size:13px;font-weight:700;color:#111827;margin:0 0 10px">${Security.escape(module.label)}</p>
+            ${module.topics.map(tk => {
+                const topicAttempts = attempts.filter(a => a.topic_key === tk);
+                const disabled = topicAttempts.length === 0;
+                const topicName = topicAttempts[0]?.topic_name || tk;
+                return answersDrillRow(
+                    topicName,
+                    disabled ? 'No attempts yet' : `${topicAttempts.length} attempt${topicAttempts.length === 1 ? '' : 's'} ›`,
+                    disabled,
+                    `selectAnswersTopic('${tk}')`
+                );
+            }).join('')}
+        </div>`;
+    Swal.update({ html });
+}
+
+function backToAnswersModules() {
+    answersModalState.module = null;
+    answersModalState.topicKey = null;
+    renderAnswersModuleList();
+}
+
+/** Step 3: the detailed question-by-question breakdown for that topic. */
+function selectAnswersTopic(topicKey) {
+    answersModalState.topicKey = topicKey;
+    renderAnswersDetail();
+}
+
+function backToAnswersTopics() {
+    answersModalState.topicKey = null;
+    renderAnswersTopicList();
+}
+
+function renderAnswersDetail() {
+    const { attempts, topicKey, module } = answersModalState;
+    const topicAttempts = attempts.filter(a => a.topic_key === topicKey);
+
     const html = `
         <div style="text-align:left;max-height:60vh;overflow-y:auto;padding:4px 2px">
-            ${attempts.map(a => {
+            ${answersNavButton(`Back to ${module?.label || 'Topics'}`, 'backToAnswersTopics()')}
+            ${topicAttempts.map(a => {
                 const meta = ANSWERS_PHASE_META[a.phase] || { icon: '💬', label: a.phase };
                 const when = a.updated_at ? new Date(a.updated_at).toLocaleString() : '';
                 return `
@@ -3942,6 +4046,7 @@ Object.assign(window, {
 
     // Students
     filterStudents, viewStudent, openFeedback, saveFeedback, viewStudentAnswers,
+    selectAnswersModule, backToAnswersModules, selectAnswersTopic, backToAnswersTopics,
 
     // Modules
     filterModules, openAddModule, saveModule, viewModule, editModule, deleteModule, sendToDownloads,
