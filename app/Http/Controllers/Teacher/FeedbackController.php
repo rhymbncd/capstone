@@ -82,6 +82,20 @@ class FeedbackController extends Controller
     }
 
     /**
+     * Delete one feedback entry this teacher sent.
+     */
+    public function destroy(TeacherFeedback $feedback): JsonResponse
+    {
+        if ($feedback->teacher_id !== Auth::id()) {
+            return response()->json(['message' => 'Not found.'], 404);
+        }
+
+        $feedback->delete();
+
+        return response()->json(['message' => 'Feedback deleted.']);
+    }
+
+    /**
      * @return array{id: int, studentId: int, studentName: string, type: string, message: string, date: string, read: bool}
      */
     private function toPayload(TeacherFeedback $feedback): array

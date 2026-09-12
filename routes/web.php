@@ -200,6 +200,7 @@ Route::prefix('teacher')->group(function () {
         Route::prefix('feedback')->group(function () {
             Route::get('/', [TeacherFeedbackController::class, 'index'])->name('teacher.feedback.index');
             Route::post('/', [TeacherFeedbackController::class, 'store'])->name('teacher.feedback.store');
+            Route::delete('/{feedback}', [TeacherFeedbackController::class, 'destroy'])->name('teacher.feedback.destroy');
         });
     });
 });

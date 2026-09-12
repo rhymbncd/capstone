@@ -57,6 +57,49 @@ it('lets a teacher send multiple feedback messages to the same student over time
     expect($forStudent)->toHaveCount(2);
 });
 
+it('lets a teacher delete their own feedback', function () {
+    $teacher = User::factory()->teacher()->create(['approval_status' => 'approved']);
+    $section = Section::factory()->create(['teacher_id' => $teacher->id]);
+    $student = User::factory()->create([
+        'role' => 'student',
+        'approval_status' => 'approved',
+        'section_id' => $section->id,
+    ]);
+    $feedback = TeacherFeedback::create([
+        'teacher_id' => $teacher->id,
+        'student_id' => $student->id,
+        'type' => 'encouragement',
+        'message' => 'nice work',
+    ]);
+
+    $response = $this->actingAs($teacher)->deleteJson(route('teacher.feedback.destroy', $feedback));
+
+    $response->assertOk();
+    $this->assertDatabaseMissing('teacher_feedback', ['id' => $feedback->id]);
+});
+
+it('prevents a teacher from deleting another teacher\'s feedback', function () {
+    $teacherA = User::factory()->teacher()->create(['approval_status' => 'approved']);
+    $teacherB = User::factory()->teacher()->create(['approval_status' => 'approved']);
+    $sectionB = Section::factory()->create(['teacher_id' => $teacherB->id]);
+    $student = User::factory()->create([
+        'role' => 'student',
+        'approval_status' => 'approved',
+        'section_id' => $sectionB->id,
+    ]);
+    $feedback = TeacherFeedback::create([
+        'teacher_id' => $teacherB->id,
+        'student_id' => $student->id,
+        'type' => 'encouragement',
+        'message' => 'from teacher B',
+    ]);
+
+    $response = $this->actingAs($teacherA)->deleteJson(route('teacher.feedback.destroy', $feedback));
+
+    $response->assertNotFound();
+    $this->assertDatabaseHas('teacher_feedback', ['id' => $feedback->id]);
+});
+
 it('prevents a teacher from sending feedback to a student outside their section', function () {
     $teacherA = User::factory()->teacher()->create(['approval_status' => 'approved']);
     $teacherB = User::factory()->teacher()->create(['approval_status' => 'approved']);

@@ -408,11 +408,39 @@ function renderFeedbackHistory(studentId) {
             <div style="background:#f4f6fb;border-radius:8px;padding:10px 12px">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
                     <span style="font-size:11px;font-weight:700;color:#2563eb">${meta.icon} ${Security.escape(meta.label)}</span>
-                    <span style="font-size:10px;color:#9ca3af">${Security.escape(f.date)}</span>
+                    <span style="display:flex;align-items:center;gap:8px">
+                        <span style="font-size:10px;color:#9ca3af">${Security.escape(f.date)}</span>
+                        <button type="button" onclick="deleteFeedback(${f.id})" title="Delete this feedback"
+                            style="background:none;border:none;color:#9ca3af;cursor:pointer;font-size:13px;line-height:1;padding:0">✕</button>
+                    </span>
                 </div>
                 <div style="font-size:12.5px;color:#374151">${Security.escape(f.message)}</div>
             </div>`;
     }).join('');
+}
+
+/** Delete one feedback entry, with a confirm prompt, then refresh the history list. */
+function deleteFeedback(id) {
+    Swal.fire({
+        title: 'Delete this feedback?',
+        text: 'This cannot be undone.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Delete',
+        confirmButtonColor: '#ef4444',
+        cancelButtonText: 'Cancel',
+    }).then(async r => {
+        if (!r.isConfirmed) return;
+
+        try {
+            await apiFetch(`/teacher/feedback/${id}`, { method: 'DELETE' });
+            feedbacks = feedbacks.filter(f => f.id !== id);
+            renderFeedbackHistory(feedbackTargetId);
+            toast('success', 'Feedback deleted.');
+        } catch (err) {
+            warn('Delete Failed', err.message || 'Could not delete this feedback. Please try again.');
+        }
+    });
 }
 
 const ANSWERS_PHASE_META = {
@@ -4129,7 +4157,7 @@ Object.assign(window, {
     // Students
     filterStudents, viewStudent, openFeedback, saveFeedback, viewStudentAnswers,
     selectAnswersModule, backToAnswersModules, selectAnswersTopic, backToAnswersTopics,
-    exportAnswersDetailPdf,
+    exportAnswersDetailPdf, deleteFeedback,
 
     // Modules
     filterModules, openAddModule, saveModule, viewModule, editModule, deleteModule, sendToDownloads,
