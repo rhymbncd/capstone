@@ -12,6 +12,7 @@ import {
     generateDeterministicSet,
     selectUniqueDistractors,
     assembleOptions,
+    rewritePreservesNumbers,
 } from './quiz-generators.js';
 
 'use strict';
@@ -1945,10 +1946,74 @@ async function generateQuizWithRetry(prompt, maxRetries = 3) {
 }
 
 /* ------------------------------------------------------------------
-   generateQuiz — makes up to FOUR API calls: one to generate each of
-   pretest/posttest (kept separate to avoid token truncation), and one
-   to independently verify each set's answers afterward.
-   Uses teacher-configured item counts.
+   buildRephrasePrompt / rephraseQuestionsWithAI — for the 12
+   deterministic topics, the AI never invents numbers or an answer
+   (that stays 100% code-computed); its only job here is to reword the
+   already-correct template question into fresh, varied phrasing. This
+   is a much easier, lower-risk task than the old "invent the problem
+   AND compute the answer" pipeline — no arithmetic is asked of it —
+   and rewritePreservesNumbers() (quiz-generators.js) double-checks it
+   didn't drop or alter a number before the wording is trusted. Any
+   item that fails that check, or if the AI call fails entirely, keeps
+   its original, already-verified template wording instead.
+------------------------------------------------------------------ */
+function buildRephrasePrompt(items, topicLabel, activityLabel) {
+    const list = items.map((item, i) => `${i + 1}. ${item.question}`).join('\n');
+    return `You are a Philippine Grade 10 math teacher. Rewrite each of the following ${items.length} math problems as a fresh, natural, engaging word problem or exam question appropriate for Grade 10 Filipino students, for the topic "${activityLabel}" (${topicLabel}).
+
+STRICT RULES:
+- Do NOT change any numbers — every number in your rewritten version must exactly match the corresponding original problem.
+- Do NOT change what quantity is being asked for.
+- Do NOT solve the problem or reveal/state the answer.
+- You may add real-world context (money, distance, population, etc.) only if it does not change any number or the underlying math.
+- Keep each rewritten problem to 1-3 sentences.
+
+Problems:
+${list}
+
+Return ONLY a valid JSON array of ${items.length} strings (the rewritten versions, in the same order as the problems above). No markdown, no explanation, no backticks.`;
+}
+
+async function rephraseQuestionsWithAI(items, topicLabel, activityLabel) {
+    if (!items || items.length === 0) return items;
+
+    try {
+        const raw = await generateQuizWithRetry(buildRephrasePrompt(items, topicLabel, activityLabel));
+
+        let clean = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+        const start = clean.indexOf('[');
+        const end = clean.lastIndexOf(']');
+        if (start === -1 || end === -1 || end <= start) {
+            console.warn('Rephrase response had no JSON array; keeping template wording.');
+            return items;
+        }
+
+        const rewritten = JSON.parse(clean.slice(start, end + 1));
+        if (!Array.isArray(rewritten) || rewritten.length !== items.length) {
+            console.warn('Rephrase array length mismatch; keeping template wording.');
+            return items;
+        }
+
+        return items.map((item, i) => {
+            const candidate = rewritten[i];
+            return rewritePreservesNumbers(item.question, candidate)
+                ? { ...item, question: String(candidate).trim() }
+                : item; // number dropped/altered — keep the verified template wording
+        });
+
+    } catch (e) {
+        console.error('Question rephrasing failed, keeping template wording:', e.message);
+        return items;
+    }
+}
+
+/* ------------------------------------------------------------------
+   generateQuiz — for the 12 fixed topics: generates pretest/posttest
+   deterministically (no network call) then makes 2 AI calls purely to
+   reword the wording for variety. For a custom topic: makes up to 4 AI
+   calls — one to generate each of pretest/posttest (kept separate to
+   avoid token truncation), and one to independently verify each set's
+   answers afterward. Uses teacher-configured item counts.
 ------------------------------------------------------------------ */
 async function generateQuiz() {
     const topicKey      = document.getElementById('quiz-topic').value;
@@ -1972,11 +2037,19 @@ async function generateQuiz() {
             // One of the 12 fixed curriculum topics — parameters are
             // randomized and the correct answer is computed with real
             // formulas (see quiz-generators.js), so correctness is
-            // guaranteed by construction. No network call, no AI
-            // verification pass needed.
+            // guaranteed by construction regardless of what happens next.
             if (subtitle) subtitle.textContent = 'Generating quiz…';
             pretest  = generateDeterministicSet(actVal, difficulty, counts.pre);
             posttest = generateDeterministicSet(actVal, difficulty, counts.post);
+
+            // Reword the (already-correct) template questions for variety.
+            // The AI only rewrites wording here — it never touches the
+            // options/answer — so a failed or dropped-number rewrite just
+            // falls back to the original template question, never to a
+            // wrong answer.
+            if (subtitle) subtitle.textContent = 'Adding variety to question wording…';
+            pretest  = await rephraseQuestionsWithAI(pretest, topicLabel, activityLabel);
+            posttest = await rephraseQuestionsWithAI(posttest, topicLabel, activityLabel);
         } else {
             // Teacher-added custom topic — no formula to hand-write for
             // an arbitrary topic name, so fall back to the AI pipeline.

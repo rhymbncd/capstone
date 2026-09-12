@@ -764,6 +764,27 @@ function isWellFormed(candidate) {
         && new Set(keys.map((k) => candidate.options[k])).size === 4;
 }
 
+/* ------------------------------------------------------------------
+   Number-preservation check — used by teacher_dashboard.js when an AI
+   rephrases a deterministic question's wording for variety. The AI's
+   job there is pure paraphrasing (no math, no answer-finding), but we
+   still verify it didn't drop/alter a number before trusting its
+   wording — if it did, the caller falls back to the original,
+   already-verified template question instead.
+------------------------------------------------------------------ */
+export function extractDigitRuns(text) {
+    return String(text ?? '').match(/\d+/g) || [];
+}
+
+export function rewritePreservesNumbers(originalQuestion, rewrittenText) {
+    if (!rewrittenText || typeof rewrittenText !== 'string' || rewrittenText.trim() === '') {
+        return false;
+    }
+    const originalNumbers = extractDigitRuns(originalQuestion);
+    const rewrittenNumbers = new Set(extractDigitRuns(rewrittenText));
+    return originalNumbers.every((n) => rewrittenNumbers.has(n));
+}
+
 export function generateDeterministicSet(activityValue, difficulty, count) {
     const gen = DETERMINISTIC_GENERATORS[activityValue];
     if (!gen) {
