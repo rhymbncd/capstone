@@ -232,6 +232,74 @@ it('rejects a message from a student with no section/teacher assigned', function
     $this->assertDatabaseMissing('teacher_feedback', ['student_id' => $student->id]);
 });
 
+it('threads a student\'s reply to the specific teacher message it answers', function () {
+    $teacher = User::factory()->teacher()->create(['approval_status' => 'approved']);
+    $section = Section::factory()->create(['teacher_id' => $teacher->id]);
+    $student = User::factory()->create([
+        'role' => 'student',
+        'approval_status' => 'approved',
+        'section_id' => $section->id,
+    ]);
+    $original = TeacherFeedback::factory()->create([
+        'teacher_id' => $teacher->id,
+        'student_id' => $student->id,
+        'sender' => 'teacher',
+        'message' => 'dont give up kid',
+    ]);
+
+    $response = $this->actingAs($student)->postJson(route('student.feedback.store'), [
+        'message' => 'Thank you po!',
+        'reply_to_id' => $original->id,
+    ]);
+
+    $response->assertCreated();
+    $response->assertJsonPath('feedback.replyToId', $original->id);
+    $this->assertDatabaseHas('teacher_feedback', [
+        'message' => 'Thank you po!',
+        'reply_to_id' => $original->id,
+    ]);
+
+    // The teacher sees replyToId too, so their view can nest it under the original.
+    $teacherView = $this->actingAs($teacher)->getJson(route('teacher.feedback.index'));
+    $reply = collect($teacherView->json('feedback'))->firstWhere('message', 'Thank you po!');
+    expect($reply['replyToId'])->toBe($original->id);
+});
+
+it('ignores a reply_to_id that belongs to a different teacher/student conversation', function () {
+    $teacherA = User::factory()->teacher()->create(['approval_status' => 'approved']);
+    $sectionA = Section::factory()->create(['teacher_id' => $teacherA->id]);
+    $studentA = User::factory()->create([
+        'role' => 'student',
+        'approval_status' => 'approved',
+        'section_id' => $sectionA->id,
+    ]);
+
+    $teacherB = User::factory()->teacher()->create(['approval_status' => 'approved']);
+    $sectionB = Section::factory()->create(['teacher_id' => $teacherB->id]);
+    $studentB = User::factory()->create([
+        'role' => 'student',
+        'approval_status' => 'approved',
+        'section_id' => $sectionB->id,
+    ]);
+    $foreignMessage = TeacherFeedback::factory()->create([
+        'teacher_id' => $teacherB->id,
+        'student_id' => $studentB->id,
+    ]);
+
+    $response = $this->actingAs($studentA)->postJson(route('student.feedback.store'), [
+        'message' => 'Sneaky reply attempt',
+        'reply_to_id' => $foreignMessage->id,
+    ]);
+
+    $response->assertCreated();
+    $this->assertDatabaseHas('teacher_feedback', [
+        'teacher_id' => $teacherA->id,
+        'student_id' => $studentA->id,
+        'message' => 'Sneaky reply attempt',
+        'reply_to_id' => null,
+    ]);
+});
+
 it('does not count a student\'s own sent message toward their unread badge', function () {
     $teacher = User::factory()->teacher()->create(['approval_status' => 'approved']);
     $section = Section::factory()->create(['teacher_id' => $teacher->id]);

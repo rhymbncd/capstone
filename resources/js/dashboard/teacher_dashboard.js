@@ -403,13 +403,17 @@ function renderFeedbackHistory(studentId) {
     }
 
     wrap.style.display = '';
-    list.innerHTML = history.map(f => {
+
+    // Thread each reply directly under the specific message it answers,
+    // instead of a flat chronological list — a student's reply carries
+    // replyToId pointing at the teacher message it was sent from.
+    const feedbackCard = (f, isReply) => {
         const sentByStudent = f.sender === 'student';
         const meta = FEEDBACK_TYPE_META[f.type] || { icon: '💬', label: f.type };
         const headerColor = sentByStudent ? '#16a34a' : '#2563eb';
         const headerLabel = sentByStudent ? `${meta.icon} From ${f.studentName}` : `${meta.icon} ${meta.label}`;
         return `
-            <div style="background:${sentByStudent ? '#f0fdf4' : '#f4f6fb'};border-radius:8px;padding:10px 12px">
+            <div style="background:${sentByStudent ? '#f0fdf4' : '#f4f6fb'};border-radius:8px;padding:10px 12px;${isReply ? 'margin-left:22px;margin-top:6px;border-left:3px solid #d1d5db' : ''}">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
                     <span style="font-size:11px;font-weight:700;color:${headerColor}">${Security.escape(headerLabel)}</span>
                     <span style="display:flex;align-items:center;gap:8px">
@@ -420,6 +424,18 @@ function renderFeedbackHistory(studentId) {
                 </div>
                 <div style="font-size:12.5px;color:#374151">${Security.escape(f.message)}</div>
             </div>`;
+    };
+
+    const topLevel = history.filter(f => !f.replyToId);
+    const repliesByParent = new Map();
+    history.filter(f => f.replyToId).forEach(f => {
+        if (!repliesByParent.has(f.replyToId)) repliesByParent.set(f.replyToId, []);
+        repliesByParent.get(f.replyToId).push(f);
+    });
+
+    list.innerHTML = topLevel.map(f => {
+        const replies = (repliesByParent.get(f.id) || []).map(r => feedbackCard(r, true)).join('');
+        return `<div style="margin-bottom:10px">${feedbackCard(f, false)}${replies}</div>`;
     }).join('');
 }
 

@@ -29,6 +29,7 @@ class FeedbackController extends Controller
             'id' => $f->id,
             'teacherName' => $f->teacher->name ?? 'Your teacher',
             'sender' => $f->sender,
+            'replyToId' => $f->reply_to_id,
             'type' => $f->type,
             'message' => $f->message,
             'date' => $f->created_at->diffForHumans(),
@@ -61,6 +62,7 @@ class FeedbackController extends Controller
     {
         $validated = $request->validate([
             'message' => 'required|string|min:5|max:500',
+            'reply_to_id' => 'nullable|integer|exists:teacher_feedback,id',
         ]);
 
         $student = Auth::user();
@@ -72,10 +74,24 @@ class FeedbackController extends Controller
             ], 422);
         }
 
+        $replyToId = null;
+        if (! empty($validated['reply_to_id'])) {
+            // Only allow replying to a message that's actually part of this
+            // student's own conversation with their own teacher — not an
+            // arbitrary feedback row belonging to someone else.
+            $parent = TeacherFeedback::where('id', $validated['reply_to_id'])
+                ->where('teacher_id', $teacher->id)
+                ->where('student_id', $student->id)
+                ->first();
+
+            $replyToId = $parent?->id;
+        }
+
         $feedback = TeacherFeedback::create([
             'teacher_id' => $teacher->id,
             'student_id' => $student->id,
             'sender' => 'student',
+            'reply_to_id' => $replyToId,
             'type' => 'message',
             'message' => $validated['message'],
             // A student's own sent message was never "unread" from their
@@ -88,6 +104,7 @@ class FeedbackController extends Controller
                 'id' => $feedback->id,
                 'teacherName' => $teacher->name,
                 'sender' => 'student',
+                'replyToId' => $feedback->reply_to_id,
                 'type' => 'message',
                 'message' => $feedback->message,
                 'date' => $feedback->created_at->diffForHumans(),

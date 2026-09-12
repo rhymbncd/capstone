@@ -16,6 +16,7 @@ class TeacherFeedback extends Model
         'teacher_id',
         'student_id',
         'sender',
+        'reply_to_id',
         'type',
         'message',
         'read_at',
@@ -36,5 +37,10 @@ class TeacherFeedback extends Model
     public function student(): BelongsTo
     {
         return $this->belongsTo(User::class, 'student_id');
+    }
+
+    public function replyTo(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'reply_to_id');
     }
 }

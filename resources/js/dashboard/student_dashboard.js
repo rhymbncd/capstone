@@ -755,12 +755,13 @@ document.addEventListener('DOMContentLoaded', function () {
         } else {
             emptyEl.style.display = 'none';
             listEl.style.display  = '';
-            listEl.innerHTML = items.map(f => {
+
+            const feedbackCard = (f, isReply) => {
                 const sentByMe = f.sender === 'student';
                 const icon = sentByMe ? '📤' : (FEEDBACK_ICONS[f.type] || '💬');
                 const label = sentByMe ? 'You' : f.teacherName;
                 return `
-                <div class="module-item">
+                <div class="module-item"${isReply ? ' style="margin-left:22px;margin-top:6px;border-left:3px solid var(--border,#e5e7eb)"' : ''}>
                     <div class="module-title-row">
                         <span class="module-name">${icon} ${escapeHtml(label)}</span>
                         ${f.read ? '' : '<span class="status-badge badge-warn">New</span>'}
@@ -781,6 +782,20 @@ document.addEventListener('DOMContentLoaded', function () {
                         </div>
                     </div>`}
                 </div>`;
+            };
+
+            // Thread each reply directly under the specific message it
+            // answers (replyToId), instead of a flat chronological list.
+            const topLevel = items.filter(f => !f.replyToId);
+            const repliesByParent = new Map();
+            items.filter(f => f.replyToId).forEach(f => {
+                if (!repliesByParent.has(f.replyToId)) repliesByParent.set(f.replyToId, []);
+                repliesByParent.get(f.replyToId).push(f);
+            });
+
+            listEl.innerHTML = topLevel.map(f => {
+                const replies = (repliesByParent.get(f.id) || []).map(r => feedbackCard(r, true)).join('');
+                return `<div style="margin-bottom:10px">${feedbackCard(f, false)}${replies}</div>`;
             }).join('');
         }
 
@@ -812,7 +827,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (box) box.style.display = box.style.display === 'none' ? '' : 'none';
     };
 
-    /** Reply to a specific teacher message — posts to the same feed, just triggered inline per message. */
+    /** Reply to a specific teacher message — threaded via reply_to_id so it renders nested under that message, for both the student and the teacher. */
     window.sendFeedbackReply = async function (feedbackId) {
         const input = document.getElementById(`reply-input-${feedbackId}`);
         const message = (input?.value || '').trim();
@@ -830,7 +845,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? '',
             },
-            body: JSON.stringify({ message }),
+            body: JSON.stringify({ message, reply_to_id: feedbackId }),
         });
         if (res.status === 419) {
             window.toast('error', 'Your session has expired. Please refresh the page and try again.');
