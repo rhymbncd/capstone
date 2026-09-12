@@ -550,7 +550,13 @@ function renderAnswersDetail() {
 
     const html = `
         <div style="text-align:left;max-height:60vh;overflow-y:auto;padding:4px 2px">
-            ${answersNavButton(`Back to ${module?.label || 'Topics'}`, 'backToAnswersTopics()')}
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+                ${answersNavButton(`Back to ${module?.label || 'Topics'}`, 'backToAnswersTopics()')}
+                <button type="button" onclick="exportAnswersDetailPdf()"
+                    style="display:flex;align-items:center;gap:6px;padding:6px 12px;margin-bottom:10px;
+                           background:#2563eb;color:#fff;border:none;border-radius:8px;
+                           font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0">⬇ Export PDF</button>
+            </div>
             ${topicAttempts.map(a => {
                 const meta = ANSWERS_PHASE_META[a.phase] || { icon: '💬', label: a.phase };
                 const when = a.updated_at ? new Date(a.updated_at).toLocaleString() : '';
@@ -576,6 +582,67 @@ function renderAnswersDetail() {
         </div>`;
 
     Swal.update({ html });
+}
+
+/** Export the currently-viewed topic's attempt(s) as a PDF, reusing the
+ *  same jsPDF/autoTable loader as the Reports page's exports. */
+async function exportAnswersDetailPdf() {
+    const { attempts, topicKey, module, studentName } = answersModalState;
+    const topicAttempts = attempts.filter(a => a.topic_key === topicKey);
+    if (!topicAttempts.length) return;
+
+    try {
+        await loadExportLibs();
+        if (!window.jspdf || !window.jspdf.jsPDF) {
+            throw new Error('PDF library failed to load.');
+        }
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        const topicName = topicAttempts[0]?.topic_name || topicKey;
+
+        doc.setFontSize(16);
+        doc.text(`${studentName} — ${topicName}`, 14, 18);
+        doc.setFontSize(10);
+        doc.setTextColor(110);
+        doc.text(`${module?.label || ''}  •  Exported ${new Date().toLocaleString()}`, 14, 25);
+
+        let y = 34;
+        topicAttempts.forEach(a => {
+            const meta = ANSWERS_PHASE_META[a.phase] || { label: a.phase };
+            if (y > 260) { doc.addPage(); y = 20; }
+
+            doc.setFontSize(13);
+            doc.setTextColor(20);
+            doc.text(`${meta.label} — Score: ${a.score}/${a.total}`, 14, y);
+            y += 4;
+
+            doc.autoTable({
+                startY: y,
+                head: [['#', 'Question', 'Answered', 'Correct', 'Result']],
+                body: (a.answers || []).map((qa, i) => [
+                    i + 1,
+                    qa.question,
+                    String(qa.selected ?? '—'),
+                    qa.isCorrect ? '—' : String(qa.correct ?? '—'),
+                    qa.isCorrect ? 'Correct' : 'Incorrect',
+                ]),
+                headStyles: { fillColor: [37, 99, 235] },
+                styles: { fontSize: 8 },
+                columnStyles: { 1: { cellWidth: 70 } },
+                margin: { left: 14, right: 14 },
+            });
+
+            y = doc.lastAutoTable.finalY + 10;
+        });
+
+        const slugify = s => s.replace(/[^a-z0-9]+/gi, '-').toLowerCase().replace(/^-+|-+$/g, '');
+        doc.save(`${slugify(studentName)}-${slugify(topicName)}-answers.pdf`);
+        toast('success', 'Answers exported to PDF!');
+    } catch (err) {
+        console.error('Answers PDF export error:', err);
+        warn('Export Failed', 'Could not generate the PDF. Please try again.');
+    }
 }
 
 function openFeedback(id) {
@@ -4047,6 +4114,7 @@ Object.assign(window, {
     // Students
     filterStudents, viewStudent, openFeedback, saveFeedback, viewStudentAnswers,
     selectAnswersModule, backToAnswersModules, selectAnswersTopic, backToAnswersTopics,
+    exportAnswersDetailPdf,
 
     // Modules
     filterModules, openAddModule, saveModule, viewModule, editModule, deleteModule, sendToDownloads,
