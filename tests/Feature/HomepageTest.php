@@ -175,13 +175,17 @@ it('renders an accessible animated scroll indicator that targets the features se
         ->toMatch('/<a[^>]+class="hero-scroll"[^>]*>\s*<svg/')
         ->toContain('id="features"');
 
+    // Double-chevron icon (two <path> elements), no circular badge around it.
+    preg_match('/<a[^>]+class="hero-scroll"[^>]*>.*?<\/a>/s', $html, $link);
+    expect(substr_count($link[0] ?? '', '<path'))->toBe(2);
+
     preg_match('/\.hero-scroll\s*\{[^}]*\}/', $css, $scroll);
     expect($scroll[0] ?? '')
         ->toContain('position: absolute')
         ->toContain('bottom: 32px')
         ->toContain('width: 48px')
         ->toContain('height: 48px')
-        ->toContain('border-radius: 50%');
+        ->not->toContain('border-radius: 50%');
 });
 
 it('offsets the features anchor so a sticky header cannot cover its heading', function () {
