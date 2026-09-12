@@ -192,12 +192,43 @@ function getFilteredStudents() {
     );
 }
 
+/**
+ * Top Performing Students — this teacher's own students, ranked by
+ * average post-test score. Mirrors the admin dashboard's widget of the
+ * same name, plus a Section column since a teacher's roster can span
+ * more than one section.
+ */
+function renderTopPerformingStudents() {
+    const tbody = document.getElementById('top-students-tbody');
+    if (!tbody) return;
+
+    const ranked = students
+        .filter(s => s.avgPost !== null && s.avgPost !== undefined)
+        .sort((a, b) => b.avgPost - a.avgPost);
+
+    if (!ranked.length) {
+        tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><div class="empty-icon">🏆</div><h4>No completed quizzes yet</h4></div></td></tr>`;
+        return;
+    }
+
+    const medals = ['🥇', '🥈', '🥉'];
+    tbody.innerHTML = ranked.slice(0, 5).map((s, i) => `
+        <tr>
+            <td>${medals[i] || (i + 1)}</td>
+            <td><b>${Security.escape(s.name)}</b></td>
+            <td>${Security.escape(s.section || '—')}</td>
+            <td style="color:var(--green);font-weight:700">${s.avgPost}%</td>
+            <td>${s.progress}%</td>
+        </tr>`).join('');
+}
+
 function renderStudents() {
     setText('s-total',     students.length);
     setText('s-avg',       avgProgress() + '%');
     setText('s-not-started', students.filter(s => s.status === 'Not Started').length);
     setText('s-help',      students.filter(s => s.status === 'Needs Help').length);
     setText('s-excellent', students.filter(s => s.status === 'Excellent').length);
+    renderTopPerformingStudents();
 
     const filtered   = getFilteredStudents();
     const totalPages = Math.max(1, Math.ceil(filtered.length / STUDENTS_PER_PAGE));

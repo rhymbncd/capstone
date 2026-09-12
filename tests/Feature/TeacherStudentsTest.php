@@ -62,6 +62,24 @@ it('returns the teacher\'s students with real progress computed from student_pro
     expect($freshData['avgPost'])->toBeNull();
 });
 
+it('includes each student\'s section name for the Top Performing Students widget', function () {
+    $teacher = User::factory()->teacher()->create(['approval_status' => 'approved']);
+    $section = Section::factory()->create(['teacher_id' => $teacher->id, 'name' => 'Grade 10 - Rizal']);
+
+    $student = User::factory()->create([
+        'role' => 'student',
+        'approval_status' => 'approved',
+        'section_id' => $section->id,
+    ]);
+
+    $response = $this->actingAs($teacher)->getJson(route('teacher.students.index'));
+
+    $response->assertOk();
+    $data = collect($response->json('students'))->firstWhere('id', $student->id);
+    expect($data['section_id'])->toBe($section->id);
+    expect($data['section'])->toBe('Grade 10 - Rizal');
+});
+
 it('marks an approved student with no test attempts as Not Started, not Needs Help', function () {
     $teacher = User::factory()->teacher()->create(['approval_status' => 'approved']);
     $section = Section::factory()->create(['teacher_id' => $teacher->id]);
