@@ -386,6 +386,7 @@ const FEEDBACK_TYPE_META = {
     improvement:   { icon: '📈', label: 'Needs Improvement' },
     praise:        { icon: '🌟', label: 'Praise' },
     reminder:      { icon: '⏰', label: 'Reminder' },
+    message:       { icon: '📩', label: 'Message' },
 };
 
 /** Render this student's full feedback history inside the Send Feedback modal. */
@@ -403,11 +404,14 @@ function renderFeedbackHistory(studentId) {
 
     wrap.style.display = '';
     list.innerHTML = history.map(f => {
+        const sentByStudent = f.sender === 'student';
         const meta = FEEDBACK_TYPE_META[f.type] || { icon: '💬', label: f.type };
+        const headerColor = sentByStudent ? '#16a34a' : '#2563eb';
+        const headerLabel = sentByStudent ? `${meta.icon} From ${f.studentName}` : `${meta.icon} ${meta.label}`;
         return `
-            <div style="background:#f4f6fb;border-radius:8px;padding:10px 12px">
+            <div style="background:${sentByStudent ? '#f0fdf4' : '#f4f6fb'};border-radius:8px;padding:10px 12px">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-                    <span style="font-size:11px;font-weight:700;color:#2563eb">${meta.icon} ${Security.escape(meta.label)}</span>
+                    <span style="font-size:11px;font-weight:700;color:${headerColor}">${Security.escape(headerLabel)}</span>
                     <span style="display:flex;align-items:center;gap:8px">
                         <span style="font-size:10px;color:#9ca3af">${Security.escape(f.date)}</span>
                         <button type="button" onclick="deleteFeedback(${f.id})" title="Delete this feedback"

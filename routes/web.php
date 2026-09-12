@@ -127,6 +127,7 @@ Route::prefix('student')->group(function () {
         // Feedback from teachers
         Route::prefix('feedback')->group(function () {
             Route::get('/', [StudentFeedbackController::class, 'index'])->name('student.feedback.index');
+            Route::post('/', [StudentFeedbackController::class, 'store'])->name('student.feedback.store');
             Route::post('/read-all', [StudentFeedbackController::class, 'markAllRead'])->name('student.feedback.read-all');
         });
     });

@@ -15,6 +15,7 @@ class TeacherFeedback extends Model
     protected $fillable = [
         'teacher_id',
         'student_id',
+        'sender',
         'type',
         'message',
         'read_at',

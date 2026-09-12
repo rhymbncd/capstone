@@ -28,6 +28,7 @@ class FeedbackController extends Controller
         $payload = $rows->map(fn (TeacherFeedback $f) => [
             'id' => $f->id,
             'teacherName' => $f->teacher->name ?? 'Your teacher',
+            'sender' => $f->sender,
             'type' => $f->type,
             'message' => $f->message,
             'date' => $f->created_at->diffForHumans(),
@@ -50,6 +51,49 @@ class FeedbackController extends Controller
         }
 
         return $response;
+    }
+
+    /**
+     * Send a plain message to this student's own teacher, threaded into
+     * the same feed as the feedback that teacher sends them.
+     */
+    public function store(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'message' => 'required|string|min:5|max:500',
+        ]);
+
+        $student = Auth::user();
+        $teacher = $student->section?->teacher;
+
+        if (! $teacher) {
+            return response()->json([
+                'message' => 'You are not assigned to a section with a teacher yet.',
+            ], 422);
+        }
+
+        $feedback = TeacherFeedback::create([
+            'teacher_id' => $teacher->id,
+            'student_id' => $student->id,
+            'sender' => 'student',
+            'type' => 'message',
+            'message' => $validated['message'],
+            // A student's own sent message was never "unread" from their
+            // side — only a teacher's reply should trip their badge.
+            'read_at' => now(),
+        ]);
+
+        return response()->json([
+            'feedback' => [
+                'id' => $feedback->id,
+                'teacherName' => $teacher->name,
+                'sender' => 'student',
+                'type' => 'message',
+                'message' => $feedback->message,
+                'date' => $feedback->created_at->diffForHumans(),
+                'read' => true,
+            ],
+        ], 201);
     }
 
     /**

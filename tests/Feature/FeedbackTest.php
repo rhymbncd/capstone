@@ -172,6 +172,86 @@ it('lets a student see only their own received feedback', function () {
     expect($messages)->not->toContain('Not for you');
 });
 
+it('lets a student send a message to their own teacher', function () {
+    $teacher = User::factory()->teacher()->create(['approval_status' => 'approved']);
+    $section = Section::factory()->create(['teacher_id' => $teacher->id]);
+    $student = User::factory()->create([
+        'role' => 'student',
+        'approval_status' => 'approved',
+        'section_id' => $section->id,
+    ]);
+
+    $response = $this->actingAs($student)->postJson(route('student.feedback.store'), [
+        'message' => 'Hi po, may tanong ako sa Module 2.',
+    ]);
+
+    $response->assertCreated();
+    $response->assertJsonPath('feedback.sender', 'student');
+    $response->assertJsonPath('feedback.type', 'message');
+    $this->assertDatabaseHas('teacher_feedback', [
+        'teacher_id' => $teacher->id,
+        'student_id' => $student->id,
+        'sender' => 'student',
+        'type' => 'message',
+    ]);
+});
+
+it('shows a student\'s sent message in their own teacher\'s feedback history', function () {
+    $teacher = User::factory()->teacher()->create(['approval_status' => 'approved']);
+    $section = Section::factory()->create(['teacher_id' => $teacher->id]);
+    $student = User::factory()->create([
+        'role' => 'student',
+        'approval_status' => 'approved',
+        'section_id' => $section->id,
+    ]);
+
+    $this->actingAs($student)->postJson(route('student.feedback.store'), [
+        'message' => 'Salamat po sa tulong!',
+    ])->assertCreated();
+
+    $response = $this->actingAs($teacher)->getJson(route('teacher.feedback.index'));
+
+    $response->assertOk();
+    $entry = collect($response->json('feedback'))->firstWhere('message', 'Salamat po sa tulong!');
+    expect($entry)->not->toBeNull();
+    expect($entry['sender'])->toBe('student');
+});
+
+it('rejects a message from a student with no section/teacher assigned', function () {
+    $student = User::factory()->create([
+        'role' => 'student',
+        'approval_status' => 'approved',
+        'section_id' => null,
+    ]);
+
+    $response = $this->actingAs($student)->postJson(route('student.feedback.store'), [
+        'message' => 'Is anyone there?',
+    ]);
+
+    $response->assertUnprocessable();
+    $this->assertDatabaseMissing('teacher_feedback', ['student_id' => $student->id]);
+});
+
+it('does not count a student\'s own sent message toward their unread badge', function () {
+    $teacher = User::factory()->teacher()->create(['approval_status' => 'approved']);
+    $section = Section::factory()->create(['teacher_id' => $teacher->id]);
+    $student = User::factory()->create([
+        'role' => 'student',
+        'approval_status' => 'approved',
+        'section_id' => $section->id,
+    ]);
+
+    $this->actingAs($student)->postJson(route('student.feedback.store'), [
+        'message' => 'Just checking in.',
+    ])->assertCreated();
+
+    $response = $this->actingAs($student)->getJson(route('student.feedback.index'));
+
+    $response->assertOk();
+    $entry = collect($response->json('feedback'))->firstWhere('message', 'Just checking in.');
+    expect($entry['read'])->toBeTrue();
+});
+
 it('marks all of a student\'s feedback as read', function () {
     $teacher = User::factory()->teacher()->create(['approval_status' => 'approved']);
     $section = Section::factory()->create(['teacher_id' => $teacher->id]);

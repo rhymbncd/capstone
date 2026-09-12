@@ -755,15 +755,20 @@ document.addEventListener('DOMContentLoaded', function () {
         } else {
             emptyEl.style.display = 'none';
             listEl.style.display  = '';
-            listEl.innerHTML = items.map(f => `
+            listEl.innerHTML = items.map(f => {
+                const sentByMe = f.sender === 'student';
+                const icon = sentByMe ? '📤' : (FEEDBACK_ICONS[f.type] || '💬');
+                const label = sentByMe ? 'You' : f.teacherName;
+                return `
                 <div class="module-item">
                     <div class="module-title-row">
-                        <span class="module-name">${FEEDBACK_ICONS[f.type] || '💬'} ${f.teacherName}</span>
+                        <span class="module-name">${icon} ${escapeHtml(label)}</span>
                         ${f.read ? '' : '<span class="status-badge badge-warn">New</span>'}
                     </div>
                     <p style="margin:6px 0 4px;font-size:14px;color:var(--text-2)">${escapeHtml(f.message)}</p>
                     <div class="section-sub" style="margin:0">${f.date}</div>
-                </div>`).join('');
+                </div>`;
+            }).join('');
         }
 
         // Mark everything as read now that the student has actually seen the list.
@@ -787,6 +792,44 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
     }
+
+    /** Send a plain message to this student's own teacher. */
+    window.sendFeedbackMessage = async function () {
+        const input = document.getElementById('feedback-message-input');
+        const message = (input?.value || '').trim();
+
+        if (message.length < 5) {
+            window.toast('warning', 'Please write a bit more before sending (at least 5 characters).');
+            return;
+        }
+
+        const res = await fetch('/student/feedback', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? '',
+            },
+            body: JSON.stringify({ message }),
+        });
+        if (res.status === 419) {
+            window.toast('error', 'Your session has expired. Please refresh the page and try again.');
+            return;
+        }
+
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+            const firstError = data.errors ? Object.values(data.errors)[0]?.[0] : null;
+            window.toast('error', firstError || data.message || 'Could not send your message.');
+            return;
+        }
+
+        if (input) input.value = '';
+        window.toast('success', 'Message sent to your teacher!');
+        loadFeedback();
+    };
 
     // Initialize progress tracking + analytics on page load
     Progress.init().then(loadDashboardAnalytics);
