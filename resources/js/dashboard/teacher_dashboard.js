@@ -1847,11 +1847,17 @@ function getQuizCounts() {
    Now also accepts `count` to generate the teacher-specified number
 ------------------------------------------------------------------ */
 function buildQuizPrompt(topic, activity, grade, difficulty, section, count) {
-    return `You are a Philippine Grade 10 math teacher.
+    return `You are a Philippine Grade 10 math teacher writing an exam.
 Generate exactly ${count} ${section} multiple-choice questions about "${activity}" under "${topic}".
 Difficulty: ${difficulty}.
 
-Return ONLY a valid JSON array. No markdown, no explanation, no backticks.
+For EACH question, before writing it down:
+1. Solve the problem completely and correctly yourself.
+2. Double-check your computation/reasoning — redo the math if you are not fully certain.
+3. Confirm that exactly ONE option matches your verified answer.
+4. Make the other three options plausible but clearly wrong (e.g. common student mistakes), never another valid correct answer.
+
+Return ONLY a valid JSON array. No markdown, no explanation, no backticks, no shown work — just the final result.
 
 [
   {
@@ -1864,7 +1870,8 @@ Return ONLY a valid JSON array. No markdown, no explanation, no backticks.
 Rules:
 - Exactly ${count} items
 - Answers must vary (not always A)
-- Questions must be math-focused and grade-appropriate`;
+- Questions must be math-focused, grade-appropriate, and unambiguous
+- The "answer" letter MUST correspond to the mathematically correct option — verify this before including each item`;
 }
 
 /* ------------------------------------------------------------------

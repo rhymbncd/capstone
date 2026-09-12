@@ -170,7 +170,7 @@ Structure:
                 'messages' => [
                     [
                         'role' => 'system',
-                        'content' => 'You are a Philippine mathematics teacher. Respond ONLY with a valid JSON array. No markdown, no backticks, no explanation.',
+                        'content' => 'You are a meticulous Philippine mathematics teacher. Solve every problem completely and verify your arithmetic before answering — every question must have exactly one mathematically correct option. Respond ONLY with a valid JSON array. No markdown, no backticks, no explanation.',
                     ],
                     ['role' => 'user', 'content' => $validated['prompt']],
                 ],
