@@ -54,6 +54,8 @@ it('returns the teacher\'s students with real progress computed from student_pro
     expect($halfwayData['status'])->toBe('Average');
     expect($halfwayData['avgPre'])->toBe(40);
     expect($halfwayData['avgPost'])->toBe(80);
+    expect($halfwayData['modulesCompleted'])->toBe(6);
+    expect($halfwayData['modulesTotal'])->toBe(12);
 
     $freshData = $students->firstWhere('id', $freshStart->id);
     expect($freshData['progress'])->toBe(0);

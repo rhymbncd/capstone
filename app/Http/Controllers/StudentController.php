@@ -22,7 +22,7 @@ class StudentController extends Controller
      * changes (e.g. new status rules) so already-cached client copies are
      * invalidated instead of being served stale behind a 304.
      */
-    private const PAYLOAD_VERSION = '2026-09-12-section-name';
+    private const PAYLOAD_VERSION = '2026-09-13-modules-completed-count';
 
     private const CURRICULUM_TOPICS = [
         'ari', 'geo', 'har', 'fib', 'fin',
@@ -103,6 +103,8 @@ class StudentController extends Controller
                 'section' => $student->section?->name,
                 'status' => $this->getStudentStatus($student, $progress, $rows->isNotEmpty()),
                 'progress' => $progress,
+                'modulesCompleted' => $completed,
+                'modulesTotal' => $totalTopics,
                 'avgPre' => $this->averageScorePercent($rows->where('phase', 'pre')),
                 'avgPost' => $this->averageScorePercent($postRows),
                 'lastActive' => $student->updated_at->diffForHumans(),

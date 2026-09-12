@@ -353,7 +353,7 @@
                         <div class="chart-sub">Your students with the highest post-test scores</div>
                         <div class="table-wrap">
                             <table>
-                                <thead><tr><th>Rank</th><th>Student</th><th>Section</th><th>Score</th><th>Modules</th></tr></thead>
+                                <thead><tr><th>Rank</th><th>Student</th><th>Section</th><th>Score</th><th>Modules</th><th>Streak</th></tr></thead>
                                 <tbody id="top-students-tbody"></tbody>
                             </table>
                         </div>

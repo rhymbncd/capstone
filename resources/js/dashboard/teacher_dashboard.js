@@ -207,7 +207,7 @@ function renderTopPerformingStudents() {
         .sort((a, b) => b.avgPost - a.avgPost);
 
     if (!ranked.length) {
-        tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><div class="empty-icon">🏆</div><h4>No completed quizzes yet</h4></div></td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">🏆</div><h4>No completed quizzes yet</h4></div></td></tr>`;
         return;
     }
 
@@ -218,7 +218,8 @@ function renderTopPerformingStudents() {
             <td><b>${Security.escape(s.name)}</b></td>
             <td>${Security.escape(s.section || '—')}</td>
             <td style="color:var(--green);font-weight:700">${s.avgPost}%</td>
-            <td>${s.progress}%</td>
+            <td>${s.modulesCompleted}/${s.modulesTotal}</td>
+            <td>—</td>
         </tr>`).join('');
 }
 
