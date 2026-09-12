@@ -1854,8 +1854,9 @@ Difficulty: ${difficulty}.
 For EACH question, before writing it down:
 1. Solve the problem completely and correctly yourself.
 2. Double-check your computation/reasoning — redo the math if you are not fully certain.
-3. Confirm that exactly ONE option matches your verified answer.
-4. Make the other three options plausible but clearly wrong (e.g. common student mistakes), never another valid correct answer.
+3. Write the four options so that the exact value you computed is literally one of them — never write options that omit your computed answer.
+4. Confirm that exactly ONE option matches your verified answer.
+5. Make the other three options plausible but clearly wrong (e.g. common student mistakes), never another valid correct answer.
 
 Return ONLY a valid JSON array. No markdown, no explanation, no backticks, no shown work — just the final result.
 
