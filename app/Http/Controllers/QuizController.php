@@ -164,13 +164,13 @@ Structure:
                 'HTTP-Referer' => url('/'),
                 'X-Title' => 'Pansit Capstone',
             ])->timeout(60)->post('https://openrouter.ai/api/v1/chat/completions', [
-                'model' => 'openai/gpt-3.5-turbo',
+                'model' => 'openai/gpt-4o-mini',
                 'temperature' => 0.7,
                 'max_tokens' => 3500,
                 'messages' => [
                     [
                         'role' => 'system',
-                        'content' => 'You are a meticulous Philippine mathematics teacher. Solve every problem completely and verify your arithmetic before answering — every question must have exactly one mathematically correct option. Respond ONLY with a valid JSON array. No markdown, no backticks, no explanation.',
+                        'content' => 'You are a meticulous Philippine mathematics teacher. Solve every problem completely and verify your arithmetic before answering. The four options for each question must include the exact value you computed as the correct answer — never write options that omit your computed answer. Respond ONLY with a valid JSON array. No markdown, no backticks, no explanation.',
                     ],
                     ['role' => 'user', 'content' => $validated['prompt']],
                 ],
