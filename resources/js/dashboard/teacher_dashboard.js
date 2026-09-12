@@ -1852,28 +1852,29 @@ function buildQuizPrompt(topic, activity, grade, difficulty, section, count) {
 Generate exactly ${count} ${section} multiple-choice questions about "${activity}" under "${topic}".
 Difficulty: ${difficulty}.
 
-For EACH question, before writing it down:
+For EACH question:
 1. Solve the problem completely and correctly yourself.
 2. Double-check your computation/reasoning — redo the math if you are not fully certain.
-3. Write the four options so that the exact value you computed is literally one of them — never write options that omit your computed answer.
-4. Confirm that exactly ONE option matches your verified answer.
-5. Make the other three options plausible but clearly wrong (e.g. common student mistakes), never another valid correct answer.
+3. Put ONLY the verified value in "correctAnswer".
+4. Put exactly 3 plausible but clearly wrong values in "distractors" (e.g. common student mistakes). None may equal "correctAnswer" or each other.
+
+The multiple-choice options and their letters will be assembled separately from these fields, so you do NOT need to arrange A/B/C/D yourself — just provide "correctAnswer" and "distractors".
 
 Return ONLY a valid JSON array. No markdown, no explanation, no backticks, no shown work — just the final result.
 
 [
   {
     "question": "...",
-    "options": {"A": "...", "B": "...", "C": "...", "D": "..."},
-    "answer": "B"
+    "correctAnswer": "54",
+    "distractors": ["50", "58", "60"]
   }
 ]
 
 Rules:
 - Exactly ${count} items
-- Answers must vary (not always A)
 - Questions must be math-focused, grade-appropriate, and unambiguous
-- The "answer" letter MUST correspond to the mathematically correct option — verify this before including each item`;
+- "correctAnswer" MUST be the verified, mathematically correct value
+- "distractors" MUST contain exactly 3 values, each different from "correctAnswer" and from one another`;
 }
 
 /* ------------------------------------------------------------------
@@ -2035,6 +2036,11 @@ async function generateQuiz() {
 /* ------------------------------------------------------------------
    parseQuizArray — extracts a JSON array from AI response.
    Replaces the old parseQuizJSON; each API call now returns an array.
+
+   The AI supplies a "correctAnswer" plus 3 "distractors" instead of a
+   pre-assembled A/B/C/D options object. Building the options here
+   guarantees the correct value is always one of the four choices,
+   instead of trusting the AI to keep 4 separate strings self-consistent.
 ------------------------------------------------------------------ */
 function parseQuizArray(raw) {
     try {
@@ -2057,21 +2063,47 @@ function parseQuizArray(raw) {
             return null;
         }
 
-        // Randomize answer positions to prevent bias
-        return arr.map(q => {
-            if (!q.options || typeof q.options !== 'object') return q;
-            const answerValue = q.options[q.answer];
-            if (!answerValue) return q;
-            const shuffled = Object.entries(q.options).sort(() => Math.random() - 0.5);
-            const newOptions = {};
-            let newAnswer = '';
-            shuffled.forEach(([, val], idx) => {
+        const normalize = (v) => String(v ?? '').trim().toLowerCase();
+
+        // Drop any item whose correctAnswer/distractors are missing or
+        // duplicate each other — better to skip a malformed question
+        // than to show one with no valid correct choice.
+        return arr.reduce((out, q) => {
+            const correctAnswer = q?.correctAnswer;
+            const distractors = Array.isArray(q?.distractors) ? q.distractors : [];
+
+            if (correctAnswer === undefined || correctAnswer === null || normalize(correctAnswer) === '') {
+                console.warn('Skipping question with no correctAnswer:', q?.question);
+                return out;
+            }
+
+            const seen = new Set([normalize(correctAnswer)]);
+            const uniqueDistractors = [];
+            for (const d of distractors) {
+                const key = normalize(d);
+                if (key === '' || seen.has(key)) continue;
+                seen.add(key);
+                uniqueDistractors.push(d);
+                if (uniqueDistractors.length === 3) break;
+            }
+
+            if (uniqueDistractors.length < 3) {
+                console.warn('Skipping question with too few valid distractors:', q?.question);
+                return out;
+            }
+
+            const values = [correctAnswer, ...uniqueDistractors].sort(() => Math.random() - 0.5);
+            const options = {};
+            let answer = '';
+            values.forEach((val, idx) => {
                 const key = String.fromCharCode(65 + idx);
-                newOptions[key] = val;
-                if (val === answerValue) newAnswer = key;
+                options[key] = val;
+                if (val === correctAnswer) answer = key;
             });
-            return { ...q, options: newOptions, answer: newAnswer };
-        });
+
+            out.push({ question: q.question, options, answer });
+            return out;
+        }, []);
 
     } catch (e) {
         console.error('JSON parse error:', e.message, '| Raw:', raw.substring(0, 400));
