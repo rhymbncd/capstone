@@ -688,6 +688,15 @@
                             </select>
                         </div>
 
+                        <!-- Language Selector -->
+                        <div class="field-row">
+                            <label for="quiz-language">Question Language</label>
+                            <select id="quiz-language">
+                                <option value="english" selected>English</option>
+                                <option value="tagalog">Tagalog</option>
+                            </select>
+                        </div>
+
                         <!-- Difficulty Selector -->
                         <div class="field-row">
                             <label for="quiz-difficulty">Difficulty Level</label>

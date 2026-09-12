@@ -1854,10 +1854,14 @@ function getQuizCounts() {
    buildQuizPrompt — accepts a "section" param: 'pretest' | 'posttest'
    Now also accepts `count` to generate the teacher-specified number
 ------------------------------------------------------------------ */
-function buildQuizPrompt(topic, activity, grade, difficulty, section, count) {
+function buildQuizPrompt(topic, activity, grade, difficulty, section, count, language) {
+    const languageLine = language === 'tagalog'
+        ? 'Write every question in Tagalog (Filipino). Keep standard math notation and symbols as-is.'
+        : 'Write every question in English.';
+
     return `You are a Philippine Grade 10 math teacher writing an exam.
 Generate exactly ${count} ${section} multiple-choice questions about "${activity}" under "${topic}".
-Difficulty: ${difficulty}.
+Difficulty: ${difficulty}. ${languageLine}
 
 For EACH question:
 1. Solve the problem completely and correctly yourself.
@@ -1958,9 +1962,13 @@ async function generateQuizWithRetry(prompt, maxRetries = 3) {
    item that fails that check, or if the AI call fails entirely, keeps
    its original, already-verified template wording instead.
 ------------------------------------------------------------------ */
-function buildRephrasePrompt(items, topicLabel, activityLabel) {
+function buildRephrasePrompt(items, topicLabel, activityLabel, language) {
     const list = items.map((item, i) => `${i + 1}. ${item.question}`).join('\n');
-    return `You are a Philippine Grade 10 math teacher. Rewrite each of the following ${items.length} math problems as a fresh, natural, engaging word problem or exam question appropriate for Grade 10 Filipino students, for the topic "${activityLabel}" (${topicLabel}).
+    const languageLine = language === 'tagalog'
+        ? 'Write every rewritten problem in Tagalog (Filipino). Keep standard math notation, symbols, and the numbers themselves as-is.'
+        : 'Write every rewritten problem in English.';
+
+    return `You are a Philippine Grade 10 math teacher. Rewrite each of the following ${items.length} math problems as a fresh, natural, engaging word problem or exam question appropriate for Grade 10 Filipino students, for the topic "${activityLabel}" (${topicLabel}). ${languageLine}
 
 STRICT RULES:
 - Do NOT change any numbers — every number in your rewritten version must exactly match the corresponding original problem.
@@ -1975,11 +1983,11 @@ ${list}
 Return ONLY a valid JSON array of ${items.length} strings (the rewritten versions, in the same order as the problems above). No markdown, no explanation, no backticks.`;
 }
 
-async function rephraseQuestionsWithAI(items, topicLabel, activityLabel) {
+async function rephraseQuestionsWithAI(items, topicLabel, activityLabel, language) {
     if (!items || items.length === 0) return items;
 
     try {
-        const raw = await generateQuizWithRetry(buildRephrasePrompt(items, topicLabel, activityLabel));
+        const raw = await generateQuizWithRetry(buildRephrasePrompt(items, topicLabel, activityLabel, language));
 
         let clean = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
         const start = clean.indexOf('[');
@@ -2020,6 +2028,7 @@ async function generateQuiz() {
     const topicKey      = document.getElementById('quiz-topic').value;
     const actVal        = document.getElementById('quiz-activity').value;
     const difficulty    = document.getElementById('quiz-difficulty').value || 'medium';
+    const language      = document.getElementById('quiz-language')?.value || 'english';
     const grade         = 'Grade 10';
     const topicLabel    = TOPIC_LABELS[topicKey] || topicKey;
     const activityLabel = (ACTIVITY_OPTIONS[topicKey] || [])
@@ -2049,8 +2058,8 @@ async function generateQuiz() {
             // falls back to the original template question, never to a
             // wrong answer.
             if (subtitle) subtitle.textContent = 'Adding variety to question wording…';
-            pretest  = await rephraseQuestionsWithAI(pretest, topicLabel, activityLabel);
-            posttest = await rephraseQuestionsWithAI(posttest, topicLabel, activityLabel);
+            pretest  = await rephraseQuestionsWithAI(pretest, topicLabel, activityLabel, language);
+            posttest = await rephraseQuestionsWithAI(posttest, topicLabel, activityLabel, language);
         } else {
             // Teacher-added custom topic — no formula to hand-write for
             // an arbitrary topic name, so fall back to the AI pipeline.
@@ -2058,13 +2067,13 @@ async function generateQuiz() {
             // --- Call 1: Pre-test ---
             if (subtitle) subtitle.textContent = `Generating ${counts.pre} pre-test questions…`;
             const rawPre = await generateQuizWithRetry(
-                buildQuizPrompt(topicLabel, activityLabel, grade, difficulty, 'pretest', counts.pre)
+                buildQuizPrompt(topicLabel, activityLabel, grade, difficulty, 'pretest', counts.pre, language)
             );
 
             // --- Call 2: Post-test ---
             if (subtitle) subtitle.textContent = `Generating ${counts.post} post-test questions…`;
             const rawPost = await generateQuizWithRetry(
-                buildQuizPrompt(topicLabel, activityLabel, grade, difficulty, 'posttest', counts.post)
+                buildQuizPrompt(topicLabel, activityLabel, grade, difficulty, 'posttest', counts.post, language)
             );
 
             pretest  = parseQuizArray(rawPre);
@@ -2104,6 +2113,7 @@ async function generateQuiz() {
             activityLabel,
             grade,
             difficulty,
+            language,
             createdAt:     dateNow(),
             pretest:       pad(pretest,  counts.pre),
             posttest:      pad(posttest, counts.post),
