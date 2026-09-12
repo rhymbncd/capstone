@@ -7,6 +7,12 @@
 
 import Swal from 'sweetalert2';
 import 'sweetalert2/dist/sweetalert2.min.css';
+import {
+    isDeterministicTopic,
+    generateDeterministicSet,
+    selectUniqueDistractors,
+    assembleOptions,
+} from './quiz-generators.js';
 
 'use strict';
 
@@ -1959,28 +1965,44 @@ async function generateQuiz() {
 
     try {
         const subtitle = document.getElementById('loading-subtitle');
+        let pretest;
+        let posttest;
 
-        // --- Call 1: Pre-test ---
-        if (subtitle) subtitle.textContent = `Generating ${counts.pre} pre-test questions…`;
-        const rawPre = await generateQuizWithRetry(
-            buildQuizPrompt(topicLabel, activityLabel, grade, difficulty, 'pretest', counts.pre)
-        );
+        if (isDeterministicTopic(actVal)) {
+            // One of the 12 fixed curriculum topics — parameters are
+            // randomized and the correct answer is computed with real
+            // formulas (see quiz-generators.js), so correctness is
+            // guaranteed by construction. No network call, no AI
+            // verification pass needed.
+            if (subtitle) subtitle.textContent = 'Generating quiz…';
+            pretest  = generateDeterministicSet(actVal, difficulty, counts.pre);
+            posttest = generateDeterministicSet(actVal, difficulty, counts.post);
+        } else {
+            // Teacher-added custom topic — no formula to hand-write for
+            // an arbitrary topic name, so fall back to the AI pipeline.
 
-        // --- Call 2: Post-test ---
-        if (subtitle) subtitle.textContent = `Generating ${counts.post} post-test questions…`;
-        const rawPost = await generateQuizWithRetry(
-            buildQuizPrompt(topicLabel, activityLabel, grade, difficulty, 'posttest', counts.post)
-        );
+            // --- Call 1: Pre-test ---
+            if (subtitle) subtitle.textContent = `Generating ${counts.pre} pre-test questions…`;
+            const rawPre = await generateQuizWithRetry(
+                buildQuizPrompt(topicLabel, activityLabel, grade, difficulty, 'pretest', counts.pre)
+            );
 
-        let pretest  = parseQuizArray(rawPre);
-        let posttest = parseQuizArray(rawPost);
+            // --- Call 2: Post-test ---
+            if (subtitle) subtitle.textContent = `Generating ${counts.post} post-test questions…`;
+            const rawPost = await generateQuizWithRetry(
+                buildQuizPrompt(topicLabel, activityLabel, grade, difficulty, 'posttest', counts.post)
+            );
 
-        // --- Verify: independently re-check each answer before showing it ---
-        if (subtitle) subtitle.textContent = `Verifying pre-test answers…`;
-        pretest = await verifyQuizItems(pretest);
+            pretest  = parseQuizArray(rawPre);
+            posttest = parseQuizArray(rawPost);
 
-        if (subtitle) subtitle.textContent = `Verifying post-test answers…`;
-        posttest = await verifyQuizItems(posttest);
+            // --- Verify: independently re-check each answer before showing it ---
+            if (subtitle) subtitle.textContent = `Verifying pre-test answers…`;
+            pretest = await verifyQuizItems(pretest);
+
+            if (subtitle) subtitle.textContent = `Verifying post-test answers…`;
+            posttest = await verifyQuizItems(posttest);
+        }
 
         const minPre  = Math.floor(counts.pre  * 0.6);
         const minPost = Math.floor(counts.post * 0.6);
@@ -2084,30 +2106,13 @@ function parseQuizArray(raw) {
                 return out;
             }
 
-            const seen = new Set([normalize(correctAnswer)]);
-            const uniqueDistractors = [];
-            for (const d of distractors) {
-                const key = normalize(d);
-                if (key === '' || seen.has(key)) continue;
-                seen.add(key);
-                uniqueDistractors.push(d);
-                if (uniqueDistractors.length === 3) break;
-            }
-
+            const uniqueDistractors = selectUniqueDistractors(correctAnswer, distractors, 3);
             if (uniqueDistractors.length < 3) {
                 console.warn('Skipping question with too few valid distractors:', q?.question);
                 return out;
             }
 
-            const values = [correctAnswer, ...uniqueDistractors].sort(() => Math.random() - 0.5);
-            const options = {};
-            let answer = '';
-            values.forEach((val, idx) => {
-                const key = String.fromCharCode(65 + idx);
-                options[key] = val;
-                if (val === correctAnswer) answer = key;
-            });
-
+            const { options, answer } = assembleOptions(correctAnswer, uniqueDistractors);
             out.push({ question: q.question, options, answer });
             return out;
         }, []);
