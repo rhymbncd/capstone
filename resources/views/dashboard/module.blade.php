@@ -1271,24 +1271,99 @@ function mqSelectChoice(idx) {
   document.getElementById('mq-skip-btn').style.display='none';
 }
 
+/**
+ * Finalizes the current pre-test/post-test attempt: saves progress +
+ * answers and moves to the next phase. Shared by mqNext() (reaching
+ * the last question normally) and mqAutoSubmitDueToTabSwitch() (the
+ * student left the tab mid-quiz), so both paths save/transition the
+ * same way.
+ */
+function mqFinishAssessment() {
+  if(mqState.phase==='pre'){
+    stateFlags[mqState.topicKey].pre=true;
+    const total=mqState.questions.length;
+    mqSaveProgress(mqState.topicKey,'pre',mqState.score,total,mqState.score>=Math.ceil(total*0.6));
+    mqSaveQuizAnswers(mqState.topicKey,'pre',mqState.answersLog,mqState.score,total);
+    mqState.phase='lesson';
+  }
+  else{
+    mqSaveQuizAnswers(mqState.topicKey,'post',mqState.answersLog,mqState.score,mqState.questions.length);
+    mqState.phase='result';mqMarkDone();
+  }
+  mqRender();
+}
+
 function mqNext() {
   mqStopTimer(); mqState.current++;
   if(mqState.current>=mqState.questions.length){
-    if(mqState.phase==='pre'){
-      stateFlags[mqState.topicKey].pre=true;
-      const total=mqState.questions.length;
-      mqSaveProgress(mqState.topicKey,'pre',mqState.score,total,mqState.score>=Math.ceil(total*0.6));
-      mqSaveQuizAnswers(mqState.topicKey,'pre',mqState.answersLog,mqState.score,total);
-      mqState.phase='lesson';
-    }
-    else{
-      mqSaveQuizAnswers(mqState.topicKey,'post',mqState.answersLog,mqState.score,mqState.questions.length);
-      mqState.phase='result';mqMarkDone();
-    }
-    mqRender(); return;
+    mqFinishAssessment();
+    return;
   }
   mqState.answered=false; mqRenderQuestion();
 }
+
+/**
+ * Auto-submits the in-progress pre-test/post-test — called when the
+ * student switches away from this tab mid-quiz. The current question
+ * (if unanswered) and every question after it are logged as skipped
+ * (wrong), then the attempt is finalized exactly like a normal finish.
+ */
+function mqAutoSubmitDueToTabSwitch() {
+  mqStopTimer();
+
+  if (!mqState.answered && mqState.questions[mqState.current]) {
+    const q = mqState.questions[mqState.current];
+    mqState.answersLog.push({ question: q.q, selected: null, correct: q.choices[q.ans] ?? null, isCorrect: false });
+  }
+  for (let i = mqState.current + 1; i < mqState.questions.length; i++) {
+    const q = mqState.questions[i];
+    mqState.answersLog.push({ question: q.q, selected: null, correct: q.choices[q.ans] ?? null, isCorrect: false });
+  }
+
+  mqState.current = mqState.questions.length;
+  mqFinishAssessment();
+}
+
+/**
+ * Tab-switch anti-cheating guard — while a Pre-Test, Activity, or
+ * Post-Test is open, leaving this tab (or switching apps) immediately
+ * submits whatever has been answered so far. Uses the Page Visibility
+ * API rather than window.blur, since blur also fires for far less
+ * meaningful focus changes (e.g. opening devtools).
+ */
+let mqAutoSubmitNoticePending = false;
+
+function mqHandleVisibilityChange() {
+  const overlay = document.getElementById('mq-overlay');
+  if (!overlay || !overlay.classList.contains('mq-open')) return;
+
+  if (document.hidden) {
+    if ((mqState.phase === 'pre' || mqState.phase === 'post') && mqState.current < mqState.questions.length) {
+      mqAutoSubmitDueToTabSwitch();
+      mqAutoSubmitNoticePending = true;
+    } else if (mqState.phase === 'activity') {
+      const submitBtn = document.getElementById('mq-act-submit-btn');
+      if (submitBtn && submitBtn.style.display !== 'none') {
+        mqSubmitActivity();
+        mqAutoSubmitNoticePending = true;
+      }
+    }
+  } else if (mqAutoSubmitNoticePending) {
+    mqAutoSubmitNoticePending = false;
+    Swal.fire({
+      icon:               'warning',
+      title:              'Quiz Auto-Submitted',
+      html:               `<p style="font-size:13px;color:#6b7280;font-family:'Plus Jakarta Sans',sans-serif">
+                              Switching tabs or leaving the page during a Pre-Test, Activity, or Post-Test
+                              automatically submits your answers so far — this counts as your attempt.
+                            </p>`,
+      confirmButtonColor: '#2563eb',
+      confirmButtonText:  'Got it',
+    });
+  }
+}
+
+document.addEventListener('visibilitychange', mqHandleVisibilityChange);
 
 function mqStartActivity() {
   mqStopTimer();
