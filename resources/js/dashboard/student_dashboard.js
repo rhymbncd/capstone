@@ -767,6 +767,19 @@ document.addEventListener('DOMContentLoaded', function () {
                     </div>
                     <p style="margin:6px 0 4px;font-size:14px;color:var(--text-2)">${escapeHtml(f.message)}</p>
                     <div class="section-sub" style="margin:0">${f.date}</div>
+                    ${sentByMe ? '' : `
+                    <div style="margin-top:8px">
+                        <button type="button" onclick="toggleFeedbackReply(${f.id})"
+                            style="background:none;border:none;color:var(--primary,#2563eb);font-size:12.5px;font-weight:600;cursor:pointer;padding:0">↩ Reply</button>
+                        <div id="reply-box-${f.id}" style="display:none;margin-top:8px">
+                            <textarea id="reply-input-${f.id}" rows="2" maxlength="500"
+                                      placeholder="Type your reply…" style="width:100%;box-sizing:border-box"></textarea>
+                            <div style="display:flex;gap:8px;margin-top:6px">
+                                <button type="button" class="btn-save" onclick="sendFeedbackReply(${f.id})" style="padding:6px 14px;font-size:12.5px">Send</button>
+                                <button type="button" class="btn-cancel" onclick="toggleFeedbackReply(${f.id})" style="padding:6px 14px;font-size:12.5px">Cancel</button>
+                            </div>
+                        </div>
+                    </div>`}
                 </div>`;
             }).join('');
         }
@@ -793,9 +806,15 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    /** Send a plain message to this student's own teacher. */
-    window.sendFeedbackMessage = async function () {
-        const input = document.getElementById('feedback-message-input');
+    /** Show/hide the inline reply box under a specific teacher message. */
+    window.toggleFeedbackReply = function (feedbackId) {
+        const box = document.getElementById(`reply-box-${feedbackId}`);
+        if (box) box.style.display = box.style.display === 'none' ? '' : 'none';
+    };
+
+    /** Reply to a specific teacher message — posts to the same feed, just triggered inline per message. */
+    window.sendFeedbackReply = async function (feedbackId) {
+        const input = document.getElementById(`reply-input-${feedbackId}`);
         const message = (input?.value || '').trim();
 
         if (message.length < 5) {
@@ -822,12 +841,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (!res.ok) {
             const firstError = data.errors ? Object.values(data.errors)[0]?.[0] : null;
-            window.toast('error', firstError || data.message || 'Could not send your message.');
+            window.toast('error', firstError || data.message || 'Could not send your reply.');
             return;
         }
 
-        if (input) input.value = '';
-        window.toast('success', 'Message sent to your teacher!');
+        window.toast('success', 'Reply sent to your teacher!');
         loadFeedback();
     };
 

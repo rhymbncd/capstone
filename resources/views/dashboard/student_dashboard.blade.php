@@ -363,19 +363,6 @@
                     <p class="welcome-subtitle">Messages between you and your teacher</p>
                 </div>
 
-                <section class="settings-section">
-                    <h3>Send a Message</h3>
-                    <p class="desc">Have a question or update for your teacher? Send it here.</p>
-                    <div class="field-row">
-                        <label for="feedback-message-input">Message</label>
-                        <textarea id="feedback-message-input" rows="3" maxlength="500"
-                                  placeholder="Type your message to your teacher…"></textarea>
-                    </div>
-                    <div class="save-row">
-                        <button class="btn-save" onclick="sendFeedbackMessage()">Send Message</button>
-                    </div>
-                </section>
-
                 <section class="modules-container">
                     <div class="empty-state" id="feedback-empty">
                         <div class="empty-icon">💬</div>
