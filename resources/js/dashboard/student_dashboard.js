@@ -94,11 +94,24 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('header-logout-btn')?.addEventListener('click', () => window.confirmLogout());
     document.getElementById('cancel-password-btn')?.addEventListener('click', () => window.clearPasswordForm());
     document.getElementById('save-password-btn')?.addEventListener('click', () => window.updatePassword());
+    // Only first-timers see the instructions screen — a student who has
+    // already submitted a summative attempt before goes straight into the
+    // quiz when they start it again (retaking shouldn't re-explain the test).
+    async function goToSummativeStart() {
+        const rows = await Progress.loadRows();
+        const alreadyTaken = rows.some(r => r.topic_key === 'summative' && r.phase === 'post');
+        if (alreadyTaken) {
+            window.startQuiz();
+        } else {
+            window.showTestInstructions();
+        }
+    }
+
     document.getElementById('home-start-summative-btn')?.addEventListener('click', () => {
         window.navigate('summative');
-        setTimeout(() => window.showTestInstructions(), 200);
+        setTimeout(() => goToSummativeStart(), 200);
     });
-    document.getElementById('summative-cta-start-btn')?.addEventListener('click', () => window.showTestInstructions());
+    document.getElementById('summative-cta-start-btn')?.addEventListener('click', () => goToSummativeStart());
     document.getElementById('start-summative-btn')?.addEventListener('click', () => window.startQuiz());
     document.getElementById('quiz-prev-btn')?.addEventListener('click', () => quizPrev());
     document.getElementById('quiz-next-btn')?.addEventListener('click', () => quizNext());
