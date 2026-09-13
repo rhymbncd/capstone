@@ -4,7 +4,14 @@
     font-family: 'Inter';
     font-style: normal;
     font-weight: 400 800;
-    font-display: swap;
+    /* optional (not swap): the font is preloaded in <head>, so it's almost
+       always ready in time for first paint anyway. With "optional", if it
+       ever isn't, the browser commits to the fallback for that whole page
+       view instead of swapping fonts mid-render later — trading a rare
+       fallback-font render for guaranteeing this can never cause layout
+       shift, which the previous font-display: swap could (a fallback ->
+       Inter swap after paint, however small the metric mismatch). */
+    font-display: optional;
     src: url('/fonts/inter-latin-400-800.woff2') format('woff2');
 }
 

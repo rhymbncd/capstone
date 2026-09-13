@@ -44,9 +44,13 @@ it('preloads the hero image and the self-hosted font in the head', function () {
         ->toContain('rel="preload" href="/fonts/inter-latin-400-800.woff2" as="font" type="font/woff2" crossorigin');
 });
 
-it('declares font-display: swap for the self-hosted Inter face', function () {
+it('declares font-display: optional for the self-hosted Inter face', function () {
+    // "optional" (not "swap"): the font is preloaded, so it's normally ready
+    // for first paint anyway; if it ever isn't, the browser commits to the
+    // fallback for that whole render instead of swapping fonts in later —
+    // guaranteeing the font can never cause a layout shift.
     expect(file_get_contents(resource_path('css/homepage.css')))
-        ->toContain('font-display: swap');
+        ->toContain('font-display: optional');
 });
 
 it('limits infinite animation to a motion-safe, GPU-composited scroll cue', function () {
@@ -208,6 +212,6 @@ it('inlines the homepage stylesheet instead of a render-blocking link', function
 
     expect($html)
         ->toContain('<style>')
-        ->toContain('font-display:swap')
+        ->toContain('font-display:optional')
         ->not->toMatch('/<link[^>]+rel="stylesheet"[^>]+homepage-[^"]+\.css/');
 });
