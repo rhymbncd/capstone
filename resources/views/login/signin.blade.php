@@ -51,21 +51,21 @@
         @endif
 
         <div class="mb-5 grid grid-cols-3 gap-2" role="tablist" aria-label="Account type">
-          <button type="button" role="tab" id="tab-student" aria-selected="{{ ($portalType ?? 'student') === 'student' ? 'true' : 'false' }}" onclick="setRole('student', this)">
+          <button type="button" role="tab" id="tab-student" aria-selected="{{ ($portalType ?? 'student') === 'student' ? 'true' : 'false' }}">
             <svg class="mx-auto h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 10 12 5 2 10l10 5 10-5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
             <span>Student</span>
           </button>
-          <button type="button" role="tab" id="tab-teacher" aria-selected="{{ ($portalType ?? 'student') === 'teacher' ? 'true' : 'false' }}" onclick="setRole('teacher', this)">
+          <button type="button" role="tab" id="tab-teacher" aria-selected="{{ ($portalType ?? 'student') === 'teacher' ? 'true' : 'false' }}">
             <svg class="mx-auto h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h20"/><path d="M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3"/><path d="m7 21 5-5 5 5"/></svg>
             <span>Teacher</span>
           </button>
-          <button type="button" role="tab" id="tab-admin" aria-selected="{{ ($portalType ?? 'student') === 'admin' ? 'true' : 'false' }}" onclick="setRole('admin', this)">
+          <button type="button" role="tab" id="tab-admin" aria-selected="{{ ($portalType ?? 'student') === 'admin' ? 'true' : 'false' }}">
             <svg class="mx-auto h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
             <span>Admin</span>
           </button>
         </div>
 
-        <button type="button" class="flex h-10 w-full items-center justify-center gap-2.5 rounded-md border border-neutral-200 text-[14px] font-medium text-neutral-700 transition-colors duration-150 hover:bg-neutral-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary" onclick="redirectToGoogle()">
+        <button type="button" id="google-signin-btn" class="flex h-10 w-full items-center justify-center gap-2.5 rounded-md border border-neutral-200 text-[14px] font-medium text-neutral-700 transition-colors duration-150 hover:bg-neutral-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
           <svg width="17" height="17" viewBox="0 0 48 48" aria-hidden="true">
             <path fill="#FFC107" d="M43.6 20H24v8h11.1C33.5 33.2 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.7 1.1 7.8 2.9l5.7-5.7C33.9 6.5 29.2 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20c11 0 19.7-8 19.7-20 0-1.3-.1-2.7-.4-4z"/>
             <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.5 15.1 18.9 12 24 12c3 0 5.7 1.1 7.8 2.9l5.7-5.7C33.9 6.5 29.2 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/>
@@ -116,7 +116,7 @@
     </div>
   </div>
 
-<script>
+<script nonce="{{ \Illuminate\Support\Facades\Vite::cspNonce() }}">
 const roleLabels = { student: 'Sign in to your student account', teacher: 'Sign in to your teacher account', admin: 'Sign in to your admin account' };
 const roleRoutes = { student: '{{ route("student.login.submit") }}', teacher: '{{ route("teacher.login.submit") }}', admin: '{{ route("admin.login.submit") }}' };
 const googleRoutes = { student: '{{ route("auth.google.redirect", "student") }}', teacher: '{{ route("auth.google.redirect", "teacher") }}', admin: '{{ route("auth.google.redirect", "admin") }}' };
@@ -154,6 +154,11 @@ function redirectToGoogle() {
 document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('loginForm').action = roleRoutes[currentRole];
   document.querySelectorAll('[role="tab"]').forEach(t => paintTab(t, t.id === 'tab-' + currentRole));
+
+  document.getElementById('tab-student').addEventListener('click', function() { setRole('student', this); });
+  document.getElementById('tab-teacher').addEventListener('click', function() { setRole('teacher', this); });
+  document.getElementById('tab-admin').addEventListener('click', function() { setRole('admin', this); });
+  document.getElementById('google-signin-btn').addEventListener('click', redirectToGoogle);
 });
 </script>
 </body>

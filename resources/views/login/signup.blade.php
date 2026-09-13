@@ -55,17 +55,17 @@
         @endif
 
         <div class="mb-4 grid grid-cols-2 gap-2" role="tablist" aria-label="Account type">
-          <button type="button" role="tab" id="tab-student" aria-selected="{{ ($portalType ?? 'student') === 'student' ? 'true' : 'false' }}" onclick="setRole('student', this)">
+          <button type="button" role="tab" id="tab-student" aria-selected="{{ ($portalType ?? 'student') === 'student' ? 'true' : 'false' }}">
             <svg class="mx-auto h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 10 12 5 2 10l10 5 10-5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
             <span>Student</span>
           </button>
-          <button type="button" role="tab" id="tab-teacher" aria-selected="{{ ($portalType ?? 'student') === 'teacher' ? 'true' : 'false' }}" onclick="setRole('teacher', this)">
+          <button type="button" role="tab" id="tab-teacher" aria-selected="{{ ($portalType ?? 'student') === 'teacher' ? 'true' : 'false' }}">
             <svg class="mx-auto h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h20"/><path d="M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3"/><path d="m7 21 5-5 5 5"/></svg>
             <span>Teacher</span>
           </button>
         </div>
 
-        <button type="button" class="flex h-10 w-full items-center justify-center gap-2.5 rounded-md border border-neutral-200 text-[14px] font-medium text-neutral-700 transition-colors duration-150 hover:bg-neutral-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary" onclick="redirectToGoogle()">
+        <button type="button" id="google-signin-btn" class="flex h-10 w-full items-center justify-center gap-2.5 rounded-md border border-neutral-200 text-[14px] font-medium text-neutral-700 transition-colors duration-150 hover:bg-neutral-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
           <svg width="17" height="17" viewBox="0 0 48 48" aria-hidden="true">
             <path fill="#FFC107" d="M43.6 20H24v8h11.1C33.5 33.2 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.7 1.1 7.8 2.9l5.7-5.7C33.9 6.5 29.2 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20c11 0 19.7-8 19.7-20 0-1.3-.1-2.7-.4-4z"/>
             <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.5 15.1 18.9 12 24 12c3 0 5.7 1.1 7.8 2.9l5.7-5.7C33.9 6.5 29.2 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/>
@@ -79,7 +79,7 @@
           <span class="h-px flex-1 bg-neutral-200"></span> or sign up with email <span class="h-px flex-1 bg-neutral-200"></span>
         </div>
 
-        <form id="signupForm" method="POST" onsubmit="return validateSection(event)" class="space-y-4">
+        <form id="signupForm" method="POST" class="space-y-4">
           @csrf
           <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <x-input label="First name" name="firstName" id="fname" autocomplete="given-name" required placeholder="Juan" value="{{ old('firstName') }}" :error="$errors->first('firstName')" />
@@ -121,7 +121,7 @@
           </div>
 
           <div>
-            <x-input label="Password" name="password" type="password" id="pw" required placeholder="Create a strong password" oninput="checkStrength()" :error="$errors->first('password')" />
+            <x-input label="Password" name="password" type="password" id="pw" required placeholder="Create a strong password" :error="$errors->first('password')" />
             <div class="mt-1.5">
               <div class="h-[3px] overflow-hidden rounded-full bg-neutral-200">
                 <div id="pw-fill" class="h-full w-0 rounded-full transition-all duration-300"></div>
@@ -145,7 +145,7 @@
     </div>
   </div>
 
-<script>
+<script nonce="{{ \Illuminate\Support\Facades\Vite::cspNonce() }}">
 const roleLabels = { student: 'Sign up as a student for free', teacher: 'Sign up as a teacher' };
 const roleRoutes = { student: '{{ route("student.register") }}', teacher: '{{ route("teacher.register") }}' };
 const googleRoutes = { student: '{{ route("auth.google.redirect", "student") }}', teacher: '{{ route("auth.google.redirect", "teacher") }}' };
@@ -378,6 +378,12 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('student-id-row').classList.toggle('hidden', currentRole !== 'student');
   initSectionPicker();
   loadSections();
+
+  document.getElementById('tab-student').addEventListener('click', function() { setRole('student', this); });
+  document.getElementById('tab-teacher').addEventListener('click', function() { setRole('teacher', this); });
+  document.getElementById('google-signin-btn').addEventListener('click', redirectToGoogle);
+  document.getElementById('pw').addEventListener('input', checkStrength);
+  document.getElementById('signupForm').addEventListener('submit', validateSection);
 });
 </script>
 </body>

@@ -20,7 +20,8 @@
             <h2 class="text-base font-semibold text-neutral-900">{{ $title }}</h2>
             <button
                 type="button"
-                onclick="closeModal('{{ $id }}')"
+                data-action="close-modal"
+                data-modal-id="{{ $id }}"
                 aria-label="Close"
                 class="rounded-md p-1 text-neutral-500 transition-colors duration-150 hover:text-neutral-900
                     focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
@@ -37,3 +38,13 @@
         </div>
     </div>
 </div>
+@once
+    <script nonce="{{ \Illuminate\Support\Facades\Vite::cspNonce() }}">
+    document.addEventListener('click', function (event) {
+        const btn = event.target.closest('[data-action="close-modal"]');
+        if (!btn) return;
+
+        closeModal(btn.dataset.modalId);
+    });
+    </script>
+@endonce

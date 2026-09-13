@@ -57,7 +57,7 @@
           </div>
         </div>
 
-        <form id="completionForm" method="POST" onsubmit="return validateSection(event)">
+        <form id="completionForm" method="POST">
           @csrf
 
           <div class="mb-4" id="student-id-row">
@@ -130,7 +130,7 @@
     </div>
   </div>
 
-<script>
+<script nonce="{{ \Illuminate\Support\Facades\Vite::cspNonce() }}">
 // Validate section selection before form submission
 function validateSection(event) {
   const studentIdInput = document.getElementById('student_id');
@@ -243,6 +243,8 @@ function validateSection(event) {
   document.addEventListener('click', e => {
     if (!wrap.contains(e.target)) closeDrop();
   });
+
+  document.getElementById('completionForm').addEventListener('submit', validateSection);
 })();
 </script>
 </body>
