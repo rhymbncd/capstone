@@ -512,7 +512,7 @@ document.addEventListener('DOMContentLoaded', function () {
             quizCurrent++;
             renderQuestion();
         } else {
-            submitQuiz();
+            window.submitQuiz();
         }
     }
 
@@ -716,13 +716,22 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // ✅ Hook quiz submission to save score
-    const originalSubmitQuiz = window.submitQuiz;
+    const originalSubmitQuiz = submitQuiz;
     window.submitQuiz = function() {
         originalSubmitQuiz.call(this);
         // Save quiz score to Supabase
         Progress.saveSummativeAttempt(quizScore, quizQuestions.length);
         saveSummativeAnswers(quizScore, quizQuestions.length);
     };
+
+    // ✅ Auto-submit the summative test if the student switches tabs/apps mid-test
+    document.addEventListener('visibilitychange', () => {
+        const testInProgress = document.getElementById('quiz-question-screen')?.style.display === 'block';
+        if (document.hidden && testInProgress) {
+            window.toast('warning', '⏱️ Test auto-submitted after leaving the tab.');
+            window.submitQuiz();
+        }
+    });
 
     /* ================================
        DASHBOARD ANALYTICS — real data, no hardcoded values
