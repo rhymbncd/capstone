@@ -343,15 +343,15 @@
 
                     <div class="progress-row">
                         <div class="progress-label"><span>Sequences and Series</span><span id="progress-mod1-pct">0%</span></div>
-                        <div class="progress-bar"><div class="progress-fill-bar" id="progress-mod1-fill" style="width:0%; background:var(--blue)"></div></div>
+                        <div class="progress-bar"><div class="progress-fill-bar" id="progress-mod1-fill" style="width:0%; background:var(--red)"></div></div>
                     </div>
                     <div class="progress-row">
                         <div class="progress-label"><span>Polynomials and Polynomial Equations</span><span id="progress-mod2-pct">0%</span></div>
-                        <div class="progress-bar"><div class="progress-fill-bar" id="progress-mod2-fill" style="width:0%; background:var(--orange)"></div></div>
+                        <div class="progress-bar"><div class="progress-fill-bar" id="progress-mod2-fill" style="width:0%; background:var(--red)"></div></div>
                     </div>
                     <div class="progress-row" style="margin-bottom:0">
                         <div class="progress-label"><span>Advanced Equations and Functions</span><span id="progress-mod3-pct">0%</span></div>
-                        <div class="progress-bar"><div class="progress-fill-bar" id="progress-mod3-fill" style="width:0%; background:var(--purple)"></div></div>
+                        <div class="progress-bar"><div class="progress-fill-bar" id="progress-mod3-fill" style="width:0%; background:var(--red)"></div></div>
                     </div>
                 </section>
 

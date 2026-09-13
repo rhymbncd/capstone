@@ -721,6 +721,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const setText = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
         const setWidth = (id, pct) => { const el = document.getElementById(id); if (el) el.style.width = pct + '%'; };
+        // Module Progress bars: green once complete, red if not started, blue while in progress.
+        const pctColor = pct => pct >= 100 ? 'var(--green)' : pct <= 0 ? 'var(--red)' : 'var(--blue)';
+        const setFillColor = (id, pct) => { const el = document.getElementById(id); if (el) el.style.background = pctColor(pct); };
 
         // Home page
         setText('home-overall-progress', stats.overallPct + '%');
@@ -756,6 +759,7 @@ document.addEventListener('DOMContentLoaded', function () {
         ['mod1', 'mod2', 'mod3'].forEach(mod => {
             setText(`progress-${mod}-pct`, stats.perModule[mod].pct + '%');
             setWidth(`progress-${mod}-fill`, stats.perModule[mod].pct);
+            setFillColor(`progress-${mod}-fill`, stats.perModule[mod].pct);
         });
 
         // Recent activity
