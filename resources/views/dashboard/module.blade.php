@@ -14,7 +14,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"
           integrity="sha384-/1qUCSGwTur9vjf/z9lmu/eCUYbpOTgSjmpbMQZ1/CtX2v/WcAIKqRv+U1DUCG6e"
           crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-  <script>
+  <script nonce="{{ \Illuminate\Support\Facades\Vite::cspNonce() }}">
     window.addEventListener('load', function () {
       if (typeof pdfjsLib !== 'undefined') {
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -321,7 +321,7 @@ html,body { min-height:100%; font-family:'Plus Jakarta Sans',sans-serif; backgro
 .swal2-confirm { border-radius: 8px; padding: 8px 24px; font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 600; }
   </style>
 
-  <script>
+  <script nonce="{{ \Illuminate\Support\Facades\Vite::cspNonce() }}">
     // Expose the authenticated user so quiz progress can be tied to a real account.
     window.__USER__ = {
       id:    "{{ auth()->user()->id }}",
@@ -334,7 +334,7 @@ html,body { min-height:100%; font-family:'Plus Jakarta Sans',sans-serif; backgro
 
 <div id="page-modules">
   <header class="mq-header">
-    <button class="mq-back-btn" onclick="history.back()">
+    <button class="mq-back-btn" id="mq-back-btn">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><polyline points="15 18 9 12 15 6"/></svg>
       Back
     </button>
@@ -492,7 +492,7 @@ html,body { min-height:100%; font-family:'Plus Jakarta Sans',sans-serif; backgro
   </div>
 </div>
 
-<script>
+<script nonce="{{ \Illuminate\Support\Facades\Vite::cspNonce() }}">
 const POST_TIMER_SECS = 30;
 const CIRCUMFERENCE   = 2 * Math.PI * 17;
 const TOPIC_ORDER = ['ari','geo','har','fib','fin','div','rem','poly','rat','rad','exp','log'];
@@ -1547,6 +1547,8 @@ function mqMarkDone() {
 }
 
 document.addEventListener('DOMContentLoaded', async function () {
+
+    document.getElementById('mq-back-btn').addEventListener('click', () => history.back());
 
     // ── Wire up topic clicks ──
     document.querySelectorAll('.topic-item[data-topic]').forEach(item => {
