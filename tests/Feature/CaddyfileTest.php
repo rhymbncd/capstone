@@ -12,9 +12,9 @@ it('emits a permanent marker header identifying the active config', function () 
     expect($this->caddyfile)->toContain('header X-Config-Source "app-caddyfile"');
 });
 
-it('sends HSTS and COOP security headers', function () {
+it('sends HSTS (with preload) and COOP security headers', function () {
     expect($this->caddyfile)
-        ->toContain('header Strict-Transport-Security "max-age=31536000; includeSubDomains"')
+        ->toContain('header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"')
         ->toContain('header Cross-Origin-Opener-Policy "same-origin"');
 });
 
