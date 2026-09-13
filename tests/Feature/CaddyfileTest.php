@@ -18,11 +18,8 @@ it('sends HSTS (with preload) and COOP security headers', function () {
         ->toContain('header Cross-Origin-Opener-Policy "same-origin"');
 });
 
-it('sends a Content-Security-Policy that restricts script and frame ancestors', function () {
-    expect($this->caddyfile)
-        ->toContain('header Content-Security-Policy')
-        ->toContain("frame-ancestors 'self'")
-        ->toContain("default-src 'self'");
+it('does not set Content-Security-Policy here — that belongs to the app, which needs the per-request nonce', function () {
+    expect($this->caddyfile)->not->toContain('header Content-Security-Policy');
 });
 
 it('caches Vite build output for a year as immutable', function () {
