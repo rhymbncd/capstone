@@ -38,28 +38,32 @@ class SecurityHeaders
         $response->headers->set('X-Frame-Options', 'SAMEORIGIN');
         $response->headers->set('X-Content-Type-Options', 'nosniff');
         $response->headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');
-        $response->headers->set('Content-Security-Policy', $this->contentSecurityPolicy());
+        $response->headers->set('Content-Security-Policy', $this->contentSecurityPolicy(Vite::cspNonce()));
 
         return $response;
     }
 
     /**
-     * IMPORTANT: script-src deliberately does NOT include the nonce source
-     * yet, even though Vite::useCspNonce() above is already stamping one onto
-     * every @vite(...) tag. Per the CSP spec, the instant a `nonce-` source
-     * appears in script-src, nonce-aware browsers stop honoring
-     * 'unsafe-inline' entirely (for the whole page, not just nonced tags) —
-     * which would break every onclick="..." attribute still in the app
-     * today, all at once. This policy is otherwise identical to the one
-     * previously set in docker/Caddyfile (moved here so it can eventually
-     * read the nonce). Add 'nonce-{$nonce}' to script-src (and drop
-     * 'unsafe-inline') only once every inline handler in the app has been
-     * converted to addEventListener wiring — see the CSP refactor plan.
+     * Phase D of the CSP refactor: every inline handler in the app has been
+     * converted to addEventListener wiring and every inline <script> block
+     * carries this same nonce, so script-src can finally drop
+     * 'unsafe-inline' and require the nonce instead.
+     *
+     * Deliberately NOT using 'strict-dynamic' here: every external script in
+     * the app — the static MathJax/pdf.js <script src> tags, and the
+     * jsPDF/XLSX libraries loadExportLibs() in teacher_dashboard.js/
+     * admin_dashboard.js inserts via document.createElement — already loads
+     * from cdn.jsdelivr.net or cdnjs.cloudflare.com, both already in this
+     * allowlist. Adding 'strict-dynamic' would actively break the two static
+     * tags: per spec, the instant 'strict-dynamic' is present, nonce-aware
+     * browsers ignore host-source entries entirely (trusting only nonce'd or
+     * dynamically-inserted-by-a-trusted-script sources), and neither static
+     * tag carries a nonce.
      */
-    private function contentSecurityPolicy(): string
+    private function contentSecurityPolicy(string $nonce): string
     {
         return "default-src 'self'; ".
-            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; ".
+            "script-src 'self' 'nonce-{$nonce}' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; ".
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; ".
             "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; ".
             "img-src 'self' data: blob:; ".
