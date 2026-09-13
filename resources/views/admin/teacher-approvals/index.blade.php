@@ -142,7 +142,7 @@
     </div>
 
     @vite(['resources/js/polling.js', 'resources/js/approval-queue.js', 'resources/js/nav-progress.js'])
-    <script>
+    <script nonce="{{ \Illuminate\Support\Facades\Vite::cspNonce() }}">
         document.addEventListener('DOMContentLoaded', function () {
             initApprovalQueuePolling({
                 dataUrl: @json(route('admin.teacher-approvals.data')),
