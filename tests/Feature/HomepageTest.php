@@ -21,7 +21,7 @@ it('shows the admin-saved platform description on the homepage', function () {
 it('serves the hero image as a responsive, non-lazy LCP element', function () {
     $html = get('/')->getContent();
 
-    foreach (['640w', '1280w', '1920w'] as $variant) {
+    foreach (['640w', '1280w', '1440w', '1920w'] as $variant) {
         expect($html)->toContain("/image/pexels-photo-6344238-{$variant}.webp {$variant}");
         expect(file_exists(public_path("image/pexels-photo-6344238-{$variant}.webp")))->toBeTrue();
     }

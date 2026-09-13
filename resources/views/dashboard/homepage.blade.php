@@ -20,6 +20,7 @@
           href="/image/pexels-photo-6344238-1280w.webp"
           imagesrcset="/image/pexels-photo-6344238-640w.webp 640w,
                        /image/pexels-photo-6344238-1280w.webp 1280w,
+                       /image/pexels-photo-6344238-1440w.webp 1440w,
                        /image/pexels-photo-6344238-1920w.webp 1920w"
           imagesizes="100vw"
           fetchpriority="high">
@@ -54,6 +55,7 @@
             type="image/webp"
             srcset="/image/pexels-photo-6344238-640w.webp 640w,
                     /image/pexels-photo-6344238-1280w.webp 1280w,
+                    /image/pexels-photo-6344238-1440w.webp 1440w,
                     /image/pexels-photo-6344238-1920w.webp 1920w"
             sizes="100vw">
         <img src="/image/pexels-photo-6344238.jpeg" alt="" class="hero-bg"
