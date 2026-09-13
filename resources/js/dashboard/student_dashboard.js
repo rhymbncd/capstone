@@ -629,6 +629,10 @@ document.addEventListener('DOMContentLoaded', function () {
             const avgPost = avgOf('post');
             const improvement = (avgPre === null || avgPost === null) ? null : avgPost - avgPre;
 
+            // Only one summative/post row can exist per student (upserted on
+            // each attempt), so the latest attempt is just "find it".
+            const summative = rows.find(r => r.topic_key === 'summative' && r.phase === 'post') ?? null;
+
             // Streak: consecutive calendar days (ending today or yesterday) with at least one attempt
             const days = new Set(rows.map(r => parseUtcDate(r.created_at)?.toDateString()).filter(Boolean));
             let streak = 0;
@@ -647,7 +651,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 .sort((a, b) => (parseUtcDate(b.created_at)?.getTime() ?? 0) - (parseUtcDate(a.created_at)?.getTime() ?? 0))
                 .slice(0, 5);
 
-            return { completedTopics, perModule, overallPct, attempts: rows.length, streak, recent, avgPre, avgPost, improvement };
+            return { completedTopics, perModule, overallPct, attempts: rows.length, streak, recent, avgPre, avgPost, improvement, summative };
         },
 
         async init() {
@@ -748,6 +752,7 @@ document.addEventListener('DOMContentLoaded', function () {
         setText('progress-attempts', stats.attempts);
         setText('progress-avg-pre', stats.avgPre === null ? '—' : stats.avgPre + '%');
         setText('progress-improvement', stats.improvement === null ? '—' : `${stats.improvement >= 0 ? '+' : ''}${stats.improvement}%`);
+        setText('progress-summative-score', stats.summative ? `${stats.summative.score}/${stats.summative.total}` : '—');
         ['mod1', 'mod2', 'mod3'].forEach(mod => {
             setText(`progress-${mod}-pct`, stats.perModule[mod].pct + '%');
             setWidth(`progress-${mod}-fill`, stats.perModule[mod].pct);
