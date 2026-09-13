@@ -101,17 +101,15 @@ img {
     z-index: 1;
 }
 
-/* gradient overlay — a single brand-blue family (matches the app's
-   --blue/--blue-dark elsewhere) instead of a blue-to-teal rainbow, for a
-   calmer, more corporate read. */
+/* gradient overlay */
 .hero-gradient {
     position: absolute;
     inset: 0;
     background: linear-gradient(
-        135deg,
-        rgba(11, 32, 84, 0.7) 0%,
-        rgba(29, 78, 216, 0.5) 55%,
-        rgba(37, 99, 235, 0.35) 100%
+        90deg,
+        rgba(0, 70, 160, 0.6) 0%,
+        rgba(0, 120, 185, 0.5) 50%,
+        rgba(0, 175, 165, 0.4) 100%
     );
     z-index: 2;
 }
@@ -140,14 +138,13 @@ img {
 .hero-content h1 {
     font-size: 2.25rem;
     font-weight: 800;
-    letter-spacing: -0.5px;
+    letter-spacing: 0.5px;
     line-height: 1.15;
 }
 
 .hero-content h2 {
     font-size: 1.25rem;
     font-weight: 600;
-    color: rgba(255, 255, 255, 0.88);
     margin: 10px 0 16px;
     line-height: 1.3;
 }
@@ -163,7 +160,7 @@ img {
 @media (min-width: 640px) {
     .hero-content h1 {
         font-size: 3rem;
-        letter-spacing: -1px;
+        letter-spacing: 1px;
     }
 
     .hero-content h2 {
@@ -177,8 +174,8 @@ img {
 
 @media (min-width: 1024px) {
     .hero-content h1 {
-        font-size: 4rem;
-        letter-spacing: -1.5px;
+        font-size: 4.5rem;
+        letter-spacing: 1.5px;
     }
 }
 
@@ -311,30 +308,72 @@ img {
     transform: translateY(1px) scale(0.98);
 }
 
-/* ================= BUTTON GRADIENTS =================
-   One brand-blue family for both CTAs instead of unrelated hues per
-   button — Sign In reads as primary (deeper, solid), Sign Up as its
-   lighter secondary, so the pair reads as one intentional system. */
+/* ================= BUTTON GRADIENTS ================= */
+
+/* Auth Group Layout */
+.auth-group {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+/* STUDENT BUTTON: darker blue-teal */
 .student {
-    background: linear-gradient(135deg, #1d4ed8, #2563eb);
+    background: linear-gradient(135deg, #1e2d7a, #0a7c8c);
 }
 
 .student:hover {
-    background: linear-gradient(135deg, #2563eb, #3b82f6);
-    transform: translateY(-2px);
-    box-shadow: 0 12px 28px rgba(29, 78, 216, 0.35);
+    background: linear-gradient(135deg, #2563eb, #06b6d4);
+    transform: translateY(-2px) scale(1.05);
+    box-shadow: 0 12px 28px rgba(0,0,0,0.2);
 }
 
+/* STUDENT SIGNUP: lighter variant */
+.student-signup {
+    background: linear-gradient(135deg, #2563eb, #06b6d4);
+    padding: 12px 24px;
+    font-size: 0.85rem;
+}
+
+.student-signup:hover {
+    background: linear-gradient(135deg, #3b82f6, #0891b2);
+    transform: translateY(-2px) scale(1.05);
+    box-shadow: 0 12px 28px rgba(0,0,0,0.2);
+}
+
+/* TEACHER BUTTON: darker sky-blue to green */
 .teacher {
-    background: linear-gradient(135deg, #ffffff, #f8fafc);
-    color: #1d4ed8;
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+    background: linear-gradient(135deg, #015b8a, #0f6f36);
 }
 
 .teacher:hover {
-    background: #ffffff;
-    transform: translateY(-2px);
-    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
+    background: linear-gradient(135deg, #0ea5e9, #22c55e);
+    transform: translateY(-2px) scale(1.05);
+    box-shadow: 0 12px 28px rgba(0,0,0,0.2);
+}
+
+/* TEACHER SIGNUP: lighter variant */
+.teacher-signup {
+    background: linear-gradient(135deg, #0ea5e9, #22c55e);
+    padding: 12px 24px;
+    font-size: 0.85rem;
+}
+
+.teacher-signup:hover {
+    background: linear-gradient(135deg, #22d3ee, #4ade80);
+    transform: translateY(-2px) scale(1.05);
+    box-shadow: 0 12px 28px rgba(0,0,0,0.2);
+}
+
+/* ADMIN BUTTON: darker purple to light blue */
+.admin {
+    background: linear-gradient(135deg, #3a2f9c, #1f8fbf);
+}
+
+.admin:hover {
+    background: linear-gradient(135deg, #6366f1, #60a5fa);
+    transform: translateY(-2px) scale(1.05);
+    box-shadow: 0 12px 28px rgba(0,0,0,0.2);
 }
 
 /* ================= FEATURES =================
@@ -350,7 +389,6 @@ img {
     font-size: 1.5rem;
     font-weight: 800;
     color: #1f2937;
-    letter-spacing: -0.5px;
     line-height: 1.2;
 }
 
@@ -448,7 +486,7 @@ img {
 }
 
 .feature-card:hover {
-    transform: translateY(-6px);
+    transform: translateY(-8px) scale(1.05);
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
     border-color: #2563eb;
 }
@@ -483,9 +521,7 @@ img {
 
 .feature-card p {
     font-size: 1rem;
-    /* #475569 gives 7.6:1 against white, vs 2.6:1 for the previous
-       #94a3b8 — meets WCAG AA (matches the footer fix below). */
-    color: #475569;
+    color: #94a3b8;
     line-height: 1.6;
 }
 
@@ -502,13 +538,12 @@ img {
     font-size: 1.5rem;
     font-weight: 700;
     color: #1f2937;
-    letter-spacing: -0.5px;
     line-height: 1.2;
 }
 
 .subtitle {
     margin: 8px auto 0;
-    color: #475569;
+    color: #94a3b8;
     font-size: 1rem;
     line-height: 1.6;
     max-width: 40rem;
@@ -585,7 +620,7 @@ img {
 
 /* HOVER EFFECT */
 .topic-card:hover {
-    transform: translateY(-6px);
+    transform: translateY(-10px) scale(1.04);
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
     border-color: #3b82f6;
 }
@@ -684,12 +719,20 @@ img {
     animation: fadeUp 0.7s ease both;
 }
 
-.hero-actions .btn:nth-child(1) {
-    animation-delay: 0.5s;
+.hero-actions .auth-group:nth-child(1) .btn:nth-child(1) {
+    animation-delay: 0.6s;
 }
 
-.hero-actions .btn:nth-child(2) {
-    animation-delay: 0.6s;
+.hero-actions .auth-group:nth-child(1) .btn:nth-child(2) {
+    animation-delay: 0.7s;
+}
+
+.hero-actions .auth-group:nth-child(2) .btn:nth-child(1) {
+    animation-delay: 0.8s;
+}
+
+.hero-actions .auth-group:nth-child(2) .btn:nth-child(2) {
+    animation-delay: 0.9s;
 }
 
 /* ================= SCROLL REVEAL ================= */
