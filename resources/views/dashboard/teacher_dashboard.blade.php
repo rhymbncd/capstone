@@ -14,7 +14,7 @@
     {{-- PDF/Excel export (Reports tab) is lazy-loaded by loadExportLibs() in
          teacher_dashboard.js on first use, not loaded here. --}}
 
-    <script>
+    <script nonce="{{ \Illuminate\Support\Facades\Vite::cspNonce() }}">
         window.__USER__ = {
             id: {{ auth()->user()->id }},
             name: "{{ auth()->user()->name }}",
@@ -147,7 +147,7 @@
 
                 <div class="metrics-scroll-wrap">
                     <div class="metrics-grid">
-                        <div class="metric-card" onclick="navigate('students')">
+                        <div class="metric-card" data-page="students">
                             <div class="metric-header">
                                 <span class="metric-label">Total Students</span>
                                 <div class="icon-container blue-theme">
@@ -161,7 +161,7 @@
                             <div class="metric-sub">Active learners</div>
                         </div>
 
-                        <div class="metric-card" onclick="navigate('progress')">
+                        <div class="metric-card" data-page="progress">
                             <div class="metric-header">
                                 <span class="metric-label">Avg. Progress</span>
                                 <div class="icon-container green-theme">
@@ -174,7 +174,7 @@
                             <div class="metric-sub">Across all modules</div>
                         </div>
 
-                        <div class="metric-card" onclick="navigate('reports')">
+                        <div class="metric-card" data-page="reports">
                             <div class="metric-header">
                                 <span class="metric-label">Pending Feedback</span>
                                 <div class="icon-container orange-theme">
@@ -189,7 +189,7 @@
                             <div class="metric-sub">Awaiting review</div>
                         </div>
 
-                        <div class="metric-card" onclick="navigate('quiz')">
+                        <div class="metric-card" data-page="quiz">
                             <div class="metric-header">
                                 <span class="metric-label">Quizzes</span>
                                 <div class="icon-container purple-theme">
@@ -216,7 +216,7 @@
                             <p>Students will appear here once they enroll in your class.</p>
                         </div>
                     </div>
-                    <button class="view-topics-btn" onclick="navigate('students')">View All Students</button>
+                    <button class="view-topics-btn" data-page="students">View All Students</button>
                 </section>
 
                 <div class="bottom-grid">
@@ -229,7 +229,7 @@
                         <div class="action-content">
                             <h3>Send Feedback</h3>
                             <p>Give personalized recommendations to students</p>
-                            <button class="primary-btn" onclick="navigate('students')">Go to Students</button>
+                            <button class="primary-btn" data-page="students">Go to Students</button>
                         </div>
                     </div>
 
@@ -244,7 +244,7 @@
                         <div class="action-content">
                             <h3>Generate Reports</h3>
                             <p>Create detailed student performance reports</p>
-                            <button class="primary-btn" onclick="navigate('reports')">View Reports</button>
+                            <button class="primary-btn" data-page="reports">View Reports</button>
                         </div>
                     </div>
 
@@ -259,7 +259,7 @@
                         <div class="action-content">
                             <h3>Generate Quiz</h3>
                             <p>AI-powered pre-test & post-test generation</p>
-                            <button class="primary-btn" onclick="navigate('quiz')">Create Quiz</button>
+                            <button class="primary-btn" data-page="quiz">Create Quiz</button>
                         </div>
                     </div>
                 </div>
@@ -352,9 +352,9 @@
                     <div class="section-sub">Search, filter, and manage your students</div>
                     <div class="toolbar">
                         <input type="text" class="search-input" id="student-search"
-                               placeholder="🔍  Search by name…" oninput="filterStudents()"
+                               placeholder="🔍  Search by name…"
                                maxlength="100" autocomplete="off">
-                        <select class="filter-select" id="student-status-filter" onchange="filterStudents()">
+                        <select class="filter-select" id="student-status-filter">
                             <option value="">All Status</option>
                             <option value="Excellent">Excellent</option>
                             <option value="Good">Good</option>
@@ -511,13 +511,13 @@
                             <div class="section-sub">Overview of students grouped by their registered sections</div>
                         </div>
                         <div style="display:flex;gap:8px">
-                            <button class="success-btn" onclick="openAddSection()" style="display:flex;align-items:center;gap:6px;padding:10px 18px;width:auto">
+                            <button class="success-btn" id="open-add-section-btn" style="display:flex;align-items:center;gap:6px;padding:10px 18px;width:auto">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px">
                                     <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
                                 </svg>
                                 Add Section
                             </button>
-                            <button class="primary-btn" onclick="showReportExportPicker()" style="display:flex;align-items:center;gap:6px;padding:10px 18px;width:auto">
+                            <button class="primary-btn" id="report-export-btn" style="display:flex;align-items:center;gap:6px;padding:10px 18px;width:auto">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px">
                                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
                                 </svg>
@@ -586,9 +586,9 @@
                     <div class="section-sub">Browse, add, and manage your math learning modules</div>
                     <div class="toolbar">
                         <input type="text" class="search-input" id="module-search"
-                               placeholder="🔍  Search modules…" oninput="filterModules()"
+                               placeholder="🔍  Search modules…"
                                maxlength="100" autocomplete="off">
-                        <select class="filter-select" id="module-topic-filter" onchange="filterModules()">
+                        <select class="filter-select" id="module-topic-filter">
                             <option value="">All Topics</option>
                             <option value="Module 1: Sequences and Series">Arithmetic Sequence</option>
                             <option value="Module 1: Sequences and Series">Geometric Sequence</option>
@@ -604,7 +604,7 @@
                             <option value="Module 3: Advanced Equations">Logarithmic Functions</option>
                             
                         </select>
-                        <button class="add-btn" onclick="openAddModule()">+ Add Module</button>
+                        <button class="add-btn" id="add-module-btn">+ Add Module</button>
                     </div>
                     <div id="modules-grid" class="module-cards-grid">
                         <div class="empty-state">
@@ -680,7 +680,7 @@
                         <!-- Topic Selector -->
                         <div class="field-row">
                             <label for="quiz-topic">Math Topic</label>
-                            <select id="quiz-topic" onchange="updateActivityOptions()">
+                            <select id="quiz-topic">
                                 <option value="sequences">Module 1: Sequences and Series</option>
                                 <option value="polynomials">Module 2: Polynomials</option>
                                 <option value="advanced">Module 3: Advanced Equations</option>
@@ -780,7 +780,7 @@
 
                     <!-- Generate Button -->
                     <div class="quiz-action-row">
-                        <button class="quiz-generate-btn" id="quiz-gen-btn" onclick="generateQuiz()">
+                        <button class="quiz-generate-btn" id="quiz-gen-btn">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:16px;height:16px;flex-shrink:0">
                                 <path d="M12 2L2 7l10 5 10-5-10-5z"/>
                                 <path d="M2 17l10 5 10-5"/>
@@ -819,7 +819,7 @@
                             <div class="section-sub" id="quiz-result-sub">Generated successfully</div>
                         </div>
                         <div style="display:flex;gap:8px;flex-wrap:wrap">
-                            <button class="success-btn" onclick="saveQuizToSupabase()" style="display:flex;align-items:center;gap:6px;padding:10px 18px;width:auto">
+                            <button class="success-btn" id="save-quiz-btn" style="display:flex;align-items:center;gap:6px;padding:10px 18px;width:auto">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px">
                                     <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
                                     <polyline points="17 21 17 13 7 13 7 21"/>
@@ -827,7 +827,7 @@
                                 </svg>
                                 Save to Supabase
                             </button>
-                            <button class="primary-btn" onclick="generateQuiz()" style="display:flex;align-items:center;gap:6px;padding:10px 18px;width:auto">
+                            <button class="primary-btn" id="regenerate-quiz-btn" style="display:flex;align-items:center;gap:6px;padding:10px 18px;width:auto">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px">
                                     <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.86"/>
                                 </svg>
@@ -843,15 +843,15 @@
 
                     <!-- Tab Switcher -->
                     <div class="quiz-tabs">
-                        <button class="quiz-tab active" id="tab-pretest" onclick="switchQuizTab('pretest')">
+                        <button class="quiz-tab active" id="tab-pretest">
                             📋 Pre-Test
                             <span class="quiz-tab-count">15 items</span>
                         </button>
-                        <button class="quiz-tab" id="tab-activity" onclick="switchQuizTab('activity')">
+                        <button class="quiz-tab" id="tab-activity">
                             ⚡ Activity
                             <span class="quiz-tab-count">5 items</span>
                         </button>
-                        <button class="quiz-tab" id="tab-posttest" onclick="switchQuizTab('posttest')">
+                        <button class="quiz-tab" id="tab-posttest">
                             ✅ Post-Test
                             <span class="quiz-tab-count">15 items</span>
                         </button>
@@ -967,8 +967,8 @@
                         <input type="password" id="pw-confirm" placeholder="••••••••" autocomplete="new-password">
                     </div>
                     <div class="save-row">
-                        <button class="btn-cancel" onclick="clearPasswordForm()">Cancel</button>
-                        <button class="btn-save" onclick="updatePassword()">Update Password</button>
+                        <button class="btn-cancel" id="cancel-password-btn">Cancel</button>
+                        <button class="btn-save" id="save-password-btn">Update Password</button>
                     </div>
                 </div>
 
@@ -1033,7 +1033,7 @@
     <div class="modal">
         <div class="modal-header">
             <span class="modal-title">Send Feedback</span>
-            <button class="modal-close" onclick="closeModal('modal-feedback')">✕</button>
+            <button class="modal-close" id="modal-feedback-close-btn">✕</button>
         </div>
         <p style="font-size:13px;color:var(--text-3);margin-bottom:12px">
             To: <strong id="fb-student-name" style="color:var(--text)"></strong>
@@ -1058,8 +1058,8 @@
             <textarea id="fb-message" rows="4" placeholder="Write your feedback message here…" maxlength="500"></textarea>
         </div>
         <div class="save-row">
-            <button class="btn-cancel" onclick="closeModal('modal-feedback')">Cancel</button>
-            <button class="btn-save" onclick="saveFeedback()">Send Feedback</button>
+            <button class="btn-cancel" id="modal-feedback-cancel-btn">Cancel</button>
+            <button class="btn-save" id="modal-feedback-save-btn">Send Feedback</button>
         </div>
     </div>
 </div>
@@ -1069,7 +1069,7 @@
     <div class="modal">
         <div class="modal-header">
             <span class="modal-title" id="mod-modal-title">Add Module</span>
-            <button class="modal-close" onclick="cancelModule()">✕</button>
+            <button class="modal-close" id="modal-add-module-close-btn">✕</button>
         </div>
         <div class="field-row">
             <label for="mod-title">Module Title</label>
@@ -1116,13 +1116,13 @@
                     <div class="file-preview-name" id="mod-file-name">—</div>
                     <div class="file-preview-size" id="mod-file-size">—</div>
                 </div>
-                <button type="button" class="file-preview-remove" id="mod-file-remove" title="Remove file" onclick="clearFile()">✕</button>
+                <button type="button" class="file-preview-remove" id="mod-file-remove" title="Remove file">✕</button>
             </div>
         </div>
         <input type="hidden" id="mod-edit-id" value="">
         <div class="save-row">
-            <button class="btn-cancel" onclick="cancelModule()">Cancel</button>
-            <button class="btn-save" onclick="saveModule()">Save Module</button>
+            <button class="btn-cancel" id="modal-add-module-cancel-btn">Cancel</button>
+            <button class="btn-save" id="modal-add-module-save-btn">Save Module</button>
         </div>
     </div>
 </div>
@@ -1132,7 +1132,7 @@
     <div class="modal" style="max-width:600px">
         <div class="modal-header">
             <span class="modal-title" id="view-quiz-title">Quiz Details</span>
-            <button class="modal-close" onclick="closeModal('modal-view-quiz')">✕</button>
+            <button class="modal-close" id="modal-view-quiz-close-btn">✕</button>
         </div>
         <div id="view-quiz-body" style="max-height:60vh;overflow-y:auto"></div>
     </div>

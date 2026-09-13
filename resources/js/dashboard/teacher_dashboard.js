@@ -168,7 +168,7 @@ function renderHome() {
     }
 
     listEl.innerHTML = students.slice(0, 4).map(s => `
-        <div class="student-item" onclick="navigate('students')">
+        <div class="student-item">
             <div class="student-info">
                 <div class="student-avatar">${Security.escape(initials(s.name))}</div>
                 <div>
@@ -260,8 +260,8 @@ function renderStudents() {
                 <td><span class="status-badge ${badgeClass(s.status)}">${Security.escape(s.status)}</span></td>
                 <td style="font-size:12px;color:var(--text-3)">${Security.escape(s.lastActive)}</td>
                 <td>
-                    <button class="tbl-btn view"     onclick="viewStudent(${s.id})">View</button>
-                    <button class="tbl-btn feedback" onclick="openFeedback(${s.id})">Feedback</button>
+                    <button class="tbl-btn view"     data-action="view-student" data-id="${s.id}">View</button>
+                    <button class="tbl-btn feedback" data-action="open-feedback" data-id="${s.id}">Feedback</button>
                 </td>
             </tr>`).join('');
     }
@@ -410,7 +410,7 @@ function renderFeedbackHistory(studentId) {
                     <span style="font-size:11px;font-weight:700;color:#2563eb">${meta.icon} ${Security.escape(meta.label)}</span>
                     <span style="display:flex;align-items:center;gap:8px">
                         <span style="font-size:10px;color:#9ca3af">${Security.escape(f.date)}</span>
-                        <button type="button" onclick="deleteFeedback(${f.id})" title="Delete this feedback"
+                        <button type="button" data-action="delete-feedback" data-id="${f.id}" title="Delete this feedback"
                             style="background:none;border:none;color:#9ca3af;cursor:pointer;font-size:13px;line-height:1;padding:0">✕</button>
                     </span>
                 </div>
@@ -469,6 +469,9 @@ async function viewStudentAnswers(studentId, studentName) {
         showConfirmButton: false,
         showCloseButton: true,
     });
+    // Attached once — Swal.update() below only replaces the container's
+    // innerHTML, not the container element, so this survives every re-render.
+    Swal.getHtmlContainer()?.addEventListener('click', onAnswersModalClick);
 
     let attempts;
     try {
@@ -489,13 +492,14 @@ async function viewStudentAnswers(studentId, studentName) {
     renderAnswersModuleList();
 }
 
-function answersNavButton(label, onclick) {
-    return `<button type="button" onclick="${onclick}" style="background:none;border:none;color:#2563eb;font-size:12.5px;font-weight:600;cursor:pointer;padding:0 0 10px;display:flex;align-items:center;gap:4px">‹ ${Security.escape(label)}</button>`;
+function answersNavButton(label, action) {
+    return `<button type="button" data-action="${action}" style="background:none;border:none;color:#2563eb;font-size:12.5px;font-weight:600;cursor:pointer;padding:0 0 10px;display:flex;align-items:center;gap:4px">‹ ${Security.escape(label)}</button>`;
 }
 
-function answersDrillRow(title, subtitle, disabled, onclick) {
+function answersDrillRow(title, subtitle, disabled, action, value) {
+    const dataAttrs = disabled ? '' : `data-action="${action}" data-value="${Security.escape(value ?? '')}"`;
     return `
-        <button type="button" onclick="${disabled ? '' : onclick}"
+        <button type="button" ${dataAttrs}
             style="width:100%;text-align:left;display:flex;justify-content:space-between;align-items:center;
                    padding:12px 14px;margin-bottom:8px;border:1px solid #e5e7eb;border-radius:10px;
                    background:${disabled ? '#f9fafb' : '#fff'};cursor:${disabled ? 'not-allowed' : 'pointer'};
@@ -503,6 +507,23 @@ function answersDrillRow(title, subtitle, disabled, onclick) {
             <span style="font-size:13px;font-weight:700;color:#111827">${Security.escape(title)}</span>
             <span style="font-size:12px;color:#6b7280">${Security.escape(subtitle)}</span>
         </button>`;
+}
+
+/** Delegated click handling for the answers-drilldown SweetAlert popup —
+ *  wired once when it opens (see viewStudentAnswers()) and survives every
+ *  Swal.update() re-render since those only replace the container's
+ *  innerHTML, not the container element itself. */
+function onAnswersModalClick(event) {
+    const btn = event.target.closest('[data-action]');
+    if (!btn) return;
+
+    switch (btn.dataset.action) {
+        case 'select-module': selectAnswersModule(btn.dataset.value); break;
+        case 'select-topic': selectAnswersTopic(btn.dataset.value); break;
+        case 'back-to-modules': backToAnswersModules(); break;
+        case 'back-to-topics': backToAnswersTopics(); break;
+        case 'export-pdf': exportAnswersDetailPdf(); break;
+    }
 }
 
 /** Step 1: pick a module (or jump straight into the standalone Summative Test). */
@@ -519,14 +540,16 @@ function renderAnswersModuleList() {
                     group.label,
                     `${attempted.length}/${group.topics.length} topics attempted ${disabled ? '' : '›'}`,
                     disabled,
-                    `selectAnswersModule('${group.label}')`
+                    'select-module',
+                    group.label
                 );
             }).join('')}
             ${answersDrillRow(
                 'Summative Test',
                 summativeAttempted ? 'Attempted ›' : 'No attempt yet',
                 !summativeAttempted,
-                `selectAnswersTopic('summative')`
+                'select-topic',
+                'summative'
             )}
         </div>`;
     Swal.update({ html });
@@ -545,7 +568,7 @@ function renderAnswersTopicList() {
 
     const html = `
         <div style="text-align:left;padding:4px 2px">
-            ${answersNavButton('Back to Modules', 'backToAnswersModules()')}
+            ${answersNavButton('Back to Modules', 'back-to-modules')}
             <p style="font-size:13px;font-weight:700;color:#111827;margin:0 0 10px">${Security.escape(module.label)}</p>
             ${module.topics.map(tk => {
                 const topicAttempts = attempts.filter(a => a.topic_key === tk);
@@ -555,7 +578,8 @@ function renderAnswersTopicList() {
                     topicName,
                     disabled ? 'No attempts yet' : `${topicAttempts.length} attempt${topicAttempts.length === 1 ? '' : 's'} ›`,
                     disabled,
-                    `selectAnswersTopic('${tk}')`
+                    'select-topic',
+                    tk
                 );
             }).join('')}
         </div>`;
@@ -586,8 +610,8 @@ function renderAnswersDetail() {
     const html = `
         <div style="text-align:left;max-height:60vh;overflow-y:auto;padding:4px 2px">
             <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
-                ${answersNavButton(`Back to ${module?.label || 'Modules'}`, 'backToAnswersTopics()')}
-                <button type="button" onclick="exportAnswersDetailPdf()"
+                ${answersNavButton(`Back to ${module?.label || 'Modules'}`, 'back-to-topics')}
+                <button type="button" data-action="export-pdf"
                     style="display:flex;align-items:center;gap:6px;padding:6px 12px;margin-bottom:10px;
                            background:#2563eb;color:#fff;border:none;border-radius:8px;
                            font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0">⬇ Export PDF</button>
@@ -1037,7 +1061,7 @@ async function loadAndRenderModules() {
                     <h4>Could not load modules</h4>
                     <p>${Security.escape(err.message)}</p>
                     <button class="primary-btn" style="margin-top:12px"
-                            onclick="loadAndRenderModules()">Retry</button>
+                            data-action="retry-modules">Retry</button>
                 </div>`;
         }
         setText('mod-total', '0'); setText('mod-published', '0');
@@ -1134,13 +1158,13 @@ function renderSectionsContainer() {
                     </div>
                     <!-- Action Icons -->
                     <div style="display:flex;gap:6px">
-                        <button onclick="editSection(${sec.id}, '${Security.escape(sec.name)}')" 
+                        <button data-action="edit-section" data-id="${sec.id}" data-name="${Security.escape(sec.name)}"
                                 style="background:none;border:none;cursor:pointer;padding:10px;color:#9ca3af;transition:color 0.2s;border-radius:8px;hover:{background:#f3f4f6;color:#6b7280}">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px">
                                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                             </svg>
                         </button>
-                        <button onclick="deleteSection(${sec.id})"
+                        <button data-action="delete-section" data-id="${sec.id}"
                                 style="background:none;border:none;cursor:pointer;padding:10px;color:#9ca3af;transition:color 0.2s;border-radius:8px;hover:{background:#fef2f2;color:#ef4444}">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px">
                                 <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>
@@ -1165,7 +1189,7 @@ function renderSectionsContainer() {
                                 <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
                                     <span class="status-badge ${badgeClass(s.status)}">${Security.escape(s.status)}</span>
                                     <span style="font-size:12.5px;font-weight:700;color:${progressColor(s.progress)};width:36px;text-align:right">${s.progress}%</span>
-                                    <button onclick="viewStudentAnswers(${s.id}, '${Security.escape(s.name)}')" title="View this student's quiz answers"
+                                    <button data-action="view-answers" data-id="${s.id}" data-name="${Security.escape(s.name)}" title="View this student's quiz answers"
                                             style="background:none;border:none;cursor:pointer;padding:6px;color:#9ca3af;border-radius:6px;display:flex">
                                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px">
                                             <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
@@ -1214,9 +1238,7 @@ function openAddSection() {
                        style="width:100%;padding:11px 13px;background:#F1F5F9;
                               border:1.5px solid transparent;border-radius:11px;
                               font-size:14px;color:#333;outline:none;
-                              transition:.2s;box-sizing:border-box"
-                       onfocus="this.style.background='#fff';this.style.borderColor='#1E88E5'"
-                       onblur="this.style.background='#F1F5F9';this.style.borderColor='transparent'">
+                              transition:.2s;box-sizing:border-box">
                 <p style="font-size:12px;color:#9ca3af;margin:8px 0 0">
                     Students will see this name in the signup dropdown.
                 </p>
@@ -1226,6 +1248,11 @@ function openAddSection() {
         showCancelButton: true,
         cancelButtonText: 'Cancel',
         focusConfirm: false,
+        didOpen: () => {
+            const input = document.getElementById('swal-section-name');
+            input.addEventListener('focus', () => { input.style.background = '#fff'; input.style.borderColor = '#1E88E5'; });
+            input.addEventListener('blur', () => { input.style.background = '#F1F5F9'; input.style.borderColor = 'transparent'; });
+        },
         preConfirm: () => {
             const name = document.getElementById('swal-section-name').value.trim();
             if (!name) {
@@ -1400,15 +1427,15 @@ function renderModules() {
                     <span style="font-size:11px;color:var(--text-4);font-weight:600">${m.completion || 0}% avg. completion</span>
                 </div>
                 <div class="module-card-actions">
-                    <button class="tbl-btn view" onclick="viewModule('${Security.escape(String(m.id))}')">View</button>
+                    <button class="tbl-btn view" data-action="view-module" data-id="${Security.escape(String(m.id))}">View</button>
                     ${m.status === 'Published'
-                        ? `<button class="tbl-btn" onclick="sendToDownloads('${Security.escape(String(m.id))}')"
+                        ? `<button class="tbl-btn" data-action="send-to-downloads" data-id="${Security.escape(String(m.id))}"
                                style="background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe;font-weight:700">
                                📥 Send
                            </button>`
-                        : `<button class="tbl-btn edit" onclick="editModule('${Security.escape(String(m.id))}')">Edit</button>`
+                        : `<button class="tbl-btn edit" data-action="edit-module" data-id="${Security.escape(String(m.id))}">Edit</button>`
                     }
-                    <button class="tbl-btn feedback" onclick="deleteModule('${Security.escape(String(m.id))}')">Delete</button>
+                    <button class="tbl-btn feedback" data-action="delete-module" data-id="${Security.escape(String(m.id))}">Delete</button>
                 </div>
             </div>
         </div>`;
@@ -2754,8 +2781,7 @@ function renderQuestionList(containerId, questions, type) {
                            name="${qId}-ans"
                            value="${letter}"
                            data-qid="${qId}"
-                           ${isCorrect ? 'checked' : ''}
-                           onchange="quizMarkAnswer(this)">
+                           ${isCorrect ? 'checked' : ''}>
                     <span class="quiz-opt-radio-dot ${isCorrect ? 'is-correct' : ''}"></span>
                 </label>
                 <span class="option-letter">${Security.escape(letter)}</span>
@@ -2764,7 +2790,6 @@ function renderQuestionList(containerId, questions, type) {
                       data-type="${type}"
                       data-idx="${idx}"
                       data-field="option-${letter}"
-                      onblur="quizSaveEdit(this)"
                       title="Click to edit option"
                 >${Security.escape(text)}</span>
             </div>`;
@@ -2779,7 +2804,6 @@ function renderQuestionList(containerId, questions, type) {
                      data-type="${type}"
                      data-idx="${idx}"
                      data-field="question"
-                     onblur="quizSaveEdit(this)"
                      title="Click to edit question"
                 >${Security.escape(q.question)}</div>
                 <div class="quiz-q-options">${optionsHTML}</div>
@@ -2818,7 +2842,6 @@ function renderActivityList(containerId, activities) {
                      data-type="activity"
                      data-idx="${idx}"
                      data-field="question"
-                     onblur="quizSaveEdit(this)"
                      title="Click to edit question"
                 >${Security.escape(a.question)}</div>
                 ${a.instruction !== undefined ? `
@@ -2827,7 +2850,6 @@ function renderActivityList(containerId, activities) {
                      data-type="activity"
                      data-idx="${idx}"
                      data-field="instruction"
-                     onblur="quizSaveEdit(this)"
                      title="Click to edit instruction"
                 >📝 ${Security.escape(a.instruction)}</div>` : ''}
                 <div class="quiz-edit-hint">
@@ -2990,7 +3012,7 @@ function renderSymbolPalette() {
 
     const tabsHtml = QUIZ_SYMBOL_GROUPS.map(g => `
         <button type="button" class="quiz-symbol-tab ${g.id === quizSymbolActiveTab ? 'active' : ''}"
-                onclick="quizSymbolSwitchTab('${g.id}')">${Security.escape(g.label)}</button>
+                data-action="switch-symbol-tab" data-tab="${g.id}">${Security.escape(g.label)}</button>
     `).join('');
 
     const gridEntries = query
@@ -2999,7 +3021,7 @@ function renderSymbolPalette() {
 
     const symbolBtn = s => `
         <button type="button" class="quiz-symbol-btn" title="${Security.escape(s.name)}"
-                onmousedown="event.preventDefault(); handleQuizSymbolInsert('${s.char.replace(/'/g, "\\'")}')">${Security.escape(s.char)}</button>`;
+                data-char="${Security.escape(s.char)}">${Security.escape(s.char)}</button>`;
 
     const gridHtml = gridEntries.length
         ? gridEntries.map(symbolBtn).join('')
@@ -3014,12 +3036,42 @@ function renderSymbolPalette() {
     mount.innerHTML = `
         <div class="quiz-symbol-palette">
             <input type="text" class="quiz-symbol-search" placeholder="🔍 Search symbols by name (e.g. 'sum', 'pi', 'root')…"
-                   value="${Security.escape(query)}" oninput="quizSymbolSetSearch(this.value)"
-                   onkeydown="if(event.key==='Escape'){this.value='';quizSymbolSetSearch('');}" maxlength="40">
+                   value="${Security.escape(query)}" maxlength="40">
             ${recentsHtml}
             ${query ? '' : `<div class="quiz-symbol-tabs">${tabsHtml}</div>`}
             <div class="quiz-symbol-grid">${gridHtml}</div>
         </div>`;
+}
+
+/** Delegated wiring for the symbol palette — attached once (see the
+ *  DOMContentLoaded init below) to the static #quiz-symbol-palette mount
+ *  point, since renderSymbolPalette() only replaces its innerHTML, not the
+ *  mount element itself. */
+function initSymbolPaletteEvents(mount) {
+    // mousedown (not click) + preventDefault, so inserting a symbol never
+    // steals focus away from whichever question/option field is being edited.
+    mount.addEventListener('mousedown', event => {
+        const btn = event.target.closest('.quiz-symbol-btn');
+        if (!btn) return;
+        event.preventDefault();
+        handleQuizSymbolInsert(btn.dataset.char);
+    });
+    mount.addEventListener('click', event => {
+        const btn = event.target.closest('[data-action="switch-symbol-tab"]');
+        if (!btn) return;
+        quizSymbolSwitchTab(btn.dataset.tab);
+    });
+    mount.addEventListener('input', event => {
+        if (event.target.classList.contains('quiz-symbol-search')) {
+            quizSymbolSetSearch(event.target.value);
+        }
+    });
+    mount.addEventListener('keydown', event => {
+        if (event.target.classList.contains('quiz-symbol-search') && event.key === 'Escape') {
+            event.target.value = '';
+            quizSymbolSetSearch('');
+        }
+    });
 }
 
 function quizSymbolSwitchTab(id) {
@@ -3458,9 +3510,9 @@ function renderSavedQuizzes() {
                 </div>
             </div>
             <div class="saved-quiz-actions" style="display:flex;gap:6px;flex-shrink:0">
-                <button class="tbl-btn view"     onclick="viewSavedQuiz(${idx})">View</button>
-                <button class="tbl-btn edit"     onclick="editSavedQuiz(${idx})">Edit</button>
-                <button class="tbl-btn feedback" onclick="deleteSavedQuiz(${idx})">Delete</button>
+                <button class="tbl-btn view"     data-action="view-saved-quiz" data-idx="${idx}">View</button>
+                <button class="tbl-btn edit"     data-action="edit-saved-quiz" data-idx="${idx}">Edit</button>
+                <button class="tbl-btn feedback" data-action="delete-saved-quiz" data-idx="${idx}">Delete</button>
             </div>
         </div>`).join('');
 }
@@ -3895,7 +3947,7 @@ async function renderPublishedPanel() {
             </div>
             <div class="saved-quiz-actions">
                 <button class="tbl-btn feedback"
-                        onclick="confirmUnpublish('${Security.escape(r.topic_key)}', '${Security.escape(label)}')">
+                        data-action="unpublish" data-topic-key="${Security.escape(r.topic_key)}" data-label="${Security.escape(label)}">
                     Unpublish
                 </button>
             </div>
@@ -4024,7 +4076,7 @@ async function renderTopicManager() {
                     </span>
                 </span>
                 <button class="tbl-btn feedback" style="padding:4px 10px;font-size:11px"
-                        onclick="removeCustomTopic('${Security.escape(t.id)}', '${Security.escape(t.topic_name)}')">
+                        data-action="remove-custom-topic" data-id="${Security.escape(t.id)}" data-name="${Security.escape(t.topic_name)}">
                     Remove
                 </button>
             </div>`).join('')}
@@ -4037,7 +4089,7 @@ async function renderTopicManager() {
         ${builtinHTML}
         ${customHTML}
         <button class="primary-btn" style="width:100%;margin-top:8px;font-size:13px;padding:10px"
-                onclick="openAddTopicDialog()">
+                data-action="open-add-topic-dialog">
             + Add Custom Topic
         </button>`;
 }
@@ -4155,74 +4207,13 @@ async function initQuizPage() {
 }
 
 /* ============================================================
-   GLOBAL EXPOSE
-   ============================================================ */
-Object.assign(window, {
-    // Navigation
-    navigate,
-
-    // Students
-    filterStudents, viewStudent, openFeedback, saveFeedback, viewStudentAnswers,
-    selectAnswersModule, backToAnswersModules, selectAnswersTopic, backToAnswersTopics,
-    exportAnswersDetailPdf, deleteFeedback,
-
-    // Modules
-    filterModules, openAddModule, saveModule, viewModule, editModule, deleteModule, sendToDownloads,
-    loadAndRenderModules, cancelModule, clearFile, resetModuleForm,
-
-    // Reports / Sections
-    openAddSection, editSection, deleteSection, showReportExportPicker,
-
-    // Profile
-    updatePassword, clearPasswordForm,
-
-    // Modals
-    openModal, closeModal,
-
-    // Auth
-    confirmLogout,
-
-    // Quiz Generator
-    updateActivityOptions,
-    switchQuizTab,
-    generateQuiz,
-    saveQuizToSupabase,
-    viewSavedQuiz,
-    initQuizPage,
-    getQuizCounts,
-    quizSaveEdit,
-    quizMarkAnswer,
-    insertQuizSymbol,
-    quizSymbolSwitchTab,
-    quizSymbolSetSearch,
-    handleQuizSymbolInsert,
-    injectQuizEditStyles,
-    publishCurrentQuiz,
-    publishQuizToStudents,
-    loadPublishedQuizzes,
-    unpublishQuiz,
-    renderPublishedPanel,
-    confirmUnpublish,
-    loadCustomTopics,
-    addCustomTopic,
-    deleteCustomTopic,
-    generateTopicKey,
-    renderTopicManager,
-    openAddTopicDialog,
-    removeCustomTopic,
-    editSavedQuiz,
-    openEditQuizModal,
-    reGenerateQuiz,
-    deleteSavedQuiz,
-});
-
-/* ============================================================
    INIT
    ============================================================ */
 document.addEventListener('DOMContentLoaded', async () => {
     injectQuizEditStyles();
     renderSymbolPalette();
-    
+    initSymbolPaletteEvents(document.getElementById('quiz-symbol-palette'));
+
     document.querySelectorAll('[data-page]').forEach(btn => {
         btn.addEventListener('click', () => navigate(btn.dataset.page));
     });
@@ -4239,6 +4230,105 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.addEventListener('keydown', e => {
         if (e.key === 'Escape')
             document.querySelectorAll('.modal-overlay.open').forEach(o => closeModal(o.id));
+    });
+
+    /* ============================================================
+       STATIC BUTTON WIRING
+       (was onclick="..." in the Blade view — see the CSP refactor)
+       ============================================================ */
+    document.getElementById('open-add-section-btn')?.addEventListener('click', () => openAddSection());
+    document.getElementById('report-export-btn')?.addEventListener('click', () => showReportExportPicker());
+    document.getElementById('add-module-btn')?.addEventListener('click', () => openAddModule());
+    document.getElementById('save-quiz-btn')?.addEventListener('click', () => saveQuizToSupabase());
+    document.getElementById('regenerate-quiz-btn')?.addEventListener('click', () => generateQuiz());
+    document.getElementById('quiz-gen-btn')?.addEventListener('click', () => generateQuiz());
+    document.getElementById('tab-pretest')?.addEventListener('click', () => switchQuizTab('pretest'));
+    document.getElementById('tab-activity')?.addEventListener('click', () => switchQuizTab('activity'));
+    document.getElementById('tab-posttest')?.addEventListener('click', () => switchQuizTab('posttest'));
+    document.getElementById('cancel-password-btn')?.addEventListener('click', () => clearPasswordForm());
+    document.getElementById('save-password-btn')?.addEventListener('click', () => updatePassword());
+    document.getElementById('modal-feedback-close-btn')?.addEventListener('click', () => closeModal('modal-feedback'));
+    document.getElementById('modal-feedback-cancel-btn')?.addEventListener('click', () => closeModal('modal-feedback'));
+    document.getElementById('modal-feedback-save-btn')?.addEventListener('click', () => saveFeedback());
+    document.getElementById('modal-add-module-close-btn')?.addEventListener('click', () => cancelModule());
+    document.getElementById('mod-file-remove')?.addEventListener('click', () => clearFile());
+    document.getElementById('modal-add-module-cancel-btn')?.addEventListener('click', () => cancelModule());
+    document.getElementById('modal-add-module-save-btn')?.addEventListener('click', () => saveModule());
+    document.getElementById('modal-view-quiz-close-btn')?.addEventListener('click', () => closeModal('modal-view-quiz'));
+
+    document.getElementById('student-search')?.addEventListener('input', () => filterStudents());
+    document.getElementById('student-status-filter')?.addEventListener('change', () => filterStudents());
+    document.getElementById('module-search')?.addEventListener('input', () => filterModules());
+    document.getElementById('module-topic-filter')?.addEventListener('change', () => filterModules());
+    document.getElementById('quiz-topic')?.addEventListener('change', () => updateActivityOptions());
+
+    // JS-rendered rows: delegated since these containers get re-rendered.
+    document.getElementById('home-student-list')?.addEventListener('click', () => navigate('students'));
+
+    document.getElementById('students-tbody')?.addEventListener('click', e => {
+        const btn = e.target.closest('[data-action]');
+        if (!btn) return;
+        const id = Number(btn.dataset.id);
+        if (btn.dataset.action === 'view-student') viewStudent(id);
+        if (btn.dataset.action === 'open-feedback') openFeedback(id);
+    });
+
+    document.getElementById('fb-history-list')?.addEventListener('click', e => {
+        const btn = e.target.closest('[data-action="delete-feedback"]');
+        if (!btn) return;
+        deleteFeedback(Number(btn.dataset.id));
+    });
+
+    document.getElementById('sections-container')?.addEventListener('click', e => {
+        const btn = e.target.closest('[data-action]');
+        if (!btn) return;
+        if (btn.dataset.action === 'edit-section') editSection(Number(btn.dataset.id), btn.dataset.name);
+        if (btn.dataset.action === 'delete-section') deleteSection(Number(btn.dataset.id));
+        if (btn.dataset.action === 'view-answers') viewStudentAnswers(Number(btn.dataset.id), btn.dataset.name);
+    });
+
+    document.getElementById('modules-grid')?.addEventListener('click', e => {
+        const btn = e.target.closest('[data-action]');
+        if (!btn) return;
+        const id = btn.dataset.id;
+        if (btn.dataset.action === 'view-module') viewModule(id);
+        if (btn.dataset.action === 'edit-module') editModule(id);
+        if (btn.dataset.action === 'delete-module') deleteModule(id);
+        if (btn.dataset.action === 'send-to-downloads') sendToDownloads(id);
+        if (btn.dataset.action === 'retry-modules') loadAndRenderModules();
+    });
+
+    ['pretest-questions', 'posttest-questions', 'activity-questions'].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('focusout', e => {
+            if (e.target.classList?.contains('quiz-editable')) quizSaveEdit(e.target);
+        });
+        el.addEventListener('change', e => {
+            if (e.target.matches('input[type="radio"][data-qid]')) quizMarkAnswer(e.target);
+        });
+    });
+
+    document.getElementById('saved-quizzes-list')?.addEventListener('click', e => {
+        const btn = e.target.closest('[data-action]');
+        if (!btn) return;
+        const idx = Number(btn.dataset.idx);
+        if (btn.dataset.action === 'view-saved-quiz') viewSavedQuiz(idx);
+        if (btn.dataset.action === 'edit-saved-quiz') editSavedQuiz(idx);
+        if (btn.dataset.action === 'delete-saved-quiz') deleteSavedQuiz(idx);
+    });
+
+    document.getElementById('quiz-published-list')?.addEventListener('click', e => {
+        const btn = e.target.closest('[data-action="unpublish"]');
+        if (!btn) return;
+        confirmUnpublish(btn.dataset.topicKey, btn.dataset.label);
+    });
+
+    document.getElementById('quiz-topic-manager')?.addEventListener('click', e => {
+        const btn = e.target.closest('[data-action]');
+        if (!btn) return;
+        if (btn.dataset.action === 'remove-custom-topic') removeCustomTopic(btn.dataset.id, btn.dataset.name);
+        if (btn.dataset.action === 'open-add-topic-dialog') openAddTopicDialog();
     });
 
     initFileUpload();
