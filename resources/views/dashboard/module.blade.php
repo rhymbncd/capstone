@@ -62,6 +62,13 @@ html,body { min-height:100%; font-family:'Plus Jakarta Sans',sans-serif; backgro
 .welcome-title { font-size:22px; font-weight:800; color:var(--text); letter-spacing:-0.5px; line-height:1.2; }
 .welcome-subtitle { font-size:13px; color:var(--text-3); margin-top:4px; }
 
+.materials-attribution {
+  font-size: 12px; line-height: 1.5; color: var(--text-3);
+  background: var(--card); border: 1px solid var(--border);
+  border-left: 3px solid var(--blue); border-radius: 8px;
+  padding: 10px 14px; margin-bottom: 18px;
+}
+
 .section-label { font-size:16px; font-weight:800; color:var(--text); letter-spacing:-0.3px; margin-bottom:3px; }
 .section-sub   { font-size:12px; color:var(--text-3); margin-bottom:14px; }
 
@@ -354,6 +361,8 @@ html,body { min-height:100%; font-family:'Plus Jakarta Sans',sans-serif; backgro
       <h1 class="welcome-title">Learning Modules</h1>
       <p class="welcome-subtitle">Pre-Test → Lesson → Activity → Post-Test · Complete each step to unlock the next</p>
     </div>
+
+    <p class="materials-attribution">These learning materials are based on the Grade 10 Mathematics modules provided by Bubog School and are incorporated into this system for interactive learning.</p>
 
     <nav class="mq-module-tabs" id="mq-module-tabs">
       <button type="button" class="mq-module-tab" data-module="1">Module 1<span class="mq-tab-state"></span></button>
