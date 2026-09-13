@@ -2013,10 +2013,9 @@ function badgeClass(status) {
     return { Excellent: 'badge-excellent', Good: 'badge-good', Average: 'badge-average', 'Needs Help': 'badge-needs-help', 'Not Started': 'badge-not-started' }[status] || 'badge-needs-help';
 }
 function progressColor(pct) {
-    if (pct >= 80) return '#2563eb';
-    if (pct >= 60) return '#10b981';
-    if (pct >= 40) return '#f97316';
-    return '#ef4444';
+    if (pct >= 100) return '#10b981'; // green — complete
+    if (pct <= 0) return '#ef4444'; // red — not started
+    return '#2563eb'; // blue — in progress
 }
 function makePgBtn(label, disabled, handler) {
     const btn = document.createElement('button');

@@ -732,6 +732,7 @@ document.addEventListener('DOMContentLoaded', function () {
         ['mod1', 'mod2', 'mod3'].forEach(mod => {
             setText(`home-${mod}-pct`, stats.perModule[mod].pct + '%');
             setWidth(`home-${mod}-fill`, stats.perModule[mod].pct);
+            setFillColor(`home-${mod}-fill`, stats.perModule[mod].pct);
             setText(`home-${mod}-icon`, stats.perModule[mod].done === stats.perModule[mod].total ? '✓' : '—');
         });
 

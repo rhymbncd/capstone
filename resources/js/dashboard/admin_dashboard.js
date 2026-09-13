@@ -1549,10 +1549,9 @@ function makePgBtn(label, disabled, handler) {
 function warn(title, text)  { Swal.fire({ icon:'warning', title, text, confirmButtonColor:'#2563eb' }); }
 function toast(icon, title) { Swal.fire({ icon, title, timer:2000, timerProgressBar:true, showConfirmButton:false }); }
 function progressColor(pct) {
-    if (pct >= 80) return '#2563eb';
-    if (pct >= 60) return '#10b981';
-    if (pct >= 40) return '#f97316';
-    return '#ef4444';
+    if (pct >= 100) return '#10b981'; // green — complete
+    if (pct <= 0) return '#ef4444'; // red — not started
+    return '#2563eb'; // blue — in progress
 }
 function formatFileSize(bytes) {
     if (!bytes) return '0 B';
