@@ -666,8 +666,9 @@
 
                 <div id="quiz-question-screen" style="display:none;">
                     <div class="modules-container" id="quiz-card">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; gap:10px;">
                             <span class="section-label" id="quiz-q-label">Question 1 of 10</span>
+                            <span class="profile-badge" id="quiz-timer-badge">⏱ 0:30</span>
                             <span class="profile-badge" id="quiz-score-badge">Score: 0</span>
                         </div>
                         <div style="background:var(--border); border-radius:99px; height:6px; margin-bottom:20px; overflow:hidden;">

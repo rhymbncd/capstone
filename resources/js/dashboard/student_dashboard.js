@@ -433,6 +433,45 @@ document.addEventListener('DOMContentLoaded', function () {
     const quizInstructionsCountEl = document.getElementById('quiz-instructions-count');
     if (quizInstructionsCountEl) quizInstructionsCountEl.textContent = `${quizQuestions.length} multiple choice questions`;
 
+    // ✅ Per-question countdown — auto-advances (or auto-submits on the last
+    // question) once time runs out, same as leaving the tab does.
+    const QUIZ_SECONDS_PER_QUESTION = 30;
+    let quizTimerInterval = null;
+
+    function stopQuestionTimer() {
+        clearInterval(quizTimerInterval);
+        quizTimerInterval = null;
+    }
+
+    function updateTimerDisplay(seconds) {
+        const el = document.getElementById('quiz-timer-badge');
+        if (!el) return;
+        el.textContent = `⏱ 0:${String(seconds).padStart(2, '0')}`;
+        el.style.background = seconds <= 10 ? 'var(--red-light)' : '';
+        el.style.color      = seconds <= 10 ? 'var(--red)'       : '';
+    }
+
+    function startQuestionTimer() {
+        stopQuestionTimer();
+        let secondsLeft = QUIZ_SECONDS_PER_QUESTION;
+        updateTimerDisplay(secondsLeft);
+        quizTimerInterval = setInterval(() => {
+            secondsLeft--;
+            if (secondsLeft <= 0) {
+                stopQuestionTimer();
+                window.toast('warning', "⏱️ Time's up for this question!");
+                if (quizCurrent < quizQuestions.length - 1) {
+                    quizCurrent++;
+                    renderQuestion();
+                } else {
+                    window.submitQuiz();
+                }
+                return;
+            }
+            updateTimerDisplay(secondsLeft);
+        }, 1000);
+    }
+
     function startQuiz() {
         quizCurrent = 0;
         quizAnswers = new Array(quizQuestions.length).fill(null);
@@ -451,6 +490,7 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('quiz-progress-bar').style.width = `${((quizCurrent + 1) / total) * 100}%`;
         document.getElementById('quiz-question-text').textContent = q.q;
         document.getElementById('quiz-score-badge').textContent   = `Score: ${quizScore}`;
+        startQuestionTimer();
 
         const choicesEl = document.getElementById('quiz-choices');
         choicesEl.innerHTML = '';
@@ -499,6 +539,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function submitQuiz() {
+        stopQuestionTimer();
         quizScore = quizAnswers.reduce((acc, ans, i) =>
             acc + (ans === quizQuestions[i].answer ? 1 : 0), 0);
 
