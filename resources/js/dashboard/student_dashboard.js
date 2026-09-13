@@ -100,7 +100,6 @@ document.addEventListener('DOMContentLoaded', function () {
     });
     document.getElementById('summative-cta-start-btn')?.addEventListener('click', () => window.showTestInstructions());
     document.getElementById('start-summative-btn')?.addEventListener('click', () => window.startQuiz());
-    document.getElementById('quiz-prev-btn')?.addEventListener('click', () => quizPrev());
     document.getElementById('quiz-next-btn')?.addEventListener('click', () => quizNext());
     document.getElementById('retake-quiz-btn')?.addEventListener('click', () => retakeQuiz());
 
@@ -503,10 +502,6 @@ document.addEventListener('DOMContentLoaded', function () {
             choicesEl.appendChild(btn);
         });
 
-        const prevBtn = document.getElementById('quiz-prev-btn');
-        prevBtn.style.opacity = quizCurrent === 0 ? '0.3' : '1';
-        prevBtn.disabled      = quizCurrent === 0;
-
         document.getElementById('quiz-next-btn').textContent =
             quizCurrent === total - 1 ? 'Submit ✓' : 'Next →';
     }
@@ -532,10 +527,6 @@ document.addEventListener('DOMContentLoaded', function () {
         } else {
             window.submitQuiz();
         }
-    }
-
-    function quizPrev() {
-        if (quizCurrent > 0) { quizCurrent--; renderQuestion(); }
     }
 
     function submitQuiz() {
@@ -1071,7 +1062,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Expose quiz functions globally for Blade inline onclick attributes
     window.quizNext   = quizNext;
-    window.quizPrev   = quizPrev;
     window.retakeQuiz = retakeQuiz;
 
 });

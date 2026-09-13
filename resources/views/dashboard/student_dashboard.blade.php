@@ -677,7 +677,6 @@
                         <p id="quiz-question-text" style="font-size:15px; font-weight:700; color:var(--text); line-height:1.5; margin-bottom:20px;"></p>
                         <div id="quiz-choices" style="display:flex; flex-direction:column; gap:10px;"></div>
                         <div style="display:flex; justify-content:flex-end; margin-top:20px; gap:10px;">
-                            <button class="outline-btn" id="quiz-prev-btn" style="max-width:120px;">← Back</button>
                             <button class="primary-btn" id="quiz-next-btn" style="max-width:160px;">Next →</button>
                         </div>
                     </div>
