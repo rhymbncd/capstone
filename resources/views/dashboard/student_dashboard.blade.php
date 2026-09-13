@@ -45,6 +45,7 @@
 
     <script
         id="MathJax-script"
+        nonce="{{ \Illuminate\Support\Facades\Vite::cspNonce() }}"
         async
         src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"
         integrity="sha384-KKWa9jJ1MZvssLeOoXG6FiOAZfAgmzsIIfw8BXwI9+kYm0lPCbC6yTQPBC00F1/L"

@@ -11,7 +11,8 @@
   @vite(['resources/js/nav-progress.js', 'resources/js/swal-global.js'])
 
   <!-- PDF.js — renders module PDFs inline for viewing (no forced download) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"
+  <script nonce="{{ \Illuminate\Support\Facades\Vite::cspNonce() }}"
+          src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"
           integrity="sha384-/1qUCSGwTur9vjf/z9lmu/eCUYbpOTgSjmpbMQZ1/CtX2v/WcAIKqRv+U1DUCG6e"
           crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <script nonce="{{ \Illuminate\Support\Facades\Vite::cspNonce() }}">

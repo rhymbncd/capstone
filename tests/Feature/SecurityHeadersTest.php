@@ -12,11 +12,15 @@ it('sets real security headers on every response', function () {
     $response->assertHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
 });
 
-it('sends a Content-Security-Policy that requires a nonce for scripts, not unsafe-inline', function () {
-    // Phase D of the CSP refactor: every inline handler in the app is now
-    // addEventListener-wired and every inline <script> carries this nonce,
-    // so script-src no longer needs 'unsafe-inline' — see the comment on
-    // SecurityHeaders::contentSecurityPolicy().
+it('sends a Content-Security-Policy driven by nonce + strict-dynamic, not the host allowlist', function () {
+    // Phase D of the CSP refactor: every inline handler is addEventListener-
+    // wired and every inline/external <script> carries this nonce, so
+    // 'strict-dynamic' can do the real trust decision for capable browsers.
+    // 'unsafe-inline' and the CDN hosts stay in script-src too, but only as
+    // a graceful-degradation fallback for browsers old enough to not
+    // understand nonce-source/strict-dynamic syntax — a nonce-aware browser
+    // ignores both the instant 'strict-dynamic' is present. See the comment
+    // on SecurityHeaders::contentSecurityPolicy().
     $response = get('/');
 
     $response->assertHeader('Content-Security-Policy');
@@ -25,8 +29,8 @@ it('sends a Content-Security-Policy that requires a nonce for scripts, not unsaf
     expect($csp)
         ->toContain("default-src 'self'")
         ->toMatch('/script-src[^;]*\'nonce-'.preg_quote(Vite::cspNonce(), '/')."'/")
-        ->not->toContain("script-src 'self' 'unsafe-inline'")
-        ->not->toMatch('/script-src[^;]*strict-dynamic/')
+        ->toMatch("/script-src[^;]*'strict-dynamic'/")
+        ->toMatch("/script-src[^;]*'unsafe-inline'/")
         ->toContain("frame-ancestors 'self'");
 });
 
