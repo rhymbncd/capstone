@@ -370,6 +370,7 @@
                                     <th>#</th>
                                     <th>Name</th>
                                     <th>Student ID</th>
+                                    <th>Section</th>
                                     <th>Progress</th>
                                     <th>Status</th>
                                     <th>Last Active</th>

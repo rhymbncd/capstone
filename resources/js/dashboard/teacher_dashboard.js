@@ -237,7 +237,7 @@ function renderStudents() {
 
     const tbody = document.getElementById('students-tbody');
     if (!slice.length) {
-        tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">👤</div><h4>No students found</h4><p>Try a different search or filter.</p></div></td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">👤</div><h4>No students found</h4><p>Try a different search or filter.</p></div></td></tr>`;
     } else {
         tbody.innerHTML = slice.map((s, i) => `
             <tr>
@@ -249,6 +249,7 @@ function renderStudents() {
                     </div>
                 </td>
                 <td style="font-size:12px;color:var(--text-3)">${s.studentId ? Security.escape(s.studentId) : '—'}</td>
+                <td style="font-size:12px;color:var(--text-3)">${Security.escape(s.section || '—')}</td>
                 <td>
                     <div style="display:flex;align-items:center;gap:8px">
                         <div class="progress-bar" style="width:80px;height:6px;display:inline-block">
