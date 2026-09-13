@@ -706,9 +706,14 @@ img {
     animation: fadeUp 0.9s ease 0.2s both;
 }
 
-.hero-content p {
-    animation: fadeUp 0.9s ease 0.4s both;
-}
+/* .hero-content p (the subtext under the h2) deliberately has NO entrance
+   animation, unlike h1/h2 above: it's the actual LCP element PageSpeed
+   measures. Chrome defers an element's reported LCP timestamp while it's
+   still the target of a transform animation, so the 0.4s animation-delay
+   this used to have was directly adding ~0.4s to the measured "element
+   render delay" even though the text was already fully painted (opaque)
+   that whole time. Rendering it in its final position immediately removes
+   that measurement delay with no other visible change to the page. */
 
 .hero-actions .btn {
     animation: fadeUp 0.7s ease both;
