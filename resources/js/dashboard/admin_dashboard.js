@@ -167,8 +167,8 @@ function renderUsers() {
                 <td style="font-size:12px;color:var(--text-3)">${Security.escape(u.joined)}</td>
                 <td><span class="status-badge ${u.status === 'Active' ? 'badge-good' : 'badge-danger'}">${Security.escape(u.status)}</span></td>
                 <td>
-                    <button class="tbl-btn edit" onclick="editUser('${Security.escape(u.id)}')">Edit</button>
-                    <button class="tbl-btn del"  onclick="deleteUser('${Security.escape(u.id)}')">Delete</button>
+                    <button class="tbl-btn edit" data-action="edit-user" data-id="${Security.escape(u.id)}">Edit</button>
+                    <button class="tbl-btn del"  data-action="delete-user" data-id="${Security.escape(u.id)}">Delete</button>
                 </td>
             </tr>`).join('');
     }
@@ -392,8 +392,8 @@ function renderTimelineRows(rows, { archived }) {
                 <div class="tl-head">
                     <div class="tl-title">${Security.escape(a.title)}</div>
                     <div class="tl-actions">
-                        ${archived ? `<button class="tbl-btn edit" onclick="restoreActivityLog('${Security.escape(a.id)}')">Restore</button>` : ''}
-                        <button class="tbl-btn del" onclick="deleteActivityLog('${Security.escape(a.id)}', ${archived})">Delete</button>
+                        ${archived ? `<button class="tbl-btn edit" data-action="restore-log" data-id="${Security.escape(a.id)}">Restore</button>` : ''}
+                        <button class="tbl-btn del" data-action="delete-log" data-id="${Security.escape(a.id)}" data-archived="${archived}">Delete</button>
                     </div>
                 </div>
                 <div class="tl-sub">${Security.escape(a.sub || '')}</div>
@@ -815,7 +815,7 @@ async function loadAndRenderContent() {
                 <h4>Could not load modules</h4>
                 <p>${Security.escape(err.message)}</p>
                 <button class="primary-btn" style="margin-top:12px"
-                        onclick="loadAndRenderContent()">Retry</button>
+                        data-action="retry-content">Retry</button>
             </div>`;
         setText('c-pending', '0'); setText('c-approved', '0'); setText('c-rejected', '0');
     } finally {
@@ -868,13 +868,13 @@ function renderContent() {
 
         const actionBtns = c.status === 'pending'
             ? `<div class="queue-actions">
-                   <button class="btn-approve" onclick="approveContent('${safeId}')">✓ Approve</button>
-                   <button class="btn-reject"  onclick="rejectContent('${safeId}')">✕ Reject</button>
-                   <button class="btn-delete"  onclick="deleteContent('${safeId}')">🗑 Delete</button>
+                   <button class="btn-approve" data-action="approve-content" data-id="${safeId}">✓ Approve</button>
+                   <button class="btn-reject"  data-action="reject-content" data-id="${safeId}">✕ Reject</button>
+                   <button class="btn-delete"  data-action="delete-content" data-id="${safeId}">🗑 Delete</button>
                </div>`
             : `<div class="queue-actions">
-                   <button class="btn-reset"  onclick="resetContentStatus('${safeId}')">↺ Reset</button>
-                   <button class="btn-delete" onclick="deleteContent('${safeId}')">🗑 Delete</button>
+                   <button class="btn-reset"  data-action="reset-content" data-id="${safeId}">↺ Reset</button>
+                   <button class="btn-delete" data-action="delete-content" data-id="${safeId}">🗑 Delete</button>
                </div>`;
 
         return `
@@ -1621,7 +1621,7 @@ async function loadAndRenderModules() {
                     <div class="empty-icon">⚠️</div>
                     <h4>Could not load modules</h4>
                     <p>${Security.escape(err.message)}</p>
-                    <button class="primary-btn" style="margin-top:12px" onclick="loadAndRenderModules()">Retry</button>
+                    <button class="primary-btn" style="margin-top:12px" data-action="retry-modules">Retry</button>
                 </div>`;
         }
         setText('mod-total', '0'); setText('mod-published', '0');
@@ -1715,9 +1715,9 @@ function renderModules() {
                     <span style="font-size:11px;color:var(--text-4);font-weight:600">${m.completion || 0}% avg. completion</span>
                 </div>
                 <div class="module-card-actions">
-                    <button class="tbl-btn view" onclick="viewModule('${Security.escape(String(m.id))}')">View</button>
-                    <button class="tbl-btn edit" onclick="editModule('${Security.escape(String(m.id))}')">Edit</button>
-                    <button class="tbl-btn del" onclick="deleteModule('${Security.escape(String(m.id))}')">Delete</button>
+                    <button class="tbl-btn view" data-action="view-module" data-id="${Security.escape(String(m.id))}">View</button>
+                    <button class="tbl-btn edit" data-action="edit-module" data-id="${Security.escape(String(m.id))}">Edit</button>
+                    <button class="tbl-btn del" data-action="delete-module" data-id="${Security.escape(String(m.id))}">Delete</button>
                 </div>
             </div>
         </div>`;
@@ -1942,23 +1942,6 @@ function initFileUpload() {
 }
 
 /* ============================================================
-   GLOBAL EXPOSE (for onclick= attributes in Blade)
-   ============================================================ */
-Object.assign(window, {
-    navigate,
-    filterUsers, debounceUserSearch, editUser, saveUser, deleteUser,
-    filterContent, loadAndRenderContent,
-    approveContent, rejectContent, resetContentStatus, deleteContent,
-    filterModules, loadAndRenderModules, openAddModule, cancelModule, saveModule,
-    viewModule, editModule, deleteModule, clearFile,
-    filterActivityLog, debounceActivitySearch, deleteActivityLog, restoreActivityLog,
-    openClearOldLogs, openArchivedLogs,
-    savePlatformInfo, saveSettings, confirmDanger,
-    openModal, closeModal, confirmLogout,
-    showExportPicker,
-});
-
-/* ============================================================
    INIT
    ============================================================ */
 document.addEventListener('DOMContentLoaded', () => {
@@ -1976,6 +1959,81 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     initFileUpload();
     initMaintenanceToggle();
+
+    /* ============================================================
+       STATIC BUTTON WIRING
+       (was onclick="..." in the Blade view — see the CSP refactor)
+       ============================================================ */
+    document.getElementById('sidebar-logout-btn')?.addEventListener('click', () => confirmLogout());
+    document.getElementById('header-logout-btn')?.addEventListener('click', () => confirmLogout());
+    document.getElementById('export-users-btn')?.addEventListener('click', () => showExportPicker('users'));
+    document.getElementById('export-analytics-btn')?.addEventListener('click', () => showExportPicker('analytics'));
+    document.getElementById('export-modules-btn')?.addEventListener('click', () => showExportPicker('modules'));
+    document.getElementById('export-activity-btn')?.addEventListener('click', () => showExportPicker('activity'));
+    document.getElementById('add-module-btn')?.addEventListener('click', () => openAddModule());
+    document.getElementById('open-archived-logs-btn')?.addEventListener('click', () => openArchivedLogs());
+    document.getElementById('open-clear-old-logs-btn')?.addEventListener('click', () => openClearOldLogs());
+    document.getElementById('save-platform-info-btn')?.addEventListener('click', () => savePlatformInfo());
+    document.getElementById('save-notifications-btn')?.addEventListener('click', () => saveSettings('Notification'));
+    document.getElementById('danger-zone-activity-link')?.addEventListener('click', () => navigate('activity'));
+    document.getElementById('reset-platform-btn')?.addEventListener('click', () => confirmDanger('Reset Platform', 'This will reset all settings to factory defaults.'));
+    document.getElementById('modal-user-close-btn')?.addEventListener('click', () => closeModal('modal-user'));
+    document.getElementById('modal-user-cancel-btn')?.addEventListener('click', () => closeModal('modal-user'));
+    document.getElementById('modal-user-save-btn')?.addEventListener('click', () => saveUser());
+    document.getElementById('modal-archived-logs-close-btn')?.addEventListener('click', () => closeModal('modal-archived-logs'));
+    document.getElementById('modal-add-module-close-btn')?.addEventListener('click', () => cancelModule());
+    document.getElementById('mod-file-remove')?.addEventListener('click', () => clearFile());
+    document.getElementById('modal-add-module-cancel-btn')?.addEventListener('click', () => cancelModule());
+    document.getElementById('modal-add-module-save-btn')?.addEventListener('click', () => saveModule());
+
+    document.getElementById('user-search')?.addEventListener('input', () => debounceUserSearch());
+    document.getElementById('user-role-filter')?.addEventListener('change', () => filterUsers());
+    document.getElementById('content-status-filter')?.addEventListener('change', () => filterContent());
+    document.getElementById('module-search')?.addEventListener('input', () => filterModules());
+    document.getElementById('module-topic-filter')?.addEventListener('change', () => filterModules());
+    document.getElementById('activity-search')?.addEventListener('input', () => debounceActivitySearch());
+    document.getElementById('activity-type-filter')?.addEventListener('change', () => filterActivityLog());
+    document.getElementById('activity-role-filter')?.addEventListener('change', () => filterActivityLog());
+    document.getElementById('activity-date')?.addEventListener('change', () => filterActivityLog());
+
+    // JS-rendered rows: delegated since these containers get re-rendered
+    // (loadUsers()/loadActivityLog()/loadAndRenderContent()/loadAndRenderModules()).
+    document.getElementById('users-tbody')?.addEventListener('click', e => {
+        const btn = e.target.closest('[data-action]');
+        if (!btn) return;
+        if (btn.dataset.action === 'edit-user') editUser(btn.dataset.id);
+        if (btn.dataset.action === 'delete-user') deleteUser(btn.dataset.id);
+    });
+
+    const onTimelineClick = e => {
+        const btn = e.target.closest('[data-action]');
+        if (!btn) return;
+        if (btn.dataset.action === 'restore-log') restoreActivityLog(btn.dataset.id);
+        if (btn.dataset.action === 'delete-log') deleteActivityLog(btn.dataset.id, btn.dataset.archived === 'true');
+    };
+    document.getElementById('activity-timeline')?.addEventListener('click', onTimelineClick);
+    document.getElementById('archived-timeline')?.addEventListener('click', onTimelineClick);
+
+    document.getElementById('content-queue-body')?.addEventListener('click', e => {
+        const btn = e.target.closest('[data-action]');
+        if (!btn) return;
+        const id = btn.dataset.id;
+        if (btn.dataset.action === 'approve-content') approveContent(id);
+        if (btn.dataset.action === 'reject-content') rejectContent(id);
+        if (btn.dataset.action === 'delete-content') deleteContent(id);
+        if (btn.dataset.action === 'reset-content') resetContentStatus(id);
+        if (btn.dataset.action === 'retry-content') loadAndRenderContent();
+    });
+
+    document.getElementById('modules-grid')?.addEventListener('click', e => {
+        const btn = e.target.closest('[data-action]');
+        if (!btn) return;
+        const id = btn.dataset.id;
+        if (btn.dataset.action === 'view-module') viewModule(id);
+        if (btn.dataset.action === 'edit-module') editModule(id);
+        if (btn.dataset.action === 'delete-module') deleteModule(id);
+        if (btn.dataset.action === 'retry-modules') loadAndRenderModules();
+    });
 
     // Load everything from Supabase, then render
     initDashboard();
