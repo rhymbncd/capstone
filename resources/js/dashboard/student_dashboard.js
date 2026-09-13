@@ -101,7 +101,6 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('summative-cta-start-btn')?.addEventListener('click', () => window.showTestInstructions());
     document.getElementById('start-summative-btn')?.addEventListener('click', () => window.startQuiz());
     document.getElementById('quiz-next-btn')?.addEventListener('click', () => quizNext());
-    document.getElementById('retake-quiz-btn')?.addEventListener('click', () => retakeQuiz());
 
     // Download buttons: delegated on the downloads page container since some
     // are static Blade markup and others are inserted later by loadDownloads().
@@ -529,17 +528,16 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    function submitQuiz() {
-        stopQuestionTimer();
-        quizScore = quizAnswers.reduce((acc, ans, i) =>
-            acc + (ans === quizQuestions[i].answer ? 1 : 0), 0);
-
-        const total = quizQuestions.length;
-        const pct   = Math.round((quizScore / total) * 100);
+    // Shared by a fresh submission and by re-displaying an already-taken
+    // attempt's stored score (the summative test only allows one attempt).
+    function renderResultScreen(score, total) {
+        const pct = Math.round((score / total) * 100);
 
         document.getElementById('quiz-question-screen').style.display = 'none';
+        document.getElementById('quiz-start-screen').style.display    = 'none';
+        document.getElementById('initial-cta').style.display          = 'none';
         document.getElementById('quiz-result-screen').style.display   = 'block';
-        document.getElementById('quiz-result-score').textContent      = `${quizScore}/${total}`;
+        document.getElementById('quiz-result-score').textContent      = `${score}/${total}`;
 
         let emoji = '😢', title = 'Keep Practicing!', msg = 'Review your modules and try again.';
         if      (pct >= 90) { emoji = '🏆'; title = 'Outstanding!'; msg = 'Excellent work! You mastered the material.'; }
@@ -551,9 +549,21 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('quiz-result-msg').textContent   = `${pct}% — ${msg}`;
     }
 
-    function retakeQuiz() {
-        document.getElementById('quiz-result-screen').style.display = 'none';
-        startQuiz();
+    function submitQuiz() {
+        stopQuestionTimer();
+        quizScore = quizAnswers.reduce((acc, ans, i) =>
+            acc + (ans === quizQuestions[i].answer ? 1 : 0), 0);
+        renderResultScreen(quizScore, quizQuestions.length);
+    }
+
+    // The summative test is one attempt only — if the student already has a
+    // stored attempt, show that result instead of letting them start again.
+    async function showExistingSummativeResult() {
+        const rows = await Progress.loadRows();
+        const row = rows.find(r => r.topic_key === 'summative' && r.phase === 'post');
+        if (!row) return false;
+        renderResultScreen(row.score, row.total);
+        return true;
     }
 
     /* ================================
@@ -1020,10 +1030,14 @@ document.addEventListener('DOMContentLoaded', function () {
         lockNotice.style.display = 'none';
         startButton.style.display = 'block';
 
-        // Don't clobber a test already in progress or its result screen —
-        // this runs on every navigation to the page, so re-entering while
-        // mid-quiz (or after finishing) must leave that screen alone instead
-        // of forcing the landing CTA + instructions back on top of it.
+        // One attempt only — a student who has already submitted a summative
+        // score sees that result, never the CTA/instructions/quiz again.
+        if (await showExistingSummativeResult()) return;
+
+        // Don't clobber a test already in progress — this runs on every
+        // navigation to the page, so re-entering mid-quiz must leave that
+        // screen alone instead of forcing the landing CTA + instructions
+        // back on top of it.
         const midTest = quizQuestionScreen?.style.display === 'block' || quizResultScreen?.style.display === 'block';
         const instructionsOpen = quizStartScreen?.style.display === 'block';
         if (!midTest && !instructionsOpen) {
@@ -1032,10 +1046,13 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // ✅ Function to show test instructions
-    window.showTestInstructions = function() {
+    window.showTestInstructions = async function() {
+        // One attempt only — already-taken students land on their result.
+        if (await showExistingSummativeResult()) return;
+
         const initialCta = document.getElementById('initial-cta');
         const quizStartScreen = document.getElementById('quiz-start-screen');
-        
+
         if (initialCta) initialCta.style.display = 'none';
         if (quizStartScreen) quizStartScreen.style.display = 'block';
     };
@@ -1061,8 +1078,7 @@ document.addEventListener('DOMContentLoaded', function () {
     };
 
     // Expose quiz functions globally for Blade inline onclick attributes
-    window.quizNext   = quizNext;
-    window.retakeQuiz = retakeQuiz;
+    window.quizNext = quizNext;
 
 });
 window.handleDownload = function(filePathOrUrl, isDirectUrl = false) {

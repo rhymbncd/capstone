@@ -688,8 +688,7 @@
                         <div class="section-label" id="quiz-result-title">Test Complete!</div>
                         <div class="section-sub" id="quiz-result-sub">Here's how you did</div>
                         <div style="font-size:52px; font-weight:800; color:var(--blue); letter-spacing:-2px; margin:16px 0;" id="quiz-result-score">8/10</div>
-                        <div style="font-size:14px; color:var(--text-3); margin-bottom:24px;" id="quiz-result-msg"></div>
-                        <button class="primary-btn" id="retake-quiz-btn" style="max-width:240px; margin:0 auto;">Retake Test</button>
+                        <div style="font-size:14px; color:var(--text-3);" id="quiz-result-msg"></div>
                     </section>
                 </div>
             </div>
