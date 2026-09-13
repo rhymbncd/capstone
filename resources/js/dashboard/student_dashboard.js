@@ -72,12 +72,54 @@ document.addEventListener('DOMContentLoaded', function () {
 
     document.querySelectorAll('[data-page]').forEach(btn => {
         btn.addEventListener('click', function () {
-            navigate(this.dataset.page);
+            const moduleNum = this.dataset.module ? parseInt(this.dataset.module, 10) : undefined;
+            // Go through window.navigate (not the local navigate() declared
+            // above) — by the time this fires, window.navigate has been
+            // wrapped below to add the summative lock check, same as every
+            // Blade view's onclick="navigate(...)" used to (inline handler
+            // attributes execute in global scope, so they always resolved to
+            // window.navigate, never this file's local declaration).
+            window.navigate(this.dataset.page, moduleNum);
         });
     });
 
     // Expose globally for Blade inline onclick attributes
     window.navigate = navigate;
+
+    /* ================================
+       STATIC BUTTON WIRING
+       (was onclick="..." in the Blade view — see the CSP refactor)
+       ================================ */
+    document.getElementById('sidebar-logout-btn')?.addEventListener('click', () => window.confirmLogout());
+    document.getElementById('header-logout-btn')?.addEventListener('click', () => window.confirmLogout());
+    document.getElementById('cancel-password-btn')?.addEventListener('click', () => window.clearPasswordForm());
+    document.getElementById('save-password-btn')?.addEventListener('click', () => window.updatePassword());
+    document.getElementById('home-start-summative-btn')?.addEventListener('click', () => {
+        window.navigate('summative');
+        setTimeout(() => window.showTestInstructions(), 200);
+    });
+    document.getElementById('summative-cta-start-btn')?.addEventListener('click', () => window.showTestInstructions());
+    document.getElementById('start-summative-btn')?.addEventListener('click', () => window.startQuiz());
+    document.getElementById('quiz-prev-btn')?.addEventListener('click', () => quizPrev());
+    document.getElementById('quiz-next-btn')?.addEventListener('click', () => quizNext());
+    document.getElementById('retake-quiz-btn')?.addEventListener('click', () => retakeQuiz());
+
+    // Download buttons: delegated on the downloads page container since some
+    // are static Blade markup and others are inserted later by loadDownloads().
+    document.getElementById('page-downloads')?.addEventListener('click', function (event) {
+        const btn = event.target.closest('[data-action="download"]');
+        if (!btn) return;
+
+        window.handleDownload(btn.dataset.file, btn.dataset.direct === 'true');
+    });
+
+    // Feedback delete buttons: delegated since loadFeedback() re-renders this list.
+    document.getElementById('feedback-list')?.addEventListener('click', function (event) {
+        const btn = event.target.closest('[data-action="delete-feedback"]');
+        if (!btn) return;
+
+        window.deleteFeedbackEntry(Number(btn.dataset.id));
+    });
 
     // ✅ Auto-load if downloads page is already active on load
     if (document.getElementById('page-downloads')?.classList.contains('active')) {
@@ -254,10 +296,10 @@ document.addEventListener('DOMContentLoaded', function () {
             : '';
 
         const dlButton = item.url
-            ? `<button class="dl-btn" onclick="handleDownload('${escapeHtml(item.url)}', true)">
+            ? `<button class="dl-btn" data-action="download" data-file="${escapeHtml(item.url)}" data-direct="true">
                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                </button>`
-            : `<button class="dl-btn" onclick="handleDownload('${escapeHtml(item.file)}', false)">
+            : `<button class="dl-btn" data-action="download" data-file="${escapeHtml(item.file)}">
                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                </button>`;
 
@@ -796,7 +838,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         <span class="module-name">${FEEDBACK_ICONS[f.type] || '💬'} ${f.teacherName}</span>
                         <span style="display:flex;align-items:center;gap:8px">
                             ${f.read ? '' : '<span class="status-badge badge-warn">New</span>'}
-                            <button type="button" onclick="deleteFeedbackEntry(${f.id})" title="Remove this feedback"
+                            <button type="button" data-action="delete-feedback" data-id="${f.id}" title="Remove this feedback"
                                 style="background:none;border:none;color:#9ca3af;cursor:pointer;font-size:14px;line-height:1;padding:0">✕</button>
                         </span>
                     </div>

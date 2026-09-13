@@ -30,7 +30,7 @@
 
     <!-- ================= MATHJAX ================= -->
 
-    <script>
+    <script nonce="{{ \Illuminate\Support\Facades\Vite::cspNonce() }}">
         window.MathJax = {
             tex: {
                 inlineMath: [['\\(', '\\)']],
@@ -52,7 +52,7 @@
         referrerpolicy="no-referrer">
     </script>
 
-    <script>
+    <script nonce="{{ \Illuminate\Support\Facades\Vite::cspNonce() }}">
         // Expose the authenticated user to the frontend.
         window.__USER__ = {
             id:   "{{ auth()->user()->id }}",
@@ -97,8 +97,8 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
                 Home
             </button>
-            {{-- MODULES: Laravel named route --}}
-            <button class="sidebar-item" onclick="window.location.href='{{ route('student.modules') }}'">
+            {{-- MODULES: navigate() resolves this via the modules-url meta tag above. --}}
+            <button class="sidebar-item" data-page="modules">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
                 Modules
             </button>
@@ -125,7 +125,7 @@
         </div>
 
         <div class="sidebar-logout">
-            <button class="sidebar-logout-btn" onclick="confirmLogout()">
+            <button class="sidebar-logout-btn" id="sidebar-logout-btn">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
                 Logout
             </button>
@@ -148,7 +148,7 @@
                 </div>
                 <span class="brand-name">Math Learning Assistant</span>
             </div>
-            <button class="logout-btn" onclick="confirmLogout()">Logout</button>
+            <button class="logout-btn" id="header-logout-btn">Logout</button>
         </header>
 
         <main class="main-content">
@@ -162,7 +162,7 @@
 
                 <div class="metrics-scroll-wrap">
                     <div class="metrics-grid">
-                        <div class="metric-card" onclick="navigate('progress')">
+                        <div class="metric-card" data-page="progress">
                             <div class="metric-header">
                                 <span class="metric-label">Overall Progress</span>
                                 <div class="icon-container green-theme">
@@ -172,7 +172,7 @@
                             <div class="metric-value" id="home-overall-progress">0%</div>
                             <div class="metric-sub">across all modules</div>
                         </div>
-                        <div class="metric-card" onclick="navigate('modules')">
+                        <div class="metric-card" data-page="modules">
                             <div class="metric-header">
                                 <span class="metric-label">Topics Done</span>
                                 <div class="icon-container orange-theme">
@@ -206,7 +206,7 @@
                             <span class="percentage blue" id="home-mod1-pct">0%</span>
                         </div>
                         <div class="progress-bar-bg"><div class="progress-fill blue" id="home-mod1-fill" style="width:0%"></div></div>
-                        <button class="view-topics-btn" id="home-mod1-topics-btn" onclick="navigate('modules', 1)">View Topics</button>
+                        <button class="view-topics-btn" id="home-mod1-topics-btn" data-page="modules" data-module="1">View Topics</button>
                     </div>
 
                     <div class="module-item">
@@ -216,7 +216,7 @@
                             <span class="percentage blue" id="home-mod2-pct">0%</span>
                         </div>
                         <div class="progress-bar-bg"><div class="progress-fill blue" id="home-mod2-fill" style="width:0%"></div></div>
-                        <button class="view-topics-btn" id="home-mod2-topics-btn" onclick="navigate('modules', 2)">View Topics</button>
+                        <button class="view-topics-btn" id="home-mod2-topics-btn" data-page="modules" data-module="2">View Topics</button>
                     </div>
 
                     <div class="module-item">
@@ -226,7 +226,7 @@
                             <span class="percentage blue" id="home-mod3-pct">0%</span>
                         </div>
                         <div class="progress-bar-bg"><div class="progress-fill blue" id="home-mod3-fill" style="width:0%"></div></div>
-                        <button class="view-topics-btn" id="home-mod3-topics-btn" onclick="navigate('modules', 3)">View Topics</button>
+                        <button class="view-topics-btn" id="home-mod3-topics-btn" data-page="modules" data-module="3">View Topics</button>
                     </div>
                 </section>
 
@@ -248,7 +248,7 @@
                         <div class="action-content">
                             <h3>Offline Materials</h3>
                             <p>Download assessments to practice offline</p>
-                            <button class="outline-btn" onclick="navigate('downloads')">View Downloads</button>
+                            <button class="outline-btn" data-page="downloads">View Downloads</button>
                         </div>
                     </div>
                     <div class="action-card">
@@ -258,7 +258,7 @@
                         <div class="action-content">
                             <h3>Summative Test</h3>
                             <p>Test your knowledge with an interactive summative assessment</p>
-                            <button class="primary-btn" onclick="navigate('summative'); setTimeout(() => { document.getElementById('initial-cta').style.display='none'; document.getElementById('quiz-start-screen').style.display='block'; }, 200);">Start Summative Test</button>
+                            <button class="primary-btn" id="home-start-summative-btn">Start Summative Test</button>
                         </div>
                     </div>
                 </div>
@@ -424,8 +424,8 @@
                         <input type="password" id="pw-confirm" placeholder="••••••••" autocomplete="new-password">
                     </div>
                     <div class="save-row">
-                        <button class="btn-cancel" onclick="clearPasswordForm()">Cancel</button>
-                        <button class="btn-save" onclick="updatePassword()">Update Password</button>
+                        <button class="btn-cancel" id="cancel-password-btn">Cancel</button>
+                        <button class="btn-save" id="save-password-btn">Update Password</button>
                     </div>
                 </div>
             </div>
@@ -451,7 +451,7 @@
                             <span class="download-name">Arithmetic Sequence</span>
                             <span class="download-meta">PDF · 472 KB</span>
                         </div>
-                        <button class="dl-btn" onclick="handleDownload('Arithmetic Sequence.pdf')">
+                        <button class="dl-btn" data-action="download" data-file="Arithmetic Sequence.pdf">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                         </button>
                     </div>
@@ -464,7 +464,7 @@
                             <span class="download-name">Geometric Sequence</span>
                             <span class="download-meta">PDF · 532 KB</span>
                         </div>
-                        <button class="dl-btn" onclick="handleDownload('Geometric Sequence.pdf')">
+                        <button class="dl-btn" data-action="download" data-file="Geometric Sequence.pdf">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                         </button>
                     </div>
@@ -477,7 +477,7 @@
                             <span class="download-name">Harmonic Sequence</span>
                             <span class="download-meta">PDF · 89 KB</span>
                         </div>
-                        <button class="dl-btn" onclick="handleDownload('Harmonic Sequence.pdf')">
+                        <button class="dl-btn" data-action="download" data-file="Harmonic Sequence.pdf">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                         </button>
                     </div>
@@ -490,7 +490,7 @@
                             <span class="download-name">Fibonacci Sequence</span>
                             <span class="download-meta">PDF · 70 KB</span>
                         </div>
-                        <button class="dl-btn" onclick="handleDownload('Fibonacci Sequence.pdf')">
+                        <button class="dl-btn" data-action="download" data-file="Fibonacci Sequence.pdf">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                         </button>
                     </div>
@@ -503,7 +503,7 @@
                             <span class="download-name">Finite and Infinite Sequence</span>
                             <span class="download-meta">PDF · 512 KB</span>
                         </div>
-                        <button class="dl-btn" onclick="handleDownload('Finite and Infinite Sequence.pdf')">
+                        <button class="dl-btn" data-action="download" data-file="Finite and Infinite Sequence.pdf">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                         </button>
                     </div>
@@ -521,7 +521,7 @@
                             <span class="download-name">Division of Polynomials</span>
                             <span class="download-meta">PDF · 514 KB</span>
                         </div>
-                        <button class="dl-btn" onclick="handleDownload('Division of Polynomials.pdf')">
+                        <button class="dl-btn" data-action="download" data-file="Division of Polynomials.pdf">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                         </button>
                     </div>
@@ -534,7 +534,7 @@
                             <span class="download-name">The Remainder Theorem and Factor Theorem</span>
                             <span class="download-meta">PDF · 577 KB</span>
                         </div>
-                        <button class="dl-btn" onclick="handleDownload('The Remainder and Factor Theorem.pdf')">
+                        <button class="dl-btn" data-action="download" data-file="The Remainder and Factor Theorem.pdf">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                         </button>
                     </div>
@@ -547,7 +547,7 @@
                             <span class="download-name">Polynomial Equations</span>
                             <span class="download-meta">PDF · 661 KB</span>
                         </div>
-                        <button class="dl-btn" onclick="handleDownload('Polynomial Equation.pdf')">
+                        <button class="dl-btn" data-action="download" data-file="Polynomial Equation.pdf">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                         </button>
                     </div>
@@ -565,7 +565,7 @@
                             <span class="download-name">Rational Functions</span>
                             <span class="download-meta">PDF · 1.1 MB</span>
                         </div>
-                        <button class="dl-btn" onclick="handleDownload('Rational Functions.pdf')">
+                        <button class="dl-btn" data-action="download" data-file="Rational Functions.pdf">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                         </button>
                     </div>
@@ -578,7 +578,7 @@
                             <span class="download-name">Radical Equations</span>
                             <span class="download-meta">PDF · 3.9 MB</span>
                         </div>
-                        <button class="dl-btn" onclick="handleDownload('Radical Equations.pdf')">
+                        <button class="dl-btn" data-action="download" data-file="Radical Equations.pdf">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                         </button>
                     </div>
@@ -591,7 +591,7 @@
                             <span class="download-name">Exponential Functions</span>
                             <span class="download-meta">PDF · 1.5 MB</span>
                         </div>
-                        <button class="dl-btn" onclick="handleDownload('Exponential Functions.pdf')">
+                        <button class="dl-btn" data-action="download" data-file="Exponential Functions.pdf">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                         </button>
                     </div>
@@ -604,7 +604,7 @@
                             <span class="download-name">Logarithmic Functions</span>
                             <span class="download-meta">PDF · 1.3 MB</span>
                         </div>
-                        <button class="dl-btn" onclick="handleDownload('Logarithmic Functions.pdf')">
+                        <button class="dl-btn" data-action="download" data-file="Logarithmic Functions.pdf">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                         </button>
                     </div>
@@ -620,7 +620,7 @@
 
                 <!-- START TEST BUTTON (Initial CTA) -->
                 <div id="initial-cta" style="text-align:center; margin-bottom:20px;">
-                    <button class="primary-btn" style="max-width:320px; margin:0 auto; padding:14px; font-size:15px;" onclick="document.getElementById('initial-cta').style.display='none'; document.getElementById('quiz-start-screen').style.display='block';">Start Summative Test →</button>
+                    <button class="primary-btn" id="summative-cta-start-btn" style="max-width:320px; margin:0 auto; padding:14px; font-size:15px;">Start Summative Test →</button>
                 </div>
 
                 <!-- LOCK STATUS INDICATOR -->
@@ -650,7 +650,7 @@
                             <div class="download-info"><span class="download-name">Review your answers before submitting</span><span class="download-meta">You can go back and change answers anytime</span></div>
                         </div>
                     </section>
-                    <button class="primary-btn" id="start-summative-btn" style="max-width:320px; margin:0 auto; display:block; padding:14px; font-size:15px;" onclick="startQuiz()">Begin Summative Test →</button>
+                    <button class="primary-btn" id="start-summative-btn" style="max-width:320px; margin:0 auto; display:block; padding:14px; font-size:15px;">Begin Summative Test →</button>
                 </div>
 
                 <div id="quiz-question-screen" style="display:none;">
@@ -665,8 +665,8 @@
                         <p id="quiz-question-text" style="font-size:15px; font-weight:700; color:var(--text); line-height:1.5; margin-bottom:20px;"></p>
                         <div id="quiz-choices" style="display:flex; flex-direction:column; gap:10px;"></div>
                         <div style="display:flex; justify-content:flex-end; margin-top:20px; gap:10px;">
-                            <button class="outline-btn" id="quiz-prev-btn" style="max-width:120px;" onclick="quizPrev()">← Back</button>
-                            <button class="primary-btn" id="quiz-next-btn" style="max-width:160px;" onclick="quizNext()">Next →</button>
+                            <button class="outline-btn" id="quiz-prev-btn" style="max-width:120px;">← Back</button>
+                            <button class="primary-btn" id="quiz-next-btn" style="max-width:160px;">Next →</button>
                         </div>
                     </div>
                 </div>
@@ -678,7 +678,7 @@
                         <div class="section-sub" id="quiz-result-sub">Here's how you did</div>
                         <div style="font-size:52px; font-weight:800; color:var(--blue); letter-spacing:-2px; margin:16px 0;" id="quiz-result-score">8/10</div>
                         <div style="font-size:14px; color:var(--text-3); margin-bottom:24px;" id="quiz-result-msg"></div>
-                        <button class="primary-btn" style="max-width:240px; margin:0 auto;" onclick="retakeQuiz()">Retake Test</button>
+                        <button class="primary-btn" id="retake-quiz-btn" style="max-width:240px; margin:0 auto;">Retake Test</button>
                     </section>
                 </div>
             </div>
@@ -696,8 +696,8 @@
         <span>Home</span>
         <div class="nav-dot"></div>
     </button>
-    {{-- MODULES: Laravel named route --}}
-    <button class="nav-item" onclick="window.location.href='{{ route('student.modules') }}'">
+    {{-- MODULES: navigate() resolves this via the modules-url meta tag above. --}}
+    <button class="nav-item" data-page="modules">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
         <span>Modules</span>
         <div class="nav-dot"></div>
@@ -746,7 +746,7 @@
     @include('dashboard.chatbot')
 
     {{-- 2. Siguraduhin na may Global Fallback para sa Token --}}
-    <script>
+    <script nonce="{{ \Illuminate\Support\Facades\Vite::cspNonce() }}">
         window.Laravel = {
             csrfToken: '{{ csrf_token() }}'
         };
@@ -754,7 +754,7 @@
 
     {{-- chatbot.js and math-panel.js are already loaded via the @vite([...]) block in <head>. --}}
 
-<script>
+<script nonce="{{ \Illuminate\Support\Facades\Vite::cspNonce() }}">
 
 function renderMath(element) {
 
