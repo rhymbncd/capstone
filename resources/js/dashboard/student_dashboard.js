@@ -769,6 +769,7 @@ document.addEventListener('DOMContentLoaded', function () {
         // Module Progress bars: green once complete, red if not started, blue while in progress.
         const pctColor = pct => pct >= 100 ? 'var(--green)' : pct <= 0 ? 'var(--red)' : 'var(--blue)';
         const setFillColor = (id, pct) => { const el = document.getElementById(id); if (el) el.style.background = pctColor(pct); };
+        const setTextColor = (id, pct) => { const el = document.getElementById(id); if (el) el.style.color = pctColor(pct); };
 
         // Home page
         setText('home-overall-progress', stats.overallPct + '%');
@@ -776,6 +777,7 @@ document.addEventListener('DOMContentLoaded', function () {
         setText('home-streak', stats.streak);
         ['mod1', 'mod2', 'mod3'].forEach(mod => {
             setText(`home-${mod}-pct`, stats.perModule[mod].pct + '%');
+            setTextColor(`home-${mod}-pct`, stats.perModule[mod].pct);
             setWidth(`home-${mod}-fill`, stats.perModule[mod].pct);
             setFillColor(`home-${mod}-fill`, stats.perModule[mod].pct);
             setText(`home-${mod}-icon`, stats.perModule[mod].done === stats.perModule[mod].total ? '✓' : '—');
