@@ -619,12 +619,47 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     };
 
+    /**
+     * Save the summative test's per-question answers so a teacher can
+     * review exactly what was answered (not just the score), the same way
+     * pre-test/post-test/activity attempts already do via this endpoint.
+     */
+    async function saveSummativeAnswers(score, total) {
+        if (!window.__USER__?.id) return;
+        try {
+            const answers = quizQuestions.map((q, i) => {
+                const selectedIdx = quizAnswers[i];
+                const hasSelection = selectedIdx !== null && selectedIdx !== undefined;
+                return {
+                    question: q.q,
+                    selected: hasSelection ? q.choices[selectedIdx] : null,
+                    correct: q.choices[q.answer],
+                    isCorrect: selectedIdx === q.answer,
+                };
+            });
+
+            await fetch('/student/quiz-answers', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? '',
+                },
+                body: JSON.stringify({ topic_key: 'summative', phase: 'post', answers, score, total }),
+            });
+        } catch (err) {
+            console.error('Error saving summative answers:', err.message);
+        }
+    }
+
     // ✅ Hook quiz submission to save score
     const originalSubmitQuiz = window.submitQuiz;
     window.submitQuiz = function() {
         originalSubmitQuiz.call(this);
         // Save quiz score to Supabase
         Progress.saveSummativeAttempt(quizScore, quizQuestions.length);
+        saveSummativeAnswers(quizScore, quizQuestions.length);
     };
 
     /* ================================

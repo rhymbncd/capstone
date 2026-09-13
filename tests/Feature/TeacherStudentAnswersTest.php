@@ -41,6 +41,36 @@ it('returns a student\'s saved pre-test/post-test answers to the owning teacher'
     expect($attempts->first()['answers'])->toHaveCount(1);
 });
 
+it('labels a summative test attempt with a human-readable topic name', function () {
+    $teacher = User::factory()->teacher()->create(['approval_status' => 'approved']);
+    $section = Section::factory()->create(['teacher_id' => $teacher->id]);
+    $student = User::factory()->create([
+        'role' => 'student',
+        'approval_status' => 'approved',
+        'section_id' => $section->id,
+    ]);
+
+    StudentQuizAnswer::create([
+        'session_id' => (string) $student->id,
+        'student_name' => $student->name,
+        'topic_key' => 'summative',
+        'phase' => 'post',
+        'answers' => [
+            ['question' => 'What is the 6th term?', 'selected' => '23', 'correct' => '23', 'isCorrect' => true],
+        ],
+        'score' => 9,
+        'total' => 10,
+    ]);
+
+    $response = $this->actingAs($teacher)->getJson(route('teacher.students.answers', $student));
+
+    $response->assertOk();
+    $attempts = collect($response->json('attempts'));
+    expect($attempts->first())
+        ->topic_key->toBe('summative')
+        ->topic_name->toBe('Summative Test');
+});
+
 it('blocks a teacher from viewing another teacher\'s student answers', function () {
     $teacherA = User::factory()->teacher()->create(['approval_status' => 'approved']);
     $teacherB = User::factory()->teacher()->create(['approval_status' => 'approved']);

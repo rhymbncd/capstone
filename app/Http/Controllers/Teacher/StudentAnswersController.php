@@ -29,6 +29,7 @@ class StudentAnswersController extends Controller
         'rad' => 'Radical Equations',
         'exp' => 'Exponential Functions',
         'log' => 'Logarithmic Functions',
+        'summative' => 'Summative Test',
     ];
 
     /**

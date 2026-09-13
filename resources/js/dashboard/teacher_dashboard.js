@@ -505,9 +505,10 @@ function answersDrillRow(title, subtitle, disabled, onclick) {
         </button>`;
 }
 
-/** Step 1: pick a module. */
+/** Step 1: pick a module (or jump straight into the standalone Summative Test). */
 function renderAnswersModuleList() {
     const { attempts } = answersModalState;
+    const summativeAttempted = attempts.some(a => a.topic_key === 'summative');
     const html = `
         <div style="text-align:left;padding:4px 2px">
             <p style="font-size:12.5px;color:#6b7280;margin:0 0 10px">Select a module to review this student's answers.</p>
@@ -521,6 +522,12 @@ function renderAnswersModuleList() {
                     `selectAnswersModule('${group.label}')`
                 );
             }).join('')}
+            ${answersDrillRow(
+                'Summative Test',
+                summativeAttempted ? 'Attempted ›' : 'No attempt yet',
+                !summativeAttempted,
+                `selectAnswersTopic('summative')`
+            )}
         </div>`;
     Swal.update({ html });
 }
@@ -579,7 +586,7 @@ function renderAnswersDetail() {
     const html = `
         <div style="text-align:left;max-height:60vh;overflow-y:auto;padding:4px 2px">
             <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
-                ${answersNavButton(`Back to ${module?.label || 'Topics'}`, 'backToAnswersTopics()')}
+                ${answersNavButton(`Back to ${module?.label || 'Modules'}`, 'backToAnswersTopics()')}
                 <button type="button" onclick="exportAnswersDetailPdf()"
                     style="display:flex;align-items:center;gap:6px;padding:6px 12px;margin-bottom:10px;
                            background:#2563eb;color:#fff;border:none;border-radius:8px;
