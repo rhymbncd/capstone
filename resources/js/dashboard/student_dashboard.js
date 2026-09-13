@@ -430,6 +430,9 @@ document.addEventListener('DOMContentLoaded', function () {
     let quizAnswers = new Array(quizQuestions.length).fill(null);
     let quizScore   = 0;
 
+    const quizInstructionsCountEl = document.getElementById('quiz-instructions-count');
+    if (quizInstructionsCountEl) quizInstructionsCountEl.textContent = `${quizQuestions.length} multiple choice questions`;
+
     function startQuiz() {
         quizCurrent = 0;
         quizAnswers = new Array(quizQuestions.length).fill(null);
@@ -962,6 +965,8 @@ document.addEventListener('DOMContentLoaded', function () {
         const initialCta = document.getElementById('initial-cta');
         const startButton = document.getElementById('start-summative-btn');
         const quizStartScreen = document.getElementById('quiz-start-screen');
+        const quizQuestionScreen = document.getElementById('quiz-question-screen');
+        const quizResultScreen = document.getElementById('quiz-result-screen');
 
         if (!unlocked) {
             const progress = await getCompletionProgress();
@@ -976,12 +981,21 @@ document.addEventListener('DOMContentLoaded', function () {
             initialCta.style.display = 'none';
             startButton.style.display = 'none';
             if (quizStartScreen) quizStartScreen.style.display = 'none';
-        } else {
-            // Hide lock notice
-            lockNotice.style.display = 'none';
+            return;
+        }
+
+        // Hide lock notice
+        lockNotice.style.display = 'none';
+        startButton.style.display = 'block';
+
+        // Don't clobber a test already in progress or its result screen —
+        // this runs on every navigation to the page, so re-entering while
+        // mid-quiz (or after finishing) must leave that screen alone instead
+        // of forcing the landing CTA + instructions back on top of it.
+        const midTest = quizQuestionScreen?.style.display === 'block' || quizResultScreen?.style.display === 'block';
+        const instructionsOpen = quizStartScreen?.style.display === 'block';
+        if (!midTest && !instructionsOpen) {
             initialCta.style.display = 'block';
-            startButton.style.display = 'block';
-            if (quizStartScreen) quizStartScreen.style.display = 'block';
         }
     }
 

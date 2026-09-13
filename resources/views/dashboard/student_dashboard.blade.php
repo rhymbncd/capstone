@@ -654,7 +654,7 @@
                         </div>
                         <div class="download-item" style="border:none; padding:0; margin-bottom:10px;">
                             <div class="download-icon orange-theme">❓</div>
-                            <div class="download-info"><span class="download-name">10 multiple choice questions</span><span class="download-meta">Choose the best answer for each item</span></div>
+                            <div class="download-info"><span class="download-name" id="quiz-instructions-count">Multiple choice questions</span><span class="download-meta">Choose the best answer for each item</span></div>
                         </div>
                         <div class="download-item" style="border:none; padding:0; margin-bottom:0;">
                             <div class="download-icon green-theme">✅</div>
