@@ -393,7 +393,7 @@ img {
 }
 
 .section-desc {
-    font-size: 1rem;
+    font-size: 1.125rem;
     color: #6b7280;
     line-height: 1.6;
     margin: 12px auto 40px;
@@ -520,7 +520,7 @@ img {
 }
 
 .feature-card p {
-    font-size: 1rem;
+    font-size: 0.9375rem;
     color: #94a3b8;
     line-height: 1.6;
 }
@@ -531,12 +531,11 @@ img {
     padding: 48px 16px;
     text-align: center;
     background: #f8fafc;
-    font-family: system-ui, sans-serif;
 }
 
 .topics h2 {
     font-size: 1.5rem;
-    font-weight: 700;
+    font-weight: 800;
     color: #1f2937;
     line-height: 1.2;
 }
@@ -544,7 +543,7 @@ img {
 .subtitle {
     margin: 8px auto 0;
     color: #94a3b8;
-    font-size: 1rem;
+    font-size: 1.125rem;
     line-height: 1.6;
     max-width: 40rem;
 }
@@ -565,6 +564,10 @@ img {
 }
 
 @media (min-width: 768px) {
+    .topics {
+        padding: 64px 24px;
+    }
+
     .topics h2 {
         font-size: 1.875rem;
     }
@@ -660,7 +663,6 @@ img {
     padding: 32px 16px;
     text-align: center;
     border-top: 1px solid #e5e7eb;
-    font-family: system-ui, sans-serif;
 }
 
 @media (min-width: 1024px) {
@@ -678,7 +680,8 @@ img {
     line-height: 1.6;
 }
 
-.footer-sub {
+.footer .footer-sub {
+    font-size: 0.875rem;
     margin-top: 6px;
 }
 
