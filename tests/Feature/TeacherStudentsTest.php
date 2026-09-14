@@ -99,7 +99,7 @@ it('marks an approved student with no test attempts as Not Started, not Needs He
     expect($data['status'])->toBe('Not Started');
 });
 
-it('marks an active but low-progress student as Needs Help', function () {
+it('marks an active but low-progress student as In Progress, not Needs Help', function () {
     $teacher = User::factory()->teacher()->create(['approval_status' => 'approved']);
     $section = Section::factory()->create(['teacher_id' => $teacher->id]);
 
@@ -109,7 +109,9 @@ it('marks an active but low-progress student as Needs Help', function () {
         'section_id' => $section->id,
     ]);
 
-    // Attempted the pre-test for one topic but completed no post-tests => 0% progress.
+    // Attempted the pre-test for one topic but completed no post-tests => 0%
+    // progress. There's no failing post-test score yet, so this is just a
+    // student getting started — not one who needs help.
     StudentProgress::create([
         'session_id' => (string) $student->id,
         'topic_key' => 'ari',
@@ -125,6 +127,40 @@ it('marks an active but low-progress student as Needs Help', function () {
     $response->assertOk();
     $data = collect($response->json('students'))->firstWhere('id', $student->id);
     expect($data['progress'])->toBe(0);
+    expect($data['status'])->toBe('In Progress');
+});
+
+it('marks a student failing their post-tests as Needs Help regardless of progress', function () {
+    $teacher = User::factory()->teacher()->create(['approval_status' => 'approved']);
+    $section = Section::factory()->create(['teacher_id' => $teacher->id]);
+
+    $student = User::factory()->create([
+        'role' => 'student',
+        'approval_status' => 'approved',
+        'section_id' => $section->id,
+    ]);
+
+    // Completed post-tests for half the curriculum (50% progress) but
+    // averaging well below the 60% passing threshold — this is the case
+    // "Needs Help" should actually flag.
+    foreach (['ari', 'geo', 'har', 'fib', 'fin', 'div'] as $topic) {
+        StudentProgress::create([
+            'session_id' => (string) $student->id,
+            'topic_key' => $topic,
+            'phase' => 'post',
+            'score' => 3,
+            'total' => 10,
+            'passed' => false,
+            'student_name' => $student->name,
+        ]);
+    }
+
+    $response = $this->actingAs($teacher)->getJson(route('teacher.students.index'));
+
+    $response->assertOk();
+    $data = collect($response->json('students'))->firstWhere('id', $student->id);
+    expect($data['progress'])->toBe(50);
+    expect($data['avgPost'])->toBe(30);
     expect($data['status'])->toBe('Needs Help');
 });
 

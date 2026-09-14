@@ -359,6 +359,7 @@
                             <option value="Excellent">Excellent</option>
                             <option value="Good">Good</option>
                             <option value="Average">Average</option>
+                            <option value="In Progress">In Progress</option>
                             <option value="Needs Help">Needs Help</option>
                             <option value="Not Started">Not Started</option>
                         </select>

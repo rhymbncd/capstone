@@ -47,7 +47,7 @@ const Security = {
         if (str == null) return '';
         return String(str).replace(/[<>"'`]/g, '').trim();
     },
-    isValidStatus(s) { return ['Excellent','Good','Average','Needs Help','Not Started'].includes(s); },
+    isValidStatus(s) { return ['Excellent','Good','Average','In Progress','Needs Help','Not Started','Pending'].includes(s); },
 };
 
 /* ============================================================
@@ -795,6 +795,7 @@ function renderProgress() {
         { label: 'Excellent', count: students.filter(s => s.status === 'Excellent').length,  color: '#2563eb' },
         { label: 'Good',      count: students.filter(s => s.status === 'Good').length,       color: '#10b981' },
         { label: 'Average',   count: students.filter(s => s.status === 'Average').length,    color: '#f97316' },
+        { label: 'In Progress', count: students.filter(s => s.status === 'In Progress').length, color: '#1d4ed8' },
         { label: 'Help',      count: students.filter(s => s.status === 'Needs Help').length, color: '#ef4444' },
     ];
     const maxV = Math.max(...groups.map(g => g.count), 1);
@@ -2011,7 +2012,14 @@ function avgProgress() {
     return Math.round(students.reduce((sum, s) => sum + s.progress, 0) / students.length);
 }
 function badgeClass(status) {
-    return { Excellent: 'badge-excellent', Good: 'badge-good', Average: 'badge-average', 'Needs Help': 'badge-needs-help', 'Not Started': 'badge-not-started' }[status] || 'badge-needs-help';
+    return {
+        Excellent: 'badge-excellent',
+        Good: 'badge-good',
+        Average: 'badge-average',
+        'In Progress': 'badge-in-progress',
+        'Needs Help': 'badge-needs-help',
+        'Not Started': 'badge-not-started',
+    }[status] || 'badge-needs-help';
 }
 function progressColor(pct) {
     if (pct >= 100) return '#10b981'; // green — complete

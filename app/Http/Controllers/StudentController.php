@@ -22,7 +22,7 @@ class StudentController extends Controller
      * changes (e.g. new status rules) so already-cached client copies are
      * invalidated instead of being served stale behind a 304.
      */
-    private const PAYLOAD_VERSION = '2026-09-13-modules-completed-count';
+    private const PAYLOAD_VERSION = '2026-09-14-needs-help-on-failing-scores';
 
     private const CURRICULUM_TOPICS = [
         'ari', 'geo', 'har', 'fib', 'fin',
@@ -93,6 +93,7 @@ class StudentController extends Controller
 
             $completed = $postRows->pluck('topic_key')->unique()->count();
             $progress = (int) round(($completed / $totalTopics) * 100);
+            $avgPost = $this->averageScorePercent($postRows);
 
             return [
                 'id' => $student->id,
@@ -101,12 +102,12 @@ class StudentController extends Controller
                 'studentId' => $student->student_id,
                 'section_id' => $student->section_id,
                 'section' => $student->section?->name,
-                'status' => $this->getStudentStatus($student, $progress, $rows->isNotEmpty()),
+                'status' => $this->getStudentStatus($student, $progress, $rows->isNotEmpty(), $avgPost),
                 'progress' => $progress,
                 'modulesCompleted' => $completed,
                 'modulesTotal' => $totalTopics,
                 'avgPre' => $this->averageScorePercent($rows->where('phase', 'pre')),
-                'avgPost' => $this->averageScorePercent($postRows),
+                'avgPost' => $avgPost,
                 'lastActive' => $student->updated_at->diffForHumans(),
             ];
         });
@@ -173,13 +174,18 @@ class StudentController extends Controller
     }
 
     /**
-     * Determine student status based on approval status and real progress.
+     * Determine student status based on approval status, real progress, and
+     * post-test performance.
      *
      * A freshly approved student who has not attempted a single pre- or
      * post-test yet is "Not Started" rather than "Needs Help" — there is
-     * nothing to be alarmed about until they've actually engaged.
+     * nothing to be alarmed about until they've actually engaged. Likewise,
+     * a student who has barely started the curriculum is "In Progress", not
+     * "Needs Help" — that label is reserved for students who are actually
+     * failing their post-tests (below the app's 60% passing threshold),
+     * regardless of how much of the curriculum they've completed.
      */
-    private function getStudentStatus(User $student, int $progress, bool $hasActivity): string
+    private function getStudentStatus(User $student, int $progress, bool $hasActivity, ?int $avgPost): string
     {
         if ($student->approval_status !== 'approved') {
             return 'Pending';
@@ -187,6 +193,10 @@ class StudentController extends Controller
 
         if (! $hasActivity) {
             return 'Not Started';
+        }
+
+        if ($avgPost !== null && $avgPost < 60) {
+            return 'Needs Help';
         }
 
         if ($progress >= 80) {
@@ -199,6 +209,6 @@ class StudentController extends Controller
             return 'Average';
         }
 
-        return 'Needs Help';
+        return 'In Progress';
     }
 }

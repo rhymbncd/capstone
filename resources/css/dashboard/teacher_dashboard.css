@@ -791,6 +791,10 @@ html, body {
     background: #fef3c7;
     color: #b45309;
 }
+.badge-in-progress {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
 .badge-needs-help {
     background: #fee2e2;
     color: #b91c1c;
