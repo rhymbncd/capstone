@@ -22,7 +22,7 @@ class StudentController extends Controller
      * changes (e.g. new status rules) so already-cached client copies are
      * invalidated instead of being served stale behind a 304.
      */
-    private const PAYLOAD_VERSION = '2026-09-14-needs-help-on-failing-scores';
+    private const PAYLOAD_VERSION = '2026-09-15-verdict-only-at-100-percent';
 
     private const CURRICULUM_TOPICS = [
         'ari', 'geo', 'har', 'fib', 'fin',
@@ -174,16 +174,16 @@ class StudentController extends Controller
     }
 
     /**
-     * Determine student status based on approval status, real progress, and
-     * post-test performance.
+     * Determine student status based on approval status, curriculum
+     * completion, and post-test performance.
      *
      * A freshly approved student who has not attempted a single pre- or
-     * post-test yet is "Not Started" rather than "Needs Help" — there is
-     * nothing to be alarmed about until they've actually engaged. Likewise,
-     * a student who has barely started the curriculum is "In Progress", not
-     * "Needs Help" — that label is reserved for students who are actually
-     * failing their post-tests (below the app's 60% passing threshold),
-     * regardless of how much of the curriculum they've completed.
+     * post-test yet is "Not Started". A performance verdict (Excellent/
+     * Good/Average/Needs Help) only makes sense once the student has
+     * actually finished the whole curriculum — anyone still working
+     * through it is simply "In Progress", regardless of how their scores
+     * look so far. Only at 100% completion do those verdicts apply, based
+     * on their average post-test score.
      */
     private function getStudentStatus(User $student, int $progress, bool $hasActivity, ?int $avgPost): string
     {
@@ -195,20 +195,20 @@ class StudentController extends Controller
             return 'Not Started';
         }
 
-        if ($avgPost !== null && $avgPost < 60) {
-            return 'Needs Help';
+        if ($progress < 100) {
+            return 'In Progress';
         }
 
-        if ($progress >= 80) {
+        if ($avgPost !== null && $avgPost >= 80) {
             return 'Excellent';
         }
-        if ($progress >= 60) {
+        if ($avgPost !== null && $avgPost >= 60) {
             return 'Good';
         }
-        if ($progress >= 40) {
+        if ($avgPost !== null && $avgPost >= 40) {
             return 'Average';
         }
 
-        return 'In Progress';
+        return 'Needs Help';
     }
 }

@@ -51,7 +51,7 @@ it('returns the teacher\'s students with real progress computed from student_pro
 
     $halfwayData = $students->firstWhere('id', $halfway->id);
     expect($halfwayData['progress'])->toBe(50);
-    expect($halfwayData['status'])->toBe('Average');
+    expect($halfwayData['status'])->toBe('In Progress');
     expect($halfwayData['avgPre'])->toBe(40);
     expect($halfwayData['avgPost'])->toBe(80);
     expect($halfwayData['modulesCompleted'])->toBe(6);
@@ -130,7 +130,7 @@ it('marks an active but low-progress student as In Progress, not Needs Help', fu
     expect($data['status'])->toBe('In Progress');
 });
 
-it('marks a student failing their post-tests as Needs Help regardless of progress', function () {
+it('keeps a mid-curriculum student In Progress even if their post-test scores are failing', function () {
     $teacher = User::factory()->teacher()->create(['approval_status' => 'approved']);
     $section = Section::factory()->create(['teacher_id' => $teacher->id]);
 
@@ -140,9 +140,9 @@ it('marks a student failing their post-tests as Needs Help regardless of progres
         'section_id' => $section->id,
     ]);
 
-    // Completed post-tests for half the curriculum (50% progress) but
-    // averaging well below the 60% passing threshold — this is the case
-    // "Needs Help" should actually flag.
+    // Completed post-tests for half the curriculum (50% progress), scoring
+    // well below passing — a performance verdict (Needs Help included)
+    // only applies once the whole curriculum is done, not partway through.
     foreach (['ari', 'geo', 'har', 'fib', 'fin', 'div'] as $topic) {
         StudentProgress::create([
             'session_id' => (string) $student->id,
@@ -161,7 +161,51 @@ it('marks a student failing their post-tests as Needs Help regardless of progres
     $data = collect($response->json('students'))->firstWhere('id', $student->id);
     expect($data['progress'])->toBe(50);
     expect($data['avgPost'])->toBe(30);
-    expect($data['status'])->toBe('Needs Help');
+    expect($data['status'])->toBe('In Progress');
+});
+
+it('gives a performance verdict only once the curriculum is 100% complete', function () {
+    $teacher = User::factory()->teacher()->create(['approval_status' => 'approved']);
+    $section = Section::factory()->create(['teacher_id' => $teacher->id]);
+
+    $topics = ['ari', 'geo', 'har', 'fib', 'fin', 'div', 'rem', 'poly', 'rat', 'rad', 'exp', 'log'];
+
+    $excellent = User::factory()->create(['role' => 'student', 'approval_status' => 'approved', 'section_id' => $section->id]);
+    $needsHelp = User::factory()->create(['role' => 'student', 'approval_status' => 'approved', 'section_id' => $section->id]);
+
+    foreach ($topics as $topic) {
+        StudentProgress::create([
+            'session_id' => (string) $excellent->id,
+            'topic_key' => $topic,
+            'phase' => 'post',
+            'score' => 9,
+            'total' => 10,
+            'passed' => true,
+            'student_name' => $excellent->name,
+        ]);
+        StudentProgress::create([
+            'session_id' => (string) $needsHelp->id,
+            'topic_key' => $topic,
+            'phase' => 'post',
+            'score' => 2,
+            'total' => 10,
+            'passed' => false,
+            'student_name' => $needsHelp->name,
+        ]);
+    }
+
+    $response = $this->actingAs($teacher)->getJson(route('teacher.students.index'));
+
+    $response->assertOk();
+    $students = collect($response->json('students'));
+
+    $excellentData = $students->firstWhere('id', $excellent->id);
+    expect($excellentData['progress'])->toBe(100);
+    expect($excellentData['status'])->toBe('Excellent');
+
+    $needsHelpData = $students->firstWhere('id', $needsHelp->id);
+    expect($needsHelpData['progress'])->toBe(100);
+    expect($needsHelpData['status'])->toBe('Needs Help');
 });
 
 it('computes per-module subject completion rates for the teacher\'s class', function () {
