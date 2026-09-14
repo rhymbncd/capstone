@@ -341,7 +341,7 @@ function viewStudent(id) {
                     </div>
                     <div style="display:flex;justify-content:space-between;margin-bottom:8px">
                         <span style="font-size:12px;color:#6b7280;font-weight:600">Status</span>
-                        <span style="font-size:12px;font-weight:700">${Security.escape(s.status)}</span>
+                        <span style="font-size:12px;font-weight:700;color:${statusTextColor(s.status)}">${Security.escape(s.status)}</span>
                     </div>
                     <div style="display:flex;justify-content:space-between">
                         <span style="font-size:12px;color:#6b7280;font-weight:600">Last Active</span>
@@ -2020,6 +2020,19 @@ function badgeClass(status) {
         'Needs Help': 'badge-needs-help',
         'Not Started': 'badge-not-started',
     }[status] || 'badge-needs-help';
+}
+// Same palette as the .badge-* classes above, for the one spot (the
+// student details modal) that shows the status as plain colored text
+// instead of a pill badge.
+function statusTextColor(status) {
+    return {
+        Excellent: '#15803d',
+        Good: '#15803d',
+        Average: '#b45309',
+        'In Progress': '#1d4ed8',
+        'Needs Help': '#b91c1c',
+        'Not Started': '#4b5563',
+    }[status] || '#111827';
 }
 function progressColor(pct) {
     if (pct >= 100) return '#10b981'; // green — complete
