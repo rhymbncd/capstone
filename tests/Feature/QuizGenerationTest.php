@@ -70,3 +70,61 @@ it('blocks students from the quiz generation endpoint', function () {
 
     $response->assertRedirect(route('homepage'));
 });
+
+it('generates quiz text server-side for students without exposing the API key', function () {
+    config(['services.openrouter.key' => 'test-key-should-never-reach-browser']);
+    $section = Section::factory()->create();
+    $student = User::factory()->create([
+        'role' => 'student',
+        'approval_status' => 'approved',
+        'section_id' => $section->id,
+    ]);
+
+    Http::fake([
+        'openrouter.ai/*' => Http::response([
+            'choices' => [
+                ['message' => ['content' => '["Rewritten question text"]']],
+            ],
+        ], 200),
+    ]);
+
+    $response = $this->actingAs($student)->postJson(route('student.quiz.generate-text'), [
+        'prompt' => 'Reword this summative test question.',
+    ]);
+
+    $response->assertOk();
+    $response->assertJson(['status' => 'success']);
+    expect($response->json('content'))->toContain('Rewritten question text');
+    expect($response->getContent())->not->toContain('test-key-should-never-reach-browser');
+});
+
+it('handles the AI provider failing gracefully for the student summative endpoint', function () {
+    config(['services.openrouter.key' => 'test-key']);
+    $section = Section::factory()->create();
+    $student = User::factory()->create([
+        'role' => 'student',
+        'approval_status' => 'approved',
+        'section_id' => $section->id,
+    ]);
+
+    Http::fake([
+        'openrouter.ai/*' => Http::response(['error' => 'server error'], 500),
+    ]);
+
+    $response = $this->actingAs($student)->postJson(route('student.quiz.generate-text'), [
+        'prompt' => 'Reword this summative test question.',
+    ]);
+
+    $response->assertStatus(502);
+    $response->assertJson(['status' => 'error']);
+});
+
+it('blocks teachers from the student summative generation endpoint', function () {
+    $teacher = User::factory()->teacher()->create(['approval_status' => 'approved']);
+
+    $response = $this->actingAs($teacher)->postJson(route('student.quiz.generate-text'), [
+        'prompt' => 'test',
+    ]);
+
+    $response->assertRedirect(route('homepage'));
+});

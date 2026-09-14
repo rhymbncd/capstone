@@ -116,6 +116,12 @@ Route::prefix('student')->group(function () {
         Route::post('/progress', [StudentProgressController::class, 'store'])->name('student.progress.store');
         Route::post('/quiz-answers', [StudentQuizAnswerController::class, 'store'])->name('student.quiz-answers.store');
 
+        // AI rewording pass for the dashboard's own summative test — same
+        // controller method the teacher's quiz generator uses (QuizController
+        // never invents numbers or an answer, only rephrases wording), just
+        // reachable by students too so the summative test can use it.
+        Route::post('/quiz/generate-text', [QuizController::class, 'generateText'])->middleware('throttle:ai')->name('student.quiz.generate-text');
+
         // Teacher-published quizzes + custom topic names for the modules page.
         Route::get('/modules/published', [StudentPublishedQuizController::class, 'index'])->name('student.modules.published');
 

@@ -4,6 +4,7 @@
 
 import Swal from 'sweetalert2';
 import 'sweetalert2/dist/sweetalert2.min.css';
+import { generateDeterministicSet } from './quiz-generators.js';
 
 document.addEventListener('DOMContentLoaded', function () {
 
@@ -416,7 +417,10 @@ document.addEventListener('DOMContentLoaded', function () {
     /* ================================
        SUMMATIVE TEST — Quiz Logic
        ================================ */
-    const quizQuestions = [
+    // Used only if AI-assisted generation (below) can't produce a full set —
+    // e.g. quiz-generators.js fails to load, or every deterministic draw for
+    // several topics comes back malformed. Keeps the test always takeable.
+    const FALLBACK_QUIZ_QUESTIONS = [
         { q: "In an arithmetic sequence, the first term is 3 and the common difference is 4. What is the 6th term?",     choices: ["19","23","21","17"],                                                                                          answer: 1 },
         { q: "What is the sum of the first 5 terms of the geometric sequence 2, 6, 18, 54, ...?",                        choices: ["162","242","182","122"],                                                                                      answer: 1 },
         { q: "Which of the following is a polynomial expression?",                                                        choices: ["x⁻² + 3","√x + 2","3x³ − 2x + 1","1/x + 5"],                                                              answer: 2 },
@@ -449,12 +453,157 @@ document.addEventListener('DOMContentLoaded', function () {
         { q: "Which is equivalent to log(x) + log(y)?",                                                                  choices: ["log(x + y)","log(xy)","log(x − y)","log(x/y)"],                                                            answer: 1 },
     ];
 
+    // ================================
+    // AI-ASSISTED SUMMATIVE GENERATION
+    // ================================
+    // Same architecture as the teacher's quiz generator (quiz-generators.js /
+    // teacher_dashboard.js's generateQuiz()): numbers are randomized and the
+    // correct answer is 100% code-computed by the deterministic generators
+    // (no arithmetic is ever left to the AI), then a single AI pass rewords
+    // the wording of the whole set for variety. If that AI call fails for
+    // any reason, the deterministic (but un-reworded) questions are used as-is
+    // — never a guessed/wrong answer, same guarantee as the teacher flow.
+    const SUMMATIVE_TOTAL_ITEMS = 30;
+    const SUMMATIVE_DIFFICULTY  = 'medium';
+    const TOPIC_KEY_TO_ACTIVITY = {
+        ari: 'arithmetic_sequence', geo: 'geometric_sequence', har: 'harmonic_sequence',
+        fib: 'fibonacci_sequence', fin: 'finite_infinite', div: 'division_polynomials',
+        rem: 'remainder_theorem', poly: 'polynomial_equations', rat: 'rational_equations',
+        rad: 'radical_equations', exp: 'exponential_functions', log: 'logarithmic_functions',
+    };
+
+    // Spreads `total` items across `topics` as evenly as possible.
+    function distributeCounts(total, topics) {
+        const base = Math.floor(total / topics.length);
+        const remainder = total % topics.length;
+        return topics.map((_, i) => base + (i < remainder ? 1 : 0));
+    }
+
+    // One fresh, randomized, correctly-answered item per topic draw, spread
+    // across all 12 curriculum topics — no network call.
+    function buildDeterministicSummativePool() {
+        const counts = distributeCounts(SUMMATIVE_TOTAL_ITEMS, ALL_TOPICS);
+        const pool = [];
+        ALL_TOPICS.forEach((topicKey, i) => {
+            const activityValue = TOPIC_KEY_TO_ACTIVITY[topicKey];
+            const items = generateDeterministicSet(activityValue, SUMMATIVE_DIFFICULTY, counts[i]) || [];
+            items.forEach(item => {
+                const letters = Object.keys(item.options);
+                pool.push({
+                    q: item.question,
+                    choices: letters.map(k => item.options[k]),
+                    answer: letters.indexOf(item.answer),
+                });
+            });
+        });
+        // Shuffle so the same 2-3 topic block doesn't always land together.
+        return pool.sort(() => Math.random() - 0.5);
+    }
+
+    function buildSummativeRephrasePrompt(items) {
+        const list = items.map((item, i) => `${i + 1}. ${item.q}`).join('\n');
+        return `You are a Philippine Grade 10 math teacher. Rewrite each of the following ${items.length} math problems as a fresh, natural, engaging exam question appropriate for Grade 10 Filipino students, covering sequences, polynomials, rational/radical equations, and exponential/logarithmic functions.
+
+STRICT RULES:
+- Do NOT change any numbers — every number in your rewritten version must exactly match the corresponding original problem.
+- Do NOT change what quantity is being asked for.
+- Do NOT solve the problem or reveal/state the answer.
+- Keep each rewritten problem to 1-3 sentences.
+
+Problems:
+${list}
+
+Return ONLY a valid JSON array of ${items.length} strings (the rewritten versions, in the same order as the problems above). No markdown, no explanation, no backticks.`;
+    }
+
+    // Same retry/backoff shape as teacher_dashboard.js's generateQuizWithRetry,
+    // pointed at the student-facing endpoint instead of the teacher one.
+    async function generateSummativeTextWithRetry(prompt, maxRetries = 3) {
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+        let lastError = null;
+
+        for (let attempt = 0; attempt < maxRetries; attempt++) {
+            try {
+                if (attempt > 0) {
+                    const delays = [2000, 5000, 10000];
+                    await new Promise(resolve => setTimeout(resolve, delays[Math.min(attempt - 1, delays.length - 1)]));
+                }
+
+                const response = await fetch('/student/quiz/generate-text', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        ...(csrfToken && { 'X-CSRF-TOKEN': csrfToken }),
+                    },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ prompt }),
+                });
+
+                if (response.status === 429) { lastError = new Error('Rate limit reached.'); continue; }
+                if (!response.ok) {
+                    if (response.status >= 500) { lastError = new Error(`Server error (${response.status})`); continue; }
+                    const errBody = await response.json().catch(() => ({}));
+                    throw new Error(errBody.message || `API error ${response.status}`);
+                }
+
+                const data = await response.json();
+                const raw  = data.content || '';
+                if (!raw.trim()) { lastError = new Error('Empty response from API.'); continue; }
+                return raw;
+            } catch (err) {
+                lastError = err;
+                if (!err.message.includes('rate') && !err.message.includes('Server error') && !err.message.includes('Empty')) throw err;
+            }
+        }
+
+        throw lastError || new Error('Summative rewording failed after retries.');
+    }
+
+    async function rephraseSummativeQuestions(items) {
+        try {
+            const raw = await generateSummativeTextWithRetry(buildSummativeRephrasePrompt(items));
+            let clean = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+            const start = clean.indexOf('[');
+            const end = clean.lastIndexOf(']');
+            if (start === -1 || end === -1 || end <= start) return items;
+
+            const rewritten = JSON.parse(clean.slice(start, end + 1));
+            if (!Array.isArray(rewritten) || rewritten.length !== items.length) return items;
+
+            return items.map((item, i) => {
+                const candidate = rewritten[i];
+                const originalNumbers = String(item.q).match(/\d+/g) || [];
+                const rewrittenNumbers = new Set(String(candidate ?? '').match(/\d+/g) || []);
+                const preservesNumbers = typeof candidate === 'string'
+                    && candidate.trim() !== ''
+                    && originalNumbers.every(n => rewrittenNumbers.has(n));
+                return preservesNumbers ? { ...item, q: candidate.trim() } : item;
+            });
+        } catch (err) {
+            console.error('Summative question rephrasing failed, keeping template wording:', err.message);
+            return items;
+        }
+    }
+
+    async function buildSummativeQuestionSet() {
+        const pool = buildDeterministicSummativePool();
+        if (pool.length < SUMMATIVE_TOTAL_ITEMS * 0.7) {
+            // Too many topics failed to generate — safer to use the
+            // already-verified static fallback than a short/lopsided test.
+            return FALLBACK_QUIZ_QUESTIONS;
+        }
+        return rephraseSummativeQuestions(pool);
+    }
+
+    let quizQuestions = FALLBACK_QUIZ_QUESTIONS;
+
     let quizCurrent = 0;
     let quizAnswers = new Array(quizQuestions.length).fill(null);
     let quizScore   = 0;
 
     const quizInstructionsCountEl = document.getElementById('quiz-instructions-count');
-    if (quizInstructionsCountEl) quizInstructionsCountEl.textContent = `${quizQuestions.length} multiple choice questions`;
+    if (quizInstructionsCountEl) quizInstructionsCountEl.textContent = `${SUMMATIVE_TOTAL_ITEMS} multiple choice questions`;
 
     // ✅ Per-question countdown — auto-advances (or auto-submits on the last
     // question) once time runs out, same as leaving the tab does.
@@ -1093,7 +1242,8 @@ document.addEventListener('DOMContentLoaded', function () {
         _originalNavigate(page, ...rest);
     };
 
-    // ✅ Wrap startQuiz() to prevent direct access when locked
+    // ✅ Wrap startQuiz() to prevent direct access when locked, and to
+    // generate a fresh, randomized question set right before it opens.
     const _originalStartQuiz = startQuiz;
     window.startQuiz = async function() {
         const unlocked = await isSummativeUnlocked();
@@ -1101,6 +1251,17 @@ document.addEventListener('DOMContentLoaded', function () {
             window.toast('warning', '🔒 Complete all module topics first to unlock this test!');
             return;
         }
+
+        const startBtn = document.getElementById('start-summative-btn');
+        const originalLabel = startBtn?.textContent;
+        if (startBtn) { startBtn.disabled = true; startBtn.textContent = 'Generating your test…'; }
+
+        try {
+            quizQuestions = await buildSummativeQuestionSet();
+        } finally {
+            if (startBtn) { startBtn.disabled = false; startBtn.textContent = originalLabel; }
+        }
+
         _originalStartQuiz();
     };
 
