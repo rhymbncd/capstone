@@ -202,4 +202,79 @@ Structure:
             return response()->json(['status' => 'error', 'message' => 'Server error generating quiz.'], 500);
         }
     }
+
+    /**
+     * Grade a batch of open-ended activity answers via AI.
+     *
+     * Activity items with no fixed template answer (teacher-published or
+     * auto-generated) can't be checked with a local formula, so the frontend
+     * sends the questions + student answers here and the model reports back
+     * a correct/incorrect verdict plus a short model answer for each item.
+     *
+     * Uses its own system prompt (distinct from generateText's, which is
+     * tuned for inventing distractors) so the model isn't nudged toward the
+     * wrong JSON shape for a grading task.
+     */
+    public function gradeActivity(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'prompt' => 'required|string|max:6000',
+        ]);
+
+        $apiKey = config('services.openrouter.key');
+
+        if (! $apiKey) {
+            Log::error('OpenRouter API key not configured');
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'AI service is not configured on the server.',
+            ], 500);
+        }
+
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer '.$apiKey,
+                'Content-Type' => 'application/json',
+                'HTTP-Referer' => url('/'),
+                'X-Title' => 'Pansit Capstone',
+            ])->timeout(60)->post('https://openrouter.ai/api/v1/chat/completions', [
+                'model' => 'openai/gpt-4o-mini',
+                'temperature' => 0.3,
+                'max_tokens' => 1500,
+                'messages' => [
+                    [
+                        'role' => 'system',
+                        'content' => 'You are a meticulous Philippine Grade 10 mathematics teacher grading a short activity. Judge each numbered item independently and respond ONLY with a valid JSON array in the exact shape requested by the user message. No markdown, no backticks, no explanation.',
+                    ],
+                    ['role' => 'user', 'content' => $validated['prompt']],
+                ],
+            ]);
+
+            if ($response->status() === 429) {
+                return response()->json(['status' => 'error', 'message' => 'Rate limit reached.'], 429);
+            }
+
+            if (! $response->successful()) {
+                Log::error('OpenRouter activity grading failed: '.$response->body());
+
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'AI service failed to grade the activity.',
+                ], 502);
+            }
+
+            $content = $response->json('choices.0.message.content');
+
+            if (! $content) {
+                return response()->json(['status' => 'error', 'message' => 'Empty response from AI service.'], 502);
+            }
+
+            return response()->json(['status' => 'success', 'content' => $content]);
+        } catch (\Throwable $e) {
+            Log::error('Quiz gradeActivity exception: '.$e->getMessage());
+
+            return response()->json(['status' => 'error', 'message' => 'Server error grading the activity.'], 500);
+        }
+    }
 }

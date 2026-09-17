@@ -122,6 +122,10 @@ Route::prefix('student')->group(function () {
         // reachable by students too so the summative test can use it.
         Route::post('/quiz/generate-text', [QuizController::class, 'generateText'])->middleware('throttle:ai')->name('student.quiz.generate-text');
 
+        // AI grading for open-ended activity items (teacher-published or
+        // auto-generated) that have no fixed template answer to check locally.
+        Route::post('/quiz/grade-activity', [QuizController::class, 'gradeActivity'])->middleware('throttle:ai')->name('student.quiz.grade-activity');
+
         // Teacher-published quizzes + custom topic names for the modules page.
         Route::get('/modules/published', [StudentPublishedQuizController::class, 'index'])->name('student.modules.published');
 

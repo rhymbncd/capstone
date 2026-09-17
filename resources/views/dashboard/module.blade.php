@@ -710,6 +710,7 @@ const STUDENT_ROUTES = {
     progress:         '{{ route('student.progress.store') }}',
     quizAnswers:      '{{ route('student.quiz-answers.store') }}',
     modulesPublished: '{{ route('student.modules.published') }}',
+    quizGradeActivity: '{{ route('student.quiz.grade-activity') }}',
 };
 const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]')?.content ?? '';
 
@@ -765,7 +766,7 @@ function teacherQToMQFormat(q) {
 function teacherActToMQFormat(a) {
     return {
         q:    a.question || '',
-        ans:  '',           // open-ended — any answer accepted (checked by mqSubmitActivity)
+        ans:  '',           // no fixed template answer — graded by AI in mqSubmitActivity
         hint: a.instruction || 'Write your answer based on what you learned.',
     };
 }
@@ -1424,33 +1425,128 @@ function mqRenderActivity() {
   });
 }
 
-function mqSubmitActivity() {
+/**
+ * Builds the grading prompt sent to the AI for open-ended activity items
+ * (teacher-published or auto-generated — they have no fixed template
+ * answer, so there's no formula to check them against locally).
+ */
+function buildActivityGradingPrompt(items) {
+  const list = items.map((it, i) => `${i + 1}. Question: ${it.q}\nStudent's answer: ${it.val}`).join('\n\n');
+  return `You are a meticulous Philippine Grade 10 math teacher grading a short activity.
+
+For each numbered item below, decide if the student's answer is acceptable:
+- If the question asks for a specific numeric/algebraic result, mark it correct only if that result is mathematically correct (equivalent forms like fractions/decimals or reordered lists are fine).
+- If the question is an open-ended written explanation/reflection with no single correct answer, mark it correct if the response is a genuine, on-topic, non-trivial attempt.
+- A blank, off-topic, or nonsensical answer is always incorrect.
+
+Items:
+${list}
+
+Return ONLY a valid JSON array of ${items.length} objects, one per item in the same order, shaped exactly like:
+{"correct": true, "answer": "the correct final answer or a one-sentence model answer"}
+
+No markdown, no backticks, no explanation outside the JSON array.`;
+}
+
+/** Same retry/backoff shape as teacher_dashboard.js's generateQuizWithRetry,
+ *  pointed at the dedicated activity-grading endpoint (its own system
+ *  prompt, distinct from /student/quiz/generate-text's distractor-focused one). */
+async function generateActivityGradingText(prompt, maxRetries = 3) {
+  const delays = [1500, 3000, 6000];
+  let lastError = null;
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    if (attempt > 0) {
+      await new Promise(resolve => setTimeout(resolve, delays[Math.min(attempt - 1, delays.length - 1)]));
+    }
+    try {
+      const res = await fetch(STUDENT_ROUTES.quizGradeActivity, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN },
+        body: JSON.stringify({ prompt }),
+      });
+
+      if (res.status === 429) { lastError = new Error('Rate limit reached.'); continue; }
+      if (!res.ok) {
+        if (res.status >= 500) { lastError = new Error(`Server error (${res.status})`); continue; }
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.message || `API error ${res.status}`);
+      }
+
+      const data = await res.json();
+      const raw  = data.content || '';
+      if (!raw.trim()) { lastError = new Error('Empty response from API.'); continue; }
+      return raw;
+    } catch (err) {
+      lastError = err;
+      if (!/rate|Server error|Empty/.test(err.message)) throw err;
+    }
+  }
+
+  throw lastError || new Error('Activity grading failed after retries.');
+}
+
+/**
+ * Grades open-ended activity answers with AI. Returns an array of
+ * { isCorrect, correctAnswer } in the same order as `items`, or null if
+ * the AI call/parse failed (caller falls back to recording ungraded).
+ */
+async function gradeOpenEndedAnswers(items) {
+  try {
+    const raw = await generateActivityGradingText(buildActivityGradingPrompt(items));
+    let clean = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+    const start = clean.indexOf('[');
+    const end = clean.lastIndexOf(']');
+    if (start === -1 || end === -1 || end <= start) {
+      throw new Error('No JSON array in AI response.');
+    }
+    const parsed = JSON.parse(clean.slice(start, end + 1));
+    if (!Array.isArray(parsed) || parsed.length !== items.length) {
+      throw new Error('AI grading array length mismatch.');
+    }
+    return parsed.map(r => ({
+      isCorrect:     !!(r && r.correct),
+      correctAnswer: r && r.answer ? String(r.answer) : null,
+    }));
+  } catch (e) {
+    console.warn('AI activity grading failed, recording answers as ungraded:', e.message);
+    return null;
+  }
+}
+
+async function mqSubmitActivity() {
   const key = mqState.topicKey;
   const act = MQ_TOPICS[key].activity;
-  let correct = 0;
-  const activityAnswers = [];
+  const submitBtn = document.getElementById('mq-act-submit-btn');
 
-  act.items.forEach((item, i) => {
+  // Snapshot every input + disable them immediately so the student can't
+  // keep editing while the AI grading call (below) is in flight.
+  const rows = act.items.map((item, i) => {
     const input = document.getElementById('mq-act-input-' + i);
     const hint  = document.getElementById('mq-act-hint-' + i);
     const val   = input.value.trim();
     const ans   = (item.ans ?? '').toString().trim();
+    input.disabled = true;
+    return { item, input, hint, val, ans };
+  });
 
-    // ── Determine if correct ──────────────────────────────
-    let isCorrect = false;
+  // Items with a fixed template answer are graded locally (deterministic —
+  // no AI needed). Items with no fixed answer (ans === '') — teacher-
+  // published or auto-generated activities — have no formula to check
+  // them against, so an AI call grades those instead of just accepting
+  // any non-empty text.
+  const graded = new Array(rows.length);
+  const aiQueue = [];
 
-    if (ans === '') {
-      // Open-ended (teacher-published activity) — any non-empty answer passes
-      isCorrect = val.length > 0;
-    } else {
+  rows.forEach((row, i) => {
+    const { val, ans } = row;
+
+    if (ans !== '') {
       // Normalize: lowercase, collapse whitespace
       const normalize = s => s.toLowerCase().replace(/\s+/g, ' ').trim();
-      const normVal = normalize(val);
-      const normAns = normalize(ans);
-
-      if (normVal === normAns) {
-        isCorrect = true;
-      } else {
+      let isCorrect = normalize(val) === normalize(ans);
+      if (!isCorrect) {
         // Numeric comparison — handles "6" vs "6.0", "1/2" vs "0.5", etc.
         const numVal = parseFloat(val.replace(/,/g, ''));
         const numAns = parseFloat(ans.replace(/,/g, ''));
@@ -1458,30 +1554,65 @@ function mqSubmitActivity() {
           isCorrect = Math.abs(numVal - numAns) < 0.001;
         }
       }
+      graded[i] = { isCorrect, correctAnswer: ans, ungraded: false };
+    } else if (!val) {
+      // Blank open-ended answer — nothing to grade, automatically incorrect.
+      graded[i] = { isCorrect: false, correctAnswer: null, ungraded: false };
+    } else {
+      aiQueue.push(i);
     }
-    // ─────────────────────────────────────────────────────
+  });
 
-    if (isCorrect) {
-      correct++;
+  if (aiQueue.length) {
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Checking your answers…'; }
+
+    const aiResults = await gradeOpenEndedAnswers(aiQueue.map(i => ({ q: rows[i].item.q, val: rows[i].val })));
+
+    aiQueue.forEach((i, idx) => {
+      if (aiResults) {
+        graded[i] = { isCorrect: aiResults[idx].isCorrect, correctAnswer: aiResults[idx].correctAnswer, ungraded: false };
+      } else {
+        // AI unavailable — don't block the student on our own outage;
+        // record the response but don't claim it was checked.
+        graded[i] = { isCorrect: true, correctAnswer: null, ungraded: true };
+      }
+    });
+
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Activity'; }
+  }
+
+  let correct = 0;
+  const activityAnswers = [];
+
+  rows.forEach(({ item, input, hint, val }, i) => {
+    const { isCorrect, correctAnswer, ungraded } = graded[i];
+    if (isCorrect) correct++;
+
+    if (ungraded) {
+      input.className = 'mq-activity-input';
+      hint.className  = 'mq-activity-hint mq-hint--ok mq-show';
+      hint.textContent = '✓ Answer recorded! (Could not auto-check this one right now.)';
+    } else if (isCorrect) {
       input.className = 'mq-activity-input mq-act--correct';
       hint.className  = 'mq-activity-hint mq-hint--ok mq-show';
-      hint.textContent = ans === '' ? '✓ Answer recorded!' : '✓ Correct!';
+      hint.textContent = '✓ Correct!';
     } else {
       input.className = 'mq-activity-input mq-act--wrong';
       hint.className  = 'mq-activity-hint mq-hint--err mq-show';
-      hint.textContent = '✗ Hint: ' + (item.hint || '');
+      hint.textContent = correctAnswer
+        ? `✗ Not quite. Correct answer: ${correctAnswer}`
+        : '✗ Hint: ' + (item.hint || '');
     }
-    input.disabled = true;
 
     activityAnswers.push({
-      question:  item.q,
-      selected:  val,
-      correct:   ans === '' ? null : ans,
+      question: item.q,
+      selected: val,
+      correct:  ungraded ? null : correctAnswer,
       isCorrect,
     });
   });
 
-  document.getElementById('mq-act-submit-btn').style.display = 'none';
+  if (submitBtn) submitBtn.style.display = 'none';
 
   // Pass threshold: 60% of items, minimum 1
   const threshold = Math.max(1, Math.ceil(act.items.length * 0.6));
