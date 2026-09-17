@@ -977,7 +977,7 @@ Return ONLY a valid JSON array of ${items.length} strings (the rewritten version
         setText('progress-attempts', stats.attempts);
         setText('progress-avg-pre', stats.avgPre === null ? '—' : stats.avgPre + '%');
         setText('progress-improvement', stats.improvement === null ? '—' : `${stats.improvement >= 0 ? '+' : ''}${stats.improvement}%`);
-        setText('progress-summative-score', stats.summative ? `${stats.summative.score}/${stats.summative.total}` : '—');
+        setText('progress-summative-score', (stats.summative && stats.summative.total > 0) ? `${Math.round((stats.summative.score / stats.summative.total) * 100)}%` : '—');
         ['mod1', 'mod2', 'mod3'].forEach(mod => {
             setText(`progress-${mod}-pct`, stats.perModule[mod].pct + '%');
             setWidth(`progress-${mod}-fill`, stats.perModule[mod].pct);
