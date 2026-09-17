@@ -124,7 +124,7 @@ let savedQuizzes = [];     // loaded from Supabase on page visit
    NAVIGATION
    ============================================================ */
 function navigate(page) {
-    const allowed = ['home', 'students', 'progress', 'reports', 'modules', 'profile', 'quiz'];
+    const allowed = ['home', 'students', 'progress', 'reports', 'class-record', 'modules', 'profile', 'quiz'];
     if (!allowed.includes(page)) return;
 
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -141,6 +141,10 @@ function navigate(page) {
     if (page === 'reports')  {
         loadSectionsForReports();
         Promise.all([loadStudents(), loadFeedbacks()]).then(renderReports);
+    }
+    if (page === 'class-record') {
+        loadSectionsForReports();
+        loadStudents().then(renderClassRecord);
     }
     if (page === 'modules')  loadAndRenderModules();  // always re-fetches
     if (page === 'profile')  renderProfile();
@@ -1007,6 +1011,187 @@ async function buildAndDownloadExcelReport(reportSections) {
     });
 
     XLSX.writeFile(wb, `student-report-${new Date().toISOString().slice(0, 10)}.xlsx`);
+}
+
+/* ============================================================
+   CLASS RECORD — Pretest/Posttest/Activity/Summative per section
+   ============================================================ */
+function renderClassRecord() {
+    const container = document.getElementById('class-record-container');
+    if (!container) return;
+
+    const reportSections = getReportSections();
+    if (!reportSections.length) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-icon">🏫</div>
+                <h4>No sections yet</h4>
+                <p>Create a section first from the Reports page.</p>
+            </div>`;
+        return;
+    }
+
+    container.innerHTML = reportSections.map(sec => {
+        const sectionStudents = students.filter(s => s.section_id === sec.id);
+
+        return `
+            <div style="border:1px solid #e5e7eb;border-radius:16px;margin-bottom:20px;overflow:hidden;background:white;box-shadow:0 1px 3px rgba(0,0,0,0.05)">
+                <div style="padding:18px 24px;border-bottom:1px solid #f3f4f6;display:flex;justify-content:space-between;align-items:center">
+                    <div style="font-weight:700;color:#111827;font-size:16px">${Security.escape(sec.name)}</div>
+                    <div style="font-size:13px;color:#6b7280">${sectionStudents.length} student(s)</div>
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Name</th>
+                                <th>Student ID</th>
+                                <th>Pretest</th>
+                                <th>Posttest</th>
+                                <th>Activity</th>
+                                <th>Summative</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${sectionStudents.length
+                                ? sectionStudents.map((s, i) => `
+                                    <tr>
+                                        <td style="color:var(--text-4);font-size:12px">${i + 1}</td>
+                                        <td><b>${Security.escape(s.name)}</b></td>
+                                        <td style="font-size:12px;color:var(--text-3)">${s.studentId ? Security.escape(s.studentId) : '—'}</td>
+                                        <td>${pctOrDash(s.avgPre)}</td>
+                                        <td>${pctOrDash(s.avgPost)}</td>
+                                        <td>${pctOrDash(s.avgActivity)}</td>
+                                        <td>${pctOrDash(s.summative)}</td>
+                                    </tr>`).join('')
+                                : `<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">👥</div><h4>No students in this section yet</h4></div></td></tr>`}
+                        </tbody>
+                    </table>
+                </div>
+            </div>`;
+    }).join('');
+}
+
+/** Single "Export" button entry point — lets the teacher pick PDF or Excel. */
+function showClassRecordExportPicker() {
+    const reportSections = getReportSections();
+    if (!reportSections.length) return Swal.fire({ icon: 'warning', title: 'No Sections', text: 'Create at least one section first.', confirmButtonColor: '#2563eb' });
+
+    loadExportLibs().catch(() => {});
+
+    Swal.fire({
+        title: 'Export Class Record',
+        text: 'Choose a format to download.',
+        icon: 'question',
+        showDenyButton: true,
+        showCancelButton: true,
+        confirmButtonText: 'PDF',
+        denyButtonText: 'Excel',
+        cancelButtonText: 'Cancel',
+        confirmButtonColor: '#2563eb',
+        denyButtonColor: '#16a34a',
+    }).then(async r => {
+        if (r.isConfirmed) {
+            try {
+                await buildAndDownloadClassRecordPdf(reportSections);
+                logActivity('Class Record Generated', 'PDF class record was downloaded', 'report');
+                toast('success', 'PDF class record downloaded!');
+            } catch (err) {
+                console.error('PDF generation error:', err);
+                warn('PDF Generation Failed', 'Could not generate the PDF. Please try again.');
+            }
+        } else if (r.isDenied) {
+            try {
+                await buildAndDownloadClassRecordExcel(reportSections);
+                logActivity('Class Record Generated', 'Excel class record was downloaded', 'report');
+                toast('success', 'Excel class record downloaded!');
+            } catch (err) {
+                console.error('Excel generation error:', err);
+                warn('Excel Generation Failed', 'Could not generate the spreadsheet. Please try again.');
+            }
+        }
+    });
+}
+
+const CLASS_RECORD_COLUMNS = ['#', 'Name', 'Student ID', 'Pretest', 'Posttest', 'Activity', 'Summative'];
+function classRecordRow(s, i) {
+    return [i + 1, s.name, s.studentId || '—', pctOrDash(s.avgPre), pctOrDash(s.avgPost), pctOrDash(s.avgActivity), pctOrDash(s.summative)];
+}
+
+/** Build a real PDF class record from the teacher's real sections + students and trigger a download. */
+async function buildAndDownloadClassRecordPdf(reportSections) {
+    await loadExportLibs();
+    if (!window.jspdf || !window.jspdf.jsPDF) {
+        throw new Error('PDF library failed to load. Check your connection and try again.');
+    }
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    const teacherName = window.__USER__?.name || 'Teacher';
+
+    doc.setFontSize(18);
+    doc.text('Class Record', 14, 18);
+    doc.setFontSize(10);
+    doc.setTextColor(110);
+    doc.text(`Generated by ${teacherName} on ${new Date().toLocaleString()}`, 14, 25);
+
+    let y = 34;
+    reportSections.forEach(sec => {
+        const sectionStudents = students.filter(s => s.section_id === sec.id);
+
+        if (y > 265) { doc.addPage(); y = 20; }
+
+        doc.setFontSize(13);
+        doc.setTextColor(20);
+        doc.text(`${sec.name}  —  ${sectionStudents.length} student(s)`, 14, y);
+        y += 4;
+
+        doc.autoTable({
+            startY: y,
+            head: sectionStudents.length ? [CLASS_RECORD_COLUMNS] : undefined,
+            body: sectionStudents.length
+                ? sectionStudents.map((s, i) => classRecordRow(s, i))
+                : [['No students enrolled in this section yet.']],
+            headStyles: { fillColor: [37, 99, 235] },
+            styles: { fontSize: 9 },
+            margin: { left: 14, right: 14 },
+        });
+
+        y = doc.lastAutoTable.finalY + 12;
+    });
+
+    doc.save(`class-record-${new Date().toISOString().slice(0, 10)}.pdf`);
+}
+
+/** Build a real .xlsx class record workbook from the teacher's real sections + students and trigger a download. */
+async function buildAndDownloadClassRecordExcel(reportSections) {
+    await loadExportLibs();
+    if (!window.XLSX) {
+        throw new Error('Spreadsheet library failed to load. Check your connection and try again.');
+    }
+
+    const wb = XLSX.utils.book_new();
+    const usedSheetNames = new Set();
+
+    reportSections.forEach(sec => {
+        const sectionStudents = students.filter(s => s.section_id === sec.id);
+        const rows = [CLASS_RECORD_COLUMNS];
+        sectionStudents.forEach((s, i) => rows.push(classRecordRow(s, i)));
+        if (!sectionStudents.length) rows.push(['No students enrolled in this section yet.']);
+
+        // Excel sheet names: max 31 chars, no \ / ? * [ ] :, and must be unique.
+        let sheetName = sec.name.replace(/[\\/?*[\]:]/g, ' ').trim().slice(0, 31) || 'Section';
+        let suffix = 2;
+        while (usedSheetNames.has(sheetName)) {
+            sheetName = `${sheetName.slice(0, 28)} (${suffix++})`;
+        }
+        usedSheetNames.add(sheetName);
+
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), sheetName);
+    });
+
+    XLSX.writeFile(wb, `class-record-${new Date().toISOString().slice(0, 10)}.xlsx`);
 }
 
 /* ============================================================
@@ -4263,6 +4448,7 @@ document.addEventListener('DOMContentLoaded', async () => {
        ============================================================ */
     document.getElementById('open-add-section-btn')?.addEventListener('click', () => openAddSection());
     document.getElementById('report-export-btn')?.addEventListener('click', () => showReportExportPicker());
+    document.getElementById('class-record-export-btn')?.addEventListener('click', () => showClassRecordExportPicker());
     document.getElementById('add-module-btn')?.addEventListener('click', () => openAddModule());
     document.getElementById('save-quiz-btn')?.addEventListener('click', () => saveQuizToSupabase());
     document.getElementById('regenerate-quiz-btn')?.addEventListener('click', () => generateQuiz());

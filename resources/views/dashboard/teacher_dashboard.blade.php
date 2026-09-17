@@ -77,6 +77,16 @@
                 </svg>
                 Reports
             </button>
+            <button class="sidebar-item" data-page="class-record">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M9 2h6a1 1 0 0 1 1 1v2H8V3a1 1 0 0 1 1-1z"/>
+                    <path d="M8 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2"/>
+                    <line x1="8" y1="11" x2="16" y2="11"/>
+                    <line x1="8" y1="15" x2="16" y2="15"/>
+                    <line x1="8" y1="19" x2="12" y2="19"/>
+                </svg>
+                Class Record
+            </button>
             <button class="sidebar-item" data-page="modules">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <rect x="3" y="3" width="7" height="7"/>
@@ -528,6 +538,30 @@
                         </div>
                     </div>
                     <div id="sections-container"></div>
+                </div>
+            </div>
+
+            <!-- CLASS RECORD PAGE -->
+            <div class="page" id="page-class-record">
+                <div class="hero-section">
+                    <h1 class="welcome-title">Class Record</h1>
+                    <p class="welcome-subtitle">Pretest, Posttest, Activity, and Summative scores per section</p>
+                </div>
+
+                <div class="modules-container">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+                        <div>
+                            <div class="section-label">Student Scores by Section</div>
+                            <div class="section-sub">Average score per category, grouped by section</div>
+                        </div>
+                        <button class="primary-btn" id="class-record-export-btn" style="display:flex;align-items:center;gap:6px;padding:10px 18px;width:auto">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                            </svg>
+                            Export
+                        </button>
+                    </div>
+                    <div id="class-record-container"></div>
                 </div>
             </div>
 
@@ -1021,6 +1055,11 @@
     <button class="nav-item" data-page="reports">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
         <span>Reports</span>
+        <div class="nav-dot"></div>
+    </button>
+    <button class="nav-item" data-page="class-record">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2"/><path d="M9 2h6a1 1 0 0 1 1 1v2H8V3a1 1 0 0 1 1-1z"/><line x1="8" y1="11" x2="16" y2="11"/><line x1="8" y1="15" x2="16" y2="15"/></svg>
+        <span>Class Record</span>
         <div class="nav-dot"></div>
     </button>
     <button class="nav-item" data-page="profile">

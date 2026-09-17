@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\StudentProgress;
+use App\Models\StudentQuizAnswer;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -22,7 +23,7 @@ class StudentController extends Controller
      * changes (e.g. new status rules) so already-cached client copies are
      * invalidated instead of being served stale behind a 304.
      */
-    private const PAYLOAD_VERSION = '2026-09-15-verdict-only-at-100-percent';
+    private const PAYLOAD_VERSION = '2026-09-17-class-record-columns';
 
     private const CURRICULUM_TOPICS = [
         'ari', 'geo', 'har', 'fib', 'fin',
@@ -74,6 +75,22 @@ class StudentController extends Controller
             ->whereIn('topic_key', self::CURRICULUM_TOPICS)
             ->get(['session_id', 'topic_key', 'phase', 'score', 'total', 'updated_at']);
 
+        // The self-directed summative review sits in the same table but
+        // outside the pre/post curriculum query above (its own topic_key,
+        // not one of the 12 curriculum codes) — fetched separately.
+        $summativeRows = StudentProgress::query()
+            ->whereIn('session_id', $studentIds)
+            ->where('topic_key', 'summative')
+            ->get(['session_id', 'score', 'total', 'updated_at']);
+
+        // Activity scores live in a different table entirely (student_quiz_answers),
+        // one row per curriculum topic per student.
+        $allActivityRows = StudentQuizAnswer::query()
+            ->whereIn('session_id', $studentIds)
+            ->where('phase', 'activity')
+            ->whereIn('topic_key', self::CURRICULUM_TOPICS)
+            ->get(['session_id', 'score', 'total', 'updated_at']);
+
         // Fingerprinted from what can actually change the response's
         // meaning — roster membership/approval + the most recent progress
         // write — not the rendered payload (which includes "X minutes ago"
@@ -82,18 +99,27 @@ class StudentController extends Controller
             ->map(fn (User $s) => $s->id.':'.$s->approval_status.':'.$s->updated_at->timestamp)
             ->implode('|');
         $progressFingerprint = $allProgressRows->count().':'.optional($allProgressRows->max('updated_at'))?->timestamp;
+        $summativeFingerprint = $summativeRows->count().':'.optional($summativeRows->max('updated_at'))?->timestamp;
+        $activityFingerprint = $allActivityRows->count().':'.optional($allActivityRows->max('updated_at'))?->timestamp;
 
         $progressRows = $allProgressRows->groupBy('session_id');
+        $summativeRowsById = $summativeRows->keyBy('session_id');
+        $activityRows = $allActivityRows->groupBy('session_id');
 
         $totalTopics = count(self::CURRICULUM_TOPICS);
 
-        $studentData = $students->map(function ($student) use ($progressRows, $totalTopics) {
+        $studentData = $students->map(function ($student) use ($progressRows, $totalTopics, $summativeRowsById, $activityRows) {
             $rows = $progressRows->get((string) $student->id, collect());
             $postRows = $rows->where('phase', 'post');
 
             $completed = $postRows->pluck('topic_key')->unique()->count();
             $progress = (int) round(($completed / $totalTopics) * 100);
             $avgPost = $this->averageScorePercent($postRows);
+
+            $summativeRow = $summativeRowsById->get((string) $student->id);
+            $summative = $summativeRow && $summativeRow->total > 0
+                ? (int) round(($summativeRow->score / $summativeRow->total) * 100)
+                : null;
 
             return [
                 'id' => $student->id,
@@ -108,6 +134,8 @@ class StudentController extends Controller
                 'modulesTotal' => $totalTopics,
                 'avgPre' => $this->averageScorePercent($rows->where('phase', 'pre')),
                 'avgPost' => $avgPost,
+                'avgActivity' => $this->averageScorePercent($activityRows->get((string) $student->id, collect())),
+                'summative' => $summative,
                 'lastActive' => $student->updated_at->diffForHumans(),
             ];
         });
@@ -116,7 +144,7 @@ class StudentController extends Controller
             'students' => $studentData,
             'subjectCompletion' => $this->subjectCompletion($allProgressRows, $students->count()),
         ]);
-        $response->setEtag(md5(self::PAYLOAD_VERSION.'#'.$rosterFingerprint.'#'.$progressFingerprint));
+        $response->setEtag(md5(self::PAYLOAD_VERSION.'#'.$rosterFingerprint.'#'.$progressFingerprint.'#'.$summativeFingerprint.'#'.$activityFingerprint));
 
         // Force the browser to revalidate with If-None-Match on every poll
         // rather than serving a heuristically "fresh" copy from its HTTP
