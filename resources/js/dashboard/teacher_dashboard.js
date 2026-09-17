@@ -856,6 +856,14 @@ function renderReports() {
 function getReportSections() {
     return allSections.length ? allSections : sections;
 }
+
+/** A distinct color per section, by its position in the sections list — shared
+ *  between Reports and Class Record so the same section always gets the same
+ *  color across the dashboard. */
+const SECTION_COLORS = ['#3b82f6', '#10b981', '#f97316', '#8b5cf6', '#ec4899', '#06b6d4'];
+function sectionColor(idx) {
+    return SECTION_COLORS[idx % SECTION_COLORS.length];
+}
 function sectionAvgProgress(sectionStudents) {
     return sectionStudents.length
         ? Math.round(sectionStudents.reduce((sum, s) => sum + s.progress, 0) / sectionStudents.length)
@@ -1094,13 +1102,17 @@ function renderClassRecord() {
         return;
     }
 
-    container.innerHTML = reportSections.map(sec => {
+    container.innerHTML = reportSections.map((sec, idx) => {
         const sectionStudents = classRecordData.students.filter(s => s.section_id === sec.id);
+        const colorHex = sectionColor(idx);
 
         return `
-            <div style="border:1px solid #e5e7eb;border-radius:16px;margin-bottom:20px;overflow:hidden;background:white;box-shadow:0 1px 3px rgba(0,0,0,0.05)">
+            <div style="border:1px solid #e5e7eb;border-left:5px solid ${colorHex};border-radius:16px;margin-bottom:20px;overflow:hidden;background:white;box-shadow:0 1px 3px rgba(0,0,0,0.05)">
                 <div style="padding:18px 24px;border-bottom:1px solid #f3f4f6;display:flex;justify-content:space-between;align-items:center">
-                    <div style="font-weight:700;color:#111827;font-size:16px">${Security.escape(sec.name)}</div>
+                    <div style="display:flex;align-items:center;gap:10px">
+                        <span style="width:10px;height:10px;border-radius:50%;background:${colorHex};flex-shrink:0"></span>
+                        <div style="font-weight:700;color:#111827;font-size:16px">${Security.escape(sec.name)}</div>
+                    </div>
                     <div style="font-size:13px;color:#6b7280">${sectionStudents.length} student(s)</div>
                 </div>
                 <div style="padding:18px 24px">
@@ -1397,10 +1409,8 @@ function renderSectionsContainer() {
         return;
     }
 
-    const colors = ['#3b82f6', '#10b981', '#f97316', '#8b5cf6', '#ec4899', '#06b6d4'];
-
     container.innerHTML = allSections.map((sec, idx) => {
-        const colorHex = colors[idx % colors.length];
+        const colorHex = sectionColor(idx);
 
         // Real students in this section, from the already-loaded roster
         // (StudentController::getTeacherStudents), not a placeholder count.
