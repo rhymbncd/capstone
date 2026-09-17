@@ -2,7 +2,6 @@
 
 use App\Models\Section;
 use App\Models\StudentProgress;
-use App\Models\StudentQuizAnswer;
 use App\Models\User;
 
 it('returns the teacher\'s students with real progress computed from student_progress', function () {
@@ -280,86 +279,6 @@ it('excludes students belonging to other teachers\' sections', function () {
 
     $response->assertOk();
     expect($response->json('students'))->toBeEmpty();
-});
-
-it('includes each student\'s average activity score, for the Class Record page', function () {
-    $teacher = User::factory()->teacher()->create(['approval_status' => 'approved']);
-    $section = Section::factory()->create(['teacher_id' => $teacher->id]);
-    $student = User::factory()->create([
-        'role' => 'student',
-        'approval_status' => 'approved',
-        'section_id' => $section->id,
-    ]);
-
-    // Activity scores live in student_quiz_answers, not student_progress:
-    // 7/10 and 9/10 across two topics averages to 80%.
-    StudentQuizAnswer::create([
-        'session_id' => (string) $student->id,
-        'student_name' => $student->name,
-        'topic_key' => 'ari',
-        'phase' => 'activity',
-        'answers' => [],
-        'score' => 7,
-        'total' => 10,
-    ]);
-    StudentQuizAnswer::create([
-        'session_id' => (string) $student->id,
-        'student_name' => $student->name,
-        'topic_key' => 'geo',
-        'phase' => 'activity',
-        'answers' => [],
-        'score' => 9,
-        'total' => 10,
-    ]);
-
-    $response = $this->actingAs($teacher)->getJson(route('teacher.students.index'));
-
-    $response->assertOk();
-    $data = collect($response->json('students'))->firstWhere('id', $student->id);
-    expect($data['avgActivity'])->toBe(80);
-});
-
-it('includes each student\'s summative score, for the Class Record page', function () {
-    $teacher = User::factory()->teacher()->create(['approval_status' => 'approved']);
-    $section = Section::factory()->create(['teacher_id' => $teacher->id]);
-    $student = User::factory()->create([
-        'role' => 'student',
-        'approval_status' => 'approved',
-        'section_id' => $section->id,
-    ]);
-
-    StudentProgress::create([
-        'session_id' => (string) $student->id,
-        'topic_key' => 'summative',
-        'phase' => 'post',
-        'score' => 18,
-        'total' => 20,
-        'passed' => true,
-        'student_name' => $student->name,
-    ]);
-
-    $response = $this->actingAs($teacher)->getJson(route('teacher.students.index'));
-
-    $response->assertOk();
-    $data = collect($response->json('students'))->firstWhere('id', $student->id);
-    expect($data['summative'])->toBe(90);
-});
-
-it('reports null activity and summative scores for a student with no attempts yet', function () {
-    $teacher = User::factory()->teacher()->create(['approval_status' => 'approved']);
-    $section = Section::factory()->create(['teacher_id' => $teacher->id]);
-    $student = User::factory()->create([
-        'role' => 'student',
-        'approval_status' => 'approved',
-        'section_id' => $section->id,
-    ]);
-
-    $response = $this->actingAs($teacher)->getJson(route('teacher.students.index'));
-
-    $response->assertOk();
-    $data = collect($response->json('students'))->firstWhere('id', $student->id);
-    expect($data['avgActivity'])->toBeNull();
-    expect($data['summative'])->toBeNull();
 });
 
 it('blocks non-teachers from the students endpoint', function () {

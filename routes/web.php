@@ -23,6 +23,7 @@ use App\Http\Controllers\Student\PublishedQuizController as StudentPublishedQuiz
 use App\Http\Controllers\Student\QuizAnswerController as StudentQuizAnswerController;
 use App\Http\Controllers\StudentController;
 use App\Http\Controllers\StudentDashboardController;
+use App\Http\Controllers\Teacher\ClassRecordController;
 use App\Http\Controllers\Teacher\CustomTopicController;
 use App\Http\Controllers\Teacher\FeedbackController as TeacherFeedbackController;
 use App\Http\Controllers\Teacher\PublishedQuizController;
@@ -197,6 +198,11 @@ Route::prefix('teacher')->group(function () {
             Route::post('/reject/{user}', [StudentApprovalController::class, 'reject'])->name('teacher.student.reject');
             Route::post('/reset/{user}', [StudentApprovalController::class, 'reset'])->name('teacher.student.reset');
             Route::get('/{student}/answers', [StudentAnswersController::class, 'index'])->name('teacher.students.answers');
+        });
+
+        // Class Record — raw pretest/posttest/activity/summative scores per lesson
+        Route::prefix('class-record')->group(function () {
+            Route::get('/', [ClassRecordController::class, 'index'])->name('teacher.class-record.index');
         });
 
         // Sections Management

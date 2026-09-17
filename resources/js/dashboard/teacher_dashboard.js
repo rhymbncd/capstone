@@ -144,7 +144,7 @@ function navigate(page) {
     }
     if (page === 'class-record') {
         loadSectionsForReports();
-        loadStudents().then(renderClassRecord);
+        loadClassRecordData().then(renderClassRecord);
     }
     if (page === 'modules')  loadAndRenderModules();  // always re-fetches
     if (page === 'profile')  renderProfile();
@@ -1014,8 +1014,71 @@ async function buildAndDownloadExcelReport(reportSections) {
 }
 
 /* ============================================================
-   CLASS RECORD — Pretest/Posttest/Activity/Summative per section
+   CLASS RECORD — raw Pretest/Posttest/Activity/Summative scores
+   per lesson (score/total, not a percentage), grouped by section
    ============================================================ */
+let classRecordData = { topics: [], students: [] };
+
+function loadClassRecordData() {
+    return apiFetch('/teacher/class-record')
+        .then(data => { classRecordData = { topics: data.topics || [], students: data.students || [] }; })
+        .catch(err => {
+            console.error('Error loading class record:', err);
+            classRecordData = { topics: [], students: [] };
+        });
+}
+
+/** Formats one {score,total} cell, or a dash when the lesson hasn't been attempted yet. */
+function scoreOrDash(cell) {
+    return cell ? `${cell.score}/${cell.total}` : '—';
+}
+
+/** One <table> of raw scores for a single category (pretest/posttest/activity), one column per lesson. */
+function classRecordCategoryTable(title, sectionStudents, categoryKey) {
+    const topics = classRecordData.topics;
+    return `
+        <div style="margin-bottom:18px">
+            <div style="font-weight:600;color:#374151;font-size:13px;margin-bottom:8px">${Security.escape(title)}</div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            ${topics.map(t => `<th title="${Security.escape(t.name)}">${Security.escape(t.key.toUpperCase())}</th>`).join('')}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${sectionStudents.length
+                            ? sectionStudents.map(s => `
+                                <tr>
+                                    <td><b>${Security.escape(s.name)}</b></td>
+                                    ${topics.map(t => `<td>${scoreOrDash(s[categoryKey]?.[t.key])}</td>`).join('')}
+                                </tr>`).join('')
+                            : `<tr><td colspan="${topics.length + 1}"><div class="empty-state"><div class="empty-icon">👥</div><h4>No students in this section yet</h4></div></td></tr>`}
+                    </tbody>
+                </table>
+            </div>
+        </div>`;
+}
+
+/** The Summative table: one score per student, not per lesson (it's a single review test). */
+function classRecordSummativeTable(sectionStudents) {
+    return `
+        <div>
+            <div style="font-weight:600;color:#374151;font-size:13px;margin-bottom:8px">Summative</div>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Name</th><th>Score</th></tr></thead>
+                    <tbody>
+                        ${sectionStudents.length
+                            ? sectionStudents.map(s => `<tr><td><b>${Security.escape(s.name)}</b></td><td>${scoreOrDash(s.summative)}</td></tr>`).join('')
+                            : `<tr><td colspan="2"><div class="empty-state"><div class="empty-icon">👥</div><h4>No students in this section yet</h4></div></td></tr>`}
+                    </tbody>
+                </table>
+            </div>
+        </div>`;
+}
+
 function renderClassRecord() {
     const container = document.getElementById('class-record-container');
     if (!container) return;
@@ -1032,7 +1095,7 @@ function renderClassRecord() {
     }
 
     container.innerHTML = reportSections.map(sec => {
-        const sectionStudents = students.filter(s => s.section_id === sec.id);
+        const sectionStudents = classRecordData.students.filter(s => s.section_id === sec.id);
 
         return `
             <div style="border:1px solid #e5e7eb;border-radius:16px;margin-bottom:20px;overflow:hidden;background:white;box-shadow:0 1px 3px rgba(0,0,0,0.05)">
@@ -1040,34 +1103,11 @@ function renderClassRecord() {
                     <div style="font-weight:700;color:#111827;font-size:16px">${Security.escape(sec.name)}</div>
                     <div style="font-size:13px;color:#6b7280">${sectionStudents.length} student(s)</div>
                 </div>
-                <div class="table-wrap">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>Name</th>
-                                <th>Student ID</th>
-                                <th>Pretest</th>
-                                <th>Posttest</th>
-                                <th>Activity</th>
-                                <th>Summative</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${sectionStudents.length
-                                ? sectionStudents.map((s, i) => `
-                                    <tr>
-                                        <td style="color:var(--text-4);font-size:12px">${i + 1}</td>
-                                        <td><b>${Security.escape(s.name)}</b></td>
-                                        <td style="font-size:12px;color:var(--text-3)">${s.studentId ? Security.escape(s.studentId) : '—'}</td>
-                                        <td>${pctOrDash(s.avgPre)}</td>
-                                        <td>${pctOrDash(s.avgPost)}</td>
-                                        <td>${pctOrDash(s.avgActivity)}</td>
-                                        <td>${pctOrDash(s.summative)}</td>
-                                    </tr>`).join('')
-                                : `<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">👥</div><h4>No students in this section yet</h4></div></td></tr>`}
-                        </tbody>
-                    </table>
+                <div style="padding:18px 24px">
+                    ${classRecordCategoryTable('Pretest', sectionStudents, 'pretest')}
+                    ${classRecordCategoryTable('Posttest', sectionStudents, 'posttest')}
+                    ${classRecordCategoryTable('Activity', sectionStudents, 'activity')}
+                    ${classRecordSummativeTable(sectionStudents)}
                 </div>
             </div>`;
     }).join('');
@@ -1114,9 +1154,21 @@ function showClassRecordExportPicker() {
     });
 }
 
-const CLASS_RECORD_COLUMNS = ['#', 'Name', 'Student ID', 'Pretest', 'Posttest', 'Activity', 'Summative'];
-function classRecordRow(s, i) {
-    return [i + 1, s.name, s.studentId || '—', pctOrDash(s.avgPre), pctOrDash(s.avgPost), pctOrDash(s.avgActivity), pctOrDash(s.summative)];
+/** One [header row, ...data rows] block for a category table — lesson columns, raw scores. */
+function classRecordCategoryAoa(title, sectionStudents, categoryKey) {
+    const topics = classRecordData.topics;
+    const rows = [[title], ['Name', ...topics.map(t => t.key.toUpperCase())]];
+    sectionStudents.forEach(s => rows.push([s.name, ...topics.map(t => scoreOrDash(s[categoryKey]?.[t.key]))]));
+    if (!sectionStudents.length) rows.push(['No students enrolled in this section yet.']);
+    rows.push([]);
+    return rows;
+}
+
+function classRecordSummativeAoa(sectionStudents) {
+    const rows = [['Summative'], ['Name', 'Score']];
+    sectionStudents.forEach(s => rows.push([s.name, scoreOrDash(s.summative)]));
+    if (!sectionStudents.length) rows.push(['No students enrolled in this section yet.']);
+    return rows;
 }
 
 /** Build a real PDF class record from the teacher's real sections + students and trigger a download. */
@@ -1129,6 +1181,7 @@ async function buildAndDownloadClassRecordPdf(reportSections) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
     const teacherName = window.__USER__?.name || 'Teacher';
+    const topics = classRecordData.topics;
 
     doc.setFontSize(18);
     doc.text('Class Record', 14, 18);
@@ -1138,27 +1191,54 @@ async function buildAndDownloadClassRecordPdf(reportSections) {
 
     let y = 34;
     reportSections.forEach(sec => {
-        const sectionStudents = students.filter(s => s.section_id === sec.id);
+        const sectionStudents = classRecordData.students.filter(s => s.section_id === sec.id);
 
-        if (y > 265) { doc.addPage(); y = 20; }
-
+        if (y > 250) { doc.addPage(); y = 20; }
         doc.setFontSize(13);
         doc.setTextColor(20);
         doc.text(`${sec.name}  —  ${sectionStudents.length} student(s)`, 14, y);
         y += 4;
 
+        [
+            ['Pretest', 'pretest'],
+            ['Posttest', 'posttest'],
+            ['Activity', 'activity'],
+        ].forEach(([label, categoryKey]) => {
+            if (y > 250) { doc.addPage(); y = 20; }
+            doc.setFontSize(10);
+            doc.setTextColor(60);
+            doc.text(label, 14, y);
+            y += 3;
+
+            doc.autoTable({
+                startY: y,
+                head: [['Name', ...topics.map(t => t.key.toUpperCase())]],
+                body: sectionStudents.length
+                    ? sectionStudents.map(s => [s.name, ...topics.map(t => scoreOrDash(s[categoryKey]?.[t.key]))])
+                    : [['No students enrolled in this section yet.']],
+                headStyles: { fillColor: [37, 99, 235] },
+                styles: { fontSize: 7 },
+                margin: { left: 14, right: 14 },
+            });
+            y = doc.lastAutoTable.finalY + 8;
+        });
+
+        if (y > 250) { doc.addPage(); y = 20; }
+        doc.setFontSize(10);
+        doc.setTextColor(60);
+        doc.text('Summative', 14, y);
+        y += 3;
         doc.autoTable({
             startY: y,
-            head: sectionStudents.length ? [CLASS_RECORD_COLUMNS] : undefined,
+            head: [['Name', 'Score']],
             body: sectionStudents.length
-                ? sectionStudents.map((s, i) => classRecordRow(s, i))
+                ? sectionStudents.map(s => [s.name, scoreOrDash(s.summative)])
                 : [['No students enrolled in this section yet.']],
             headStyles: { fillColor: [37, 99, 235] },
             styles: { fontSize: 9 },
             margin: { left: 14, right: 14 },
         });
-
-        y = doc.lastAutoTable.finalY + 12;
+        y = doc.lastAutoTable.finalY + 14;
     });
 
     doc.save(`class-record-${new Date().toISOString().slice(0, 10)}.pdf`);
@@ -1175,10 +1255,13 @@ async function buildAndDownloadClassRecordExcel(reportSections) {
     const usedSheetNames = new Set();
 
     reportSections.forEach(sec => {
-        const sectionStudents = students.filter(s => s.section_id === sec.id);
-        const rows = [CLASS_RECORD_COLUMNS];
-        sectionStudents.forEach((s, i) => rows.push(classRecordRow(s, i)));
-        if (!sectionStudents.length) rows.push(['No students enrolled in this section yet.']);
+        const sectionStudents = classRecordData.students.filter(s => s.section_id === sec.id);
+        const rows = [
+            ...classRecordCategoryAoa('Pretest', sectionStudents, 'pretest'),
+            ...classRecordCategoryAoa('Posttest', sectionStudents, 'posttest'),
+            ...classRecordCategoryAoa('Activity', sectionStudents, 'activity'),
+            ...classRecordSummativeAoa(sectionStudents),
+        ];
 
         // Excel sheet names: max 31 chars, no \ / ? * [ ] :, and must be unique.
         let sheetName = sec.name.replace(/[\\/?*[\]:]/g, ' ').trim().slice(0, 31) || 'Section';
