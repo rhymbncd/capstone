@@ -629,8 +629,11 @@ function renderAnswersDetail() {
                         <div style="padding:8px 14px">
                             ${(a.answers || []).map((qa, i) => {
                                 // Open-ended activity items have no fixed answer to grade
-                                // against (correct is null) — any non-empty response just
-                                // gets recorded, so don't claim it was checked as "Correct".
+                                // against, so any non-empty response is recorded as passing
+                                // — isCorrect alone can't tell a genuinely right answer from
+                                // a nonsensical one. `correct` is filled in a moment later by
+                                // a background AI lookup (module.blade.php's
+                                // attachActivityReferenceAnswers); until then it's null.
                                 const ungraded = qa.correct === null || qa.correct === undefined;
                                 const color = ungraded ? '#6b7280' : (qa.isCorrect ? '#059669' : '#dc2626');
                                 const icon   = ungraded ? '•' : (qa.isCorrect ? '✓' : '✗');
@@ -640,7 +643,7 @@ function renderAnswersDetail() {
                                     <div style="font-size:12.5px;font-weight:600;color:#374151;margin-bottom:4px">${i + 1}. ${Security.escape(qa.question)}</div>
                                     <div style="font-size:12px;color:${color}">
                                         ${icon} ${label}: <strong>${Security.escape(String(qa.selected ?? '—'))}</strong>
-                                        ${!ungraded && !qa.isCorrect && qa.correct ? ` — Correct: <strong>${Security.escape(String(qa.correct))}</strong>` : ''}
+                                        ${!ungraded ? ` — Correct: <strong>${Security.escape(String(qa.correct))}</strong>` : ''}
                                     </div>
                                 </div>`;
                             }).join('')}
@@ -690,15 +693,16 @@ async function exportAnswersDetailPdf() {
                 startY: y,
                 head: [['#', 'Question', 'Answered', 'Correct', 'Result']],
                 // Open-ended activity items have no fixed answer to grade
-                // against (correct is null) — record the response as-is
-                // instead of claiming it was checked as "Correct".
+                // against, so isCorrect alone can't tell a genuinely right
+                // answer from a nonsensical one — show the reference answer
+                // (filled in later by a background AI lookup) whenever known.
                 body: (a.answers || []).map((qa, i) => {
                     const ungraded = qa.correct === null || qa.correct === undefined;
                     return [
                         i + 1,
                         qa.question,
                         String(qa.selected ?? '—'),
-                        ungraded || qa.isCorrect ? '—' : String(qa.correct ?? '—'),
+                        ungraded ? '—' : String(qa.correct ?? '—'),
                         ungraded ? 'Recorded' : (qa.isCorrect ? 'Correct' : 'Incorrect'),
                     ];
                 }),

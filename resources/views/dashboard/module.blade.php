@@ -1488,9 +1488,11 @@ async function generateActivityGradingText(prompt, maxRetries = 3) {
 }
 
 /**
- * Grades open-ended activity answers with AI. Returns an array of
+ * Asks AI to check open-ended activity answers. Returns an array of
  * { isCorrect, correctAnswer } in the same order as `items`, or null if
- * the AI call/parse failed (caller falls back to recording ungraded).
+ * the AI call/parse failed. Only `correctAnswer` is used today (as a
+ * reference answer for the teacher's viewer) — `isCorrect` never gates the
+ * student's pass/fail, which is decided locally in mqSubmitActivity.
  */
 async function gradeOpenEndedAnswers(items) {
   try {
@@ -1515,38 +1517,61 @@ async function gradeOpenEndedAnswers(items) {
   }
 }
 
-async function mqSubmitActivity() {
+/**
+ * Fetches an AI reference answer for each open-ended item and silently
+ * re-saves the attempt with them filled in. Runs in the background, after
+ * mqSubmitActivity has already decided + saved pass/fail — this only
+ * enriches what the teacher's "Student Answers" viewer shows; it never
+ * affects the student's result.
+ */
+async function attachActivityReferenceAnswers(topicKey, activityAnswers, queue, correctCount, total) {
+  const results = await gradeOpenEndedAnswers(queue.map(({ q, val }) => ({ q, val })));
+  if (!results) return; // AI unavailable — those items just stay "Recorded"
+
+  queue.forEach(({ index }, idx) => {
+    activityAnswers[index].correct = results[idx].correctAnswer;
+  });
+
+  try {
+    await mqSaveQuizAnswers(topicKey, 'activity', activityAnswers, correctCount, total);
+  } catch (e) {
+    console.warn('Could not save reference answers for the teacher view:', e.message);
+  }
+}
+
+function mqSubmitActivity() {
   const key = mqState.topicKey;
   const act = MQ_TOPICS[key].activity;
-  const submitBtn = document.getElementById('mq-act-submit-btn');
+  let correct = 0;
+  const activityAnswers = [];
+  // Open-ended items (no fixed template answer) with a non-blank response —
+  // queued for a background AI lookup so the teacher can see a reference
+  // answer later. Never gates pass/fail: any non-empty answer passes now,
+  // exactly like before.
+  const referenceQueue = [];
 
-  // Snapshot every input + disable them immediately so the student can't
-  // keep editing while the AI grading call (below) is in flight.
-  const rows = act.items.map((item, i) => {
+  act.items.forEach((item, i) => {
     const input = document.getElementById('mq-act-input-' + i);
     const hint  = document.getElementById('mq-act-hint-' + i);
     const val   = input.value.trim();
     const ans   = (item.ans ?? '').toString().trim();
-    input.disabled = true;
-    return { item, input, hint, val, ans };
-  });
 
-  // Items with a fixed template answer are graded locally (deterministic —
-  // no AI needed). Items with no fixed answer (ans === '') — teacher-
-  // published or auto-generated activities — have no formula to check
-  // them against, so an AI call grades those instead of just accepting
-  // any non-empty text.
-  const graded = new Array(rows.length);
-  const aiQueue = [];
+    // ── Determine if correct ──────────────────────────────
+    let isCorrect = false;
 
-  rows.forEach((row, i) => {
-    const { val, ans } = row;
-
-    if (ans !== '') {
+    if (ans === '') {
+      // Open-ended (teacher-published/auto-generated activity) — any
+      // non-empty answer passes; see attachActivityReferenceAnswers above.
+      isCorrect = val.length > 0;
+    } else {
       // Normalize: lowercase, collapse whitespace
       const normalize = s => s.toLowerCase().replace(/\s+/g, ' ').trim();
-      let isCorrect = normalize(val) === normalize(ans);
-      if (!isCorrect) {
+      const normVal = normalize(val);
+      const normAns = normalize(ans);
+
+      if (normVal === normAns) {
+        isCorrect = true;
+      } else {
         // Numeric comparison — handles "6" vs "6.0", "1/2" vs "0.5", etc.
         const numVal = parseFloat(val.replace(/,/g, ''));
         const numAns = parseFloat(ans.replace(/,/g, ''));
@@ -1554,70 +1579,41 @@ async function mqSubmitActivity() {
           isCorrect = Math.abs(numVal - numAns) < 0.001;
         }
       }
-      graded[i] = { isCorrect, correctAnswer: ans, ungraded: false };
-    } else if (!val) {
-      // Blank open-ended answer — nothing to grade, automatically incorrect.
-      graded[i] = { isCorrect: false, correctAnswer: null, ungraded: false };
-    } else {
-      aiQueue.push(i);
     }
-  });
+    // ─────────────────────────────────────────────────────
 
-  if (aiQueue.length) {
-    if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Checking your answers…'; }
-
-    const aiResults = await gradeOpenEndedAnswers(aiQueue.map(i => ({ q: rows[i].item.q, val: rows[i].val })));
-
-    aiQueue.forEach((i, idx) => {
-      if (aiResults) {
-        graded[i] = { isCorrect: aiResults[idx].isCorrect, correctAnswer: aiResults[idx].correctAnswer, ungraded: false };
-      } else {
-        // AI unavailable — don't block the student on our own outage;
-        // record the response but don't claim it was checked.
-        graded[i] = { isCorrect: true, correctAnswer: null, ungraded: true };
-      }
-    });
-
-    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Activity'; }
-  }
-
-  let correct = 0;
-  const activityAnswers = [];
-
-  rows.forEach(({ item, input, hint, val }, i) => {
-    const { isCorrect, correctAnswer, ungraded } = graded[i];
-    if (isCorrect) correct++;
-
-    if (ungraded) {
-      input.className = 'mq-activity-input';
-      hint.className  = 'mq-activity-hint mq-hint--ok mq-show';
-      hint.textContent = '✓ Answer recorded! (Could not auto-check this one right now.)';
-    } else if (isCorrect) {
+    if (isCorrect) {
+      correct++;
       input.className = 'mq-activity-input mq-act--correct';
       hint.className  = 'mq-activity-hint mq-hint--ok mq-show';
-      hint.textContent = '✓ Correct!';
+      hint.textContent = ans === '' ? '✓ Answer recorded!' : '✓ Correct!';
     } else {
       input.className = 'mq-activity-input mq-act--wrong';
       hint.className  = 'mq-activity-hint mq-hint--err mq-show';
-      hint.textContent = correctAnswer
-        ? `✗ Not quite. Correct answer: ${correctAnswer}`
-        : '✗ Hint: ' + (item.hint || '');
+      hint.textContent = '✗ Hint: ' + (item.hint || '');
     }
+    input.disabled = true;
+
+    if (ans === '' && val) referenceQueue.push({ index: i, q: item.q, val });
 
     activityAnswers.push({
       question: item.q,
       selected: val,
-      correct:  ungraded ? null : correctAnswer,
+      correct:  ans === '' ? null : ans,
       isCorrect,
     });
   });
 
-  if (submitBtn) submitBtn.style.display = 'none';
+  document.getElementById('mq-act-submit-btn').style.display = 'none';
 
   // Pass threshold: 60% of items, minimum 1
   const threshold = Math.max(1, Math.ceil(act.items.length * 0.6));
   const pass = correct >= threshold;
   mqSaveQuizAnswers(key, 'activity', activityAnswers, correct, act.items.length);
+
+  if (referenceQueue.length) {
+    attachActivityReferenceAnswers(key, activityAnswers, referenceQueue, correct, act.items.length);
+  }
 
   if (pass) {
     stateFlags[key].activity = true;
