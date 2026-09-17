@@ -9,6 +9,7 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware as MiddlewareConfig;
 use Illuminate\Foundation\Http\Middleware\PreventRequestsDuringMaintenance as FrameworkPreventRequestsDuringMaintenance;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -44,5 +45,26 @@ return Application::configure(basePath: dirname(__DIR__))
     })
 
     ->withExceptions(function (Exceptions $exceptions) {
-        //
+        // Session/CSRF tokens expire after long idle periods (e.g. a
+        // student taking a while on an activity). Laravel converts a
+        // TokenMismatchException to a plain HttpException(419) before any
+        // render() callback runs, so it must be caught here by status code
+        // rather than by exception type. Instead of showing Laravel's raw
+        // "419 Page Expired" screen, send the user back to what they were
+        // doing with a friendly message so they can retry.
+        $exceptions->render(function (HttpException $e, Request $request) {
+            if ($e->getStatusCode() !== 419) {
+                return null;
+            }
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => 'Your session expired. Please try again.',
+                ], 419);
+            }
+
+            return back()
+                ->withInput($request->except('password', 'password_confirmation'))
+                ->withErrors(['error' => 'Your session expired. Please try again.']);
+        });
     })->create();
