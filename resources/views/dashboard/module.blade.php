@@ -1491,7 +1491,7 @@ function mqSubmitActivity() {
   if (pass) {
     stateFlags[key].activity = true;
     document.getElementById('mq-act-score-banner').textContent =
-      '🎉 Activity passed — Post-Test is now unlocked.';
+      '🎉 Activity submitted — Post-Test is now unlocked.';
     document.getElementById('mq-act-score-banner').classList.add('mq-show');
     document.getElementById('mq-act-proceed-btn').style.display = '';
   } else {
