@@ -1518,25 +1518,25 @@ async function gradeOpenEndedAnswers(items) {
 }
 
 /**
- * Fetches an AI reference answer for each open-ended item and silently
- * re-saves the attempt with them filled in. Runs in the background, after
- * mqSubmitActivity has already decided + saved pass/fail — this only
- * enriches what the teacher's "Student Answers" viewer shows; it never
- * affects the student's result.
+ * Fetches a real AI verdict + reference answer for each open-ended item and
+ * silently re-saves the attempt with the corrected score/isCorrect/correct
+ * fields. Runs in the background, after mqSubmitActivity has already
+ * unlocked the Post-Test with the lenient "any non-empty answer passes"
+ * check — that gate never gets undone here, this only fixes what the
+ * teacher's "Student Answers" viewer later shows (so it doesn't report a
+ * misleading "5/5" next to answers the AI can see are wrong).
  */
-async function attachActivityReferenceAnswers(topicKey, activityAnswers, queue, correctCount, total) {
+async function attachActivityReferenceAnswers(topicKey, activityAnswers, queue, total) {
   const results = await gradeOpenEndedAnswers(queue.map(({ q, val }) => ({ q, val })));
   if (!results) return; // AI unavailable — those items just stay "Recorded"
 
   queue.forEach(({ index }, idx) => {
     activityAnswers[index].correct = results[idx].correctAnswer;
+    activityAnswers[index].isCorrect = results[idx].isCorrect;
   });
 
-  try {
-    await mqSaveQuizAnswers(topicKey, 'activity', activityAnswers, correctCount, total);
-  } catch (e) {
-    console.warn('Could not save reference answers for the teacher view:', e.message);
-  }
+  const recomputedCorrect = activityAnswers.filter(a => a.isCorrect).length;
+  await mqSaveQuizAnswers(topicKey, 'activity', activityAnswers, recomputedCorrect, total);
 }
 
 function mqSubmitActivity() {
@@ -1612,7 +1612,7 @@ function mqSubmitActivity() {
   mqSaveQuizAnswers(key, 'activity', activityAnswers, correct, act.items.length);
 
   if (referenceQueue.length) {
-    attachActivityReferenceAnswers(key, activityAnswers, referenceQueue, correct, act.items.length);
+    attachActivityReferenceAnswers(key, activityAnswers, referenceQueue, act.items.length);
   }
 
   if (pass) {
