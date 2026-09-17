@@ -862,6 +862,11 @@ function moduleCompletion(n) {
 }
 
 let activeModule = 1;
+// Captured once, before the initial showModule(1) call below overwrites
+// location.hash via history.replaceState — otherwise pickStartModule()
+// would always see '#module1' and ignore which "View Topics" button
+// the student actually clicked on the dashboard.
+let initialHash = '';
 
 /* Show a single module section; the others are hidden. A locked module
    shakes its tab and warns instead of opening. */
@@ -912,7 +917,7 @@ function refreshModuleTabs() {
 /* Which module to land on: the one from the URL hash if it's unlocked,
    otherwise the furthest module the student has unlocked. */
 function pickStartModule() {
-  const fromHash = parseInt((location.hash.match(/module([123])/) || [])[1], 10);
+  const fromHash = parseInt((initialHash.match(/module([123])/) || [])[1], 10);
   if (fromHash && isModuleUnlocked(fromHash)) return fromHash;
   if (isModuleUnlocked(3)) return 3;
   if (isModuleUnlocked(2)) return 2;
@@ -1557,6 +1562,8 @@ function mqMarkDone() {
 }
 
 document.addEventListener('DOMContentLoaded', async function () {
+
+    initialHash = location.hash;
 
     document.getElementById('mq-back-btn').addEventListener('click', () => history.back());
 
