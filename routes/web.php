@@ -115,6 +115,7 @@ Route::prefix('student')->group(function () {
         // anon-key writes to student_progress / student_quiz_answers.
         Route::get('/progress', [StudentProgressController::class, 'index'])->name('student.progress.index');
         Route::post('/progress', [StudentProgressController::class, 'store'])->name('student.progress.store');
+        Route::get('/quiz-answers', [StudentQuizAnswerController::class, 'index'])->name('student.quiz-answers.index');
         Route::post('/quiz-answers', [StudentQuizAnswerController::class, 'store'])->name('student.quiz-answers.store');
 
         // AI rewording pass for the dashboard's own summative test — same

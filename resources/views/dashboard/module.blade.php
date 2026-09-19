@@ -507,8 +507,19 @@ const POST_TIMER_SECS = 30;
 const CIRCUMFERENCE   = 2 * Math.PI * 17;
 const TOPIC_ORDER = ['ari','geo','har','fib','fin','div','rem','poly','rat','rad','exp','log'];
 
+// `activity` means the one activity attempt was PASSED (unlocks the
+// Post-Test, as before); `activityDone` means an attempt was submitted at
+// all, pass or fail — the Activity is one-time only, so once true it can
+// never be retaken.
 const stateFlags = {};
-TOPIC_ORDER.forEach(k => { stateFlags[k] = { pre:false, activity:false, post:false }; });
+TOPIC_ORDER.forEach(k => { stateFlags[k] = { pre:false, activity:false, activityDone:false, post:false }; });
+
+/** Minimal HTML-escaping for student-typed answers before they're injected into a Swal dialog. */
+function mqEscapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, ch => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    }[ch]));
+}
 
 function mqGeneric(name) {
   return [
@@ -708,6 +719,7 @@ const MQ_TOPICS = {
 const STUDENT_ROUTES = {
     progressList:     '{{ route('student.progress.index') }}',
     progress:         '{{ route('student.progress.store') }}',
+    quizAnswersList:  '{{ route('student.quiz-answers.index') }}',
     quizAnswers:      '{{ route('student.quiz-answers.store') }}',
     modulesPublished: '{{ route('student.modules.published') }}',
     quizGradeActivity: '{{ route('student.quiz.grade-activity') }}',
@@ -1026,11 +1038,48 @@ async function mqLoadProgress() {
             if (stateFlags[r.topic_key]) {
                 stateFlags[r.topic_key].pre = true;
                 stateFlags[r.topic_key].activity = true;
+                stateFlags[r.topic_key].activityDone = true;
                 stateFlags[r.topic_key].post = true;
             }
         });
     } catch (e) {
         console.warn('Could not load progress:', e.message);
+    }
+}
+
+/**
+ * Every pre-test/post-test/activity attempt this student has already
+ * submitted, keyed by topic then phase. Pre-test/Post-Test/Activity are
+ * one-time attempts — this is how the UI knows to resume past a completed
+ * phase instead of letting the student redo it, and it's also the source
+ * for the "Already Submitted" review screen. The server enforces the same
+ * rule independently (StudentQuizAnswerController::store), so this is a
+ * convenience for the UI, not the actual security boundary.
+ */
+const mqAttempts = {};
+
+function mqHasAttempt(topicKey, phase) {
+    return !!mqAttempts[topicKey]?.[phase];
+}
+
+async function mqLoadAnswers() {
+    try {
+        const { attempts } = await studentApiGet(STUDENT_ROUTES.quizAnswersList);
+        (attempts || []).forEach(a => {
+            if (!mqAttempts[a.topic_key]) mqAttempts[a.topic_key] = {};
+            mqAttempts[a.topic_key][a.phase] = a;
+
+            if (a.phase === 'pre' && stateFlags[a.topic_key]) {
+                stateFlags[a.topic_key].pre = true;
+            }
+            if (a.phase === 'activity' && stateFlags[a.topic_key]) {
+                stateFlags[a.topic_key].activityDone = true;
+                const threshold = Math.max(1, Math.ceil((a.total || 0) * 0.6));
+                if (a.score >= threshold) stateFlags[a.topic_key].activity = true;
+            }
+        });
+    } catch (e) {
+        console.warn('Could not load quiz answers:', e.message);
     }
 }
 
@@ -1144,16 +1193,129 @@ function openTopic(key) {
         return;  // ← STOP here, don't open quiz modal
     }
 
+    // One-time attempt: a topic whose Post-Test is already submitted is
+    // finished — show what was already recorded instead of letting the
+    // student restart the whole sequence from the Pre-Test.
+    if (mqState.completed[key]) {
+        showTopicAlreadySubmitted(key);
+        return;
+    }
+
     // Only open if teacher has published
     mqState.topicKey   = key;
-    mqState.phase      = 'pre';
     mqState.current    = 0;
     mqState.score      = 0;
     mqState.answered   = false;
     mqState.answersLog = [];
-    mqState.questions  = [...MQ_TOPICS[key].pre];
+
+    // Resume: if the Pre-Test for this topic was already submitted (e.g.
+    // the student left mid-topic and came back), skip straight past it
+    // instead of letting them retake it.
+    if (mqHasAttempt(key, 'pre')) {
+        stateFlags[key].pre = true;
+        mqState.phase = 'lesson';
+    } else {
+        mqState.phase     = 'pre';
+        mqState.questions = [...MQ_TOPICS[key].pre];
+    }
+
     mqRender();
     document.getElementById('mq-overlay').classList.add('mq-open');
+}
+
+/**
+ * "Already Submitted" prompt for a topic that's already fully finished
+ * (Post-Test recorded) — offers a view-only review instead of a retake.
+ */
+async function showTopicAlreadySubmitted(key) {
+    const topic = MQ_TOPICS[key];
+    const post = mqAttempts[key]?.post;
+    const pct = post && post.total ? Math.round((post.score / post.total) * 100) : null;
+
+    const result = await Swal.fire({
+        icon: 'info',
+        title: 'Already Submitted',
+        html: `<p style="font-size:13px;color:#6b7280;font-family:'Plus Jakarta Sans',sans-serif">
+                 You've already completed <strong style="color:#111827">${mqEscapeHtml(topic?.name || key)}</strong>.
+                 ${pct !== null ? `Your Post-Test score was <strong>${post.score}/${post.total} (${pct}%)</strong>.` : ''}<br><br>
+                 Retakes aren't allowed, but you can review what you answered.
+               </p>`,
+        showDenyButton: true,
+        confirmButtonText: 'Review My Answers',
+        denyButtonText: 'Close',
+        confirmButtonColor: '#2563eb',
+    });
+
+    if (result.isConfirmed) {
+        showAttemptReview(key);
+    }
+}
+
+/**
+ * "Already Submitted" prompt for a single phase (Pre-Test/Activity/Post-Test)
+ * reached directly (e.g. a stale button click) rather than through the
+ * topic-level gate above.
+ */
+async function showPhaseAlreadySubmitted(topicKey, phase) {
+    const attempt = mqAttempts[topicKey]?.[phase];
+    const pct = attempt && attempt.total ? Math.round((attempt.score / attempt.total) * 100) : null;
+    const label = { pre: 'Pre-Test', activity: 'Activity', post: 'Post-Test' }[phase] || phase;
+
+    const result = await Swal.fire({
+        icon: 'info',
+        title: 'Already Submitted',
+        html: `<p style="font-size:13px;color:#6b7280;font-family:'Plus Jakarta Sans',sans-serif">
+                 You've already submitted the <strong style="color:#111827">${label}</strong> for this topic${pct !== null ? ` — you scored <strong>${attempt.score}/${attempt.total} (${pct}%)</strong>` : ''}.<br><br>
+                 It's a one-time attempt and can't be retaken, but you can review your answers.
+               </p>`,
+        showDenyButton: true,
+        confirmButtonText: 'Review My Answers',
+        denyButtonText: 'Close',
+        confirmButtonColor: '#2563eb',
+    });
+
+    if (result.isConfirmed) {
+        showAttemptReview(topicKey, phase);
+    }
+}
+
+/**
+ * View-only review of a student's own saved answers for one topic — either
+ * a single phase, or every phase that has a recorded attempt.
+ */
+function showAttemptReview(topicKey, onlyPhase = null) {
+    const topic = MQ_TOPICS[topicKey];
+    const labels = { pre: 'Pre-Test', activity: 'Activity', post: 'Post-Test' };
+    const phases = onlyPhase ? [onlyPhase] : ['pre', 'activity', 'post'];
+
+    const renderAnswers = attempt => {
+        if (!attempt || !Array.isArray(attempt.answers) || !attempt.answers.length) {
+            return '<p style="font-size:12px;color:#9ca3af">No saved answers for this attempt.</p>';
+        }
+        return attempt.answers.map((a, i) => `
+            <div style="padding:8px 0;border-bottom:1px solid #e5e7eb;text-align:left">
+                <div style="font-size:12px;font-weight:600;color:#111827">${i + 1}. ${mqEscapeHtml(a.question)}</div>
+                <div style="font-size:12px;color:${a.isCorrect ? '#16a34a' : '#dc2626'}">Your answer: ${mqEscapeHtml(a.selected ?? '(none)')} ${a.isCorrect ? '✓' : '✗'}</div>
+                ${!a.isCorrect && a.correct ? `<div style="font-size:12px;color:#6b7280">Correct answer: ${mqEscapeHtml(a.correct)}</div>` : ''}
+            </div>
+        `).join('');
+    };
+
+    const sections = phases
+        .filter(p => mqAttempts[topicKey]?.[p])
+        .map(p => {
+            const attempt = mqAttempts[topicKey][p];
+            return `<h4 style="margin:12px 0 4px;font-size:13px;color:#111827">${labels[p]} — ${attempt.score}/${attempt.total}</h4>${renderAnswers(attempt)}`;
+        })
+        .join('');
+
+    Swal.fire({
+        title: `${mqEscapeHtml(topic?.name || topicKey)} — Your Answers`,
+        html: `<div style="max-height:60vh;overflow-y:auto;text-align:left">${sections || '<p>No saved answers found.</p>'}</div>`,
+        confirmButtonText: 'Close',
+        confirmButtonColor: '#2563eb',
+        width: 560,
+    });
 }
 function mqClose() { mqStopTimer(); document.getElementById('mq-overlay').classList.remove('mq-open'); }
 
@@ -1210,8 +1372,15 @@ function mqRender() {
     pill(stateFlags[key].pre?'✅ Pre-Test done':'⏳ Pre-Test done','mq-status-pill--done');
     const readPct=mqReadPct[key]||0;
     pill('📖 '+readPct+'% Read',readPct>=100?'mq-status-pill--done':(readPct>0?'mq-status-pill--pending':'mq-status-pill--locked'));
-    pill(stateFlags[key].activity?'✅ Activity done':'🔒 Activity pending',stateFlags[key].activity?'mq-status-pill--done':'mq-status-pill--pending');
+    const activityLabel = stateFlags[key].activity
+        ? '✅ Activity done'
+        : (stateFlags[key].activityDone ? '⚠️ Activity submitted (not passed)' : '🔒 Activity pending');
+    pill(activityLabel, stateFlags[key].activity ? 'mq-status-pill--done' : 'mq-status-pill--pending');
     pill(stateFlags[key].post?'✅ Post-Test done':'🔒 Post-Test locked',stateFlags[key].post?'mq-status-pill--done':'mq-status-pill--locked');
+    // The Activity is a one-time attempt — once submitted (pass or fail)
+    // it can't be reopened, same as the Pre-Test/Post-Test.
+    document.getElementById('mq-activity-btn').disabled=stateFlags[key].activityDone;
+    document.getElementById('mq-activity-btn').style.opacity=stateFlags[key].activityDone?'0.4':'1';
     document.getElementById('mq-posttest-btn').disabled=!stateFlags[key].activity;
     document.getElementById('mq-posttest-btn').style.opacity=stateFlags[key].activity?'1':'0.4';
     document.getElementById('mq-lesson-area').style.display='block';
@@ -1295,15 +1464,20 @@ function mqSelectChoice(idx) {
  * same way.
  */
 function mqFinishAssessment() {
+  const key = mqState.topicKey;
+  mqAttempts[key] = mqAttempts[key] || {};
+
   if(mqState.phase==='pre'){
-    stateFlags[mqState.topicKey].pre=true;
+    stateFlags[key].pre=true;
     const total=mqState.questions.length;
-    mqSaveProgress(mqState.topicKey,'pre',mqState.score,total,mqState.score>=Math.ceil(total*0.6));
-    mqSaveQuizAnswers(mqState.topicKey,'pre',mqState.answersLog,mqState.score,total);
+    mqSaveProgress(key,'pre',mqState.score,total,mqState.score>=Math.ceil(total*0.6));
+    mqSaveQuizAnswers(key,'pre',mqState.answersLog,mqState.score,total);
+    mqAttempts[key].pre = { topic_key: key, phase: 'pre', answers: mqState.answersLog, score: mqState.score, total };
     mqState.phase='lesson';
   }
   else{
-    mqSaveQuizAnswers(mqState.topicKey,'post',mqState.answersLog,mqState.score,mqState.questions.length);
+    mqSaveQuizAnswers(key,'post',mqState.answersLog,mqState.score,mqState.questions.length);
+    mqAttempts[key].post = { topic_key: key, phase: 'post', answers: mqState.answersLog, score: mqState.score, total: mqState.questions.length };
     mqState.phase='result';mqMarkDone();
   }
   mqRender();
@@ -1382,12 +1556,21 @@ function mqHandleVisibilityChange() {
 document.addEventListener('visibilitychange', mqHandleVisibilityChange);
 
 function mqStartActivity() {
+  // The Activity is a one-time attempt, pass or fail.
+  if (mqHasAttempt(mqState.topicKey, 'activity')) {
+    showPhaseAlreadySubmitted(mqState.topicKey, 'activity');
+    return;
+  }
   mqStopTimer();
   mqState.phase='activity';
   mqRender();
 }
 function mqStartPost() {
   if(!stateFlags[mqState.topicKey].activity)return;
+  if (mqHasAttempt(mqState.topicKey, 'post')) {
+    showPhaseAlreadySubmitted(mqState.topicKey, 'post');
+    return;
+  }
   mqStopTimer();
   mqState.phase='post'; mqState.current=0; mqState.score=0; mqState.answered=false; mqState.answersLog=[];
   mqState.questions=[...MQ_TOPICS[mqState.topicKey].post];
@@ -1609,6 +1792,13 @@ function mqSubmitActivity() {
   // Pass threshold: 60% of items, minimum 1
   const threshold = Math.max(1, Math.ceil(act.items.length * 0.6));
   const pass = correct >= threshold;
+
+  // One-time attempt: this is recorded as final whether it passes or not —
+  // there is no retry, so this Activity can never be resubmitted (the
+  // server enforces the same rule independently on save).
+  stateFlags[key].activityDone = true;
+  mqAttempts[key] = mqAttempts[key] || {};
+  mqAttempts[key].activity = { topic_key: key, phase: 'activity', answers: activityAnswers, score: correct, total: act.items.length };
   mqSaveQuizAnswers(key, 'activity', activityAnswers, correct, act.items.length);
 
   if (referenceQueue.length) {
@@ -1623,12 +1813,8 @@ function mqSubmitActivity() {
     document.getElementById('mq-act-proceed-btn').style.display = '';
   } else {
     document.getElementById('mq-act-fail-banner').textContent =
-      `You got ${correct}/${act.items.length}. Need at least ${threshold} to pass. Try again!`;
+      `You got ${correct}/${act.items.length}. You needed at least ${threshold} to pass. The Activity is a one-time attempt, so this result is final — review your answers above, then head back to the lesson.`;
     document.getElementById('mq-act-fail-banner').classList.add('mq-show');
-    setTimeout(() => {
-      mqRenderActivity();
-      document.getElementById('mq-act-fail-banner').classList.remove('mq-show');
-    }, 2200);
   }
 }
 
@@ -1741,7 +1927,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 
     // ── Restore this student's completed topics from Supabase ──
     try {
-        await Promise.all([mqLoadProgress(), mqLoadReadingProgress()]);
+        await Promise.all([mqLoadProgress(), mqLoadReadingProgress(), mqLoadAnswers()]);
         applyCompletedTopicsToUI();
     } catch (e) {
         console.warn('Progress restore failed:', e.message);

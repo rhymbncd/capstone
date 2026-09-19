@@ -60,13 +60,13 @@ it('ignores a session_id supplied in the request body', function () {
     ]);
 });
 
-it('upserts on topic + phase instead of creating duplicates', function () {
-    foreach ([5, 8] as $score) {
+it('upserts the reading phase instead of creating duplicates', function () {
+    foreach ([40, 90] as $score) {
         $this->actingAs($this->student)->postJson(route('student.progress.store'), [
             'topic_key' => 'ari',
-            'phase' => 'pre',
+            'phase' => 'reading',
             'score' => $score,
-            'total' => 10,
+            'total' => 100,
         ])->assertOk();
     }
 
@@ -74,9 +74,69 @@ it('upserts on topic + phase instead of creating duplicates', function () {
     $this->assertDatabaseHas('student_progress', [
         'session_id' => (string) $this->student->id,
         'topic_key' => 'ari',
+        'phase' => 'reading',
+        'score' => 90,
+    ]);
+});
+
+it('rejects a second attempt at the same topic + phase as already submitted', function () {
+    $this->actingAs($this->student)->postJson(route('student.progress.store'), [
+        'topic_key' => 'ari',
+        'phase' => 'pre',
+        'score' => 5,
+        'total' => 10,
+    ])->assertOk();
+
+    $this->actingAs($this->student)->postJson(route('student.progress.store'), [
+        'topic_key' => 'ari',
         'phase' => 'pre',
         'score' => 8,
+        'total' => 10,
+    ])
+        ->assertStatus(409)
+        ->assertJson(['saved' => false, 'already_submitted' => true]);
+
+    expect(StudentProgress::where('session_id', (string) $this->student->id)->where('topic_key', 'ari')->count())->toBe(1);
+    $this->assertDatabaseHas('student_progress', [
+        'session_id' => (string) $this->student->id,
+        'topic_key' => 'ari',
+        'phase' => 'pre',
+        'score' => 5,
     ]);
+});
+
+it('lets the same student submit independent phases and topics without conflict', function () {
+    $this->actingAs($this->student)->postJson(route('student.progress.store'), [
+        'topic_key' => 'ari', 'phase' => 'pre', 'score' => 5, 'total' => 10,
+    ])->assertOk();
+
+    $this->actingAs($this->student)->postJson(route('student.progress.store'), [
+        'topic_key' => 'ari', 'phase' => 'post', 'score' => 9, 'total' => 10,
+    ])->assertOk();
+
+    $this->actingAs($this->student)->postJson(route('student.progress.store'), [
+        'topic_key' => 'geo', 'phase' => 'pre', 'score' => 4, 'total' => 10,
+    ])->assertOk();
+
+    expect(StudentProgress::where('session_id', (string) $this->student->id)->count())->toBe(3);
+});
+
+it('does not let a second student\'s attempt collide with another student\'s already-submitted one', function () {
+    $other = User::factory()->create([
+        'role' => 'student',
+        'approval_status' => 'approved',
+        'section_id' => Section::factory()->create()->id,
+    ]);
+
+    $this->actingAs($this->student)->postJson(route('student.progress.store'), [
+        'topic_key' => 'ari', 'phase' => 'pre', 'score' => 5, 'total' => 10,
+    ])->assertOk();
+
+    $this->actingAs($other)->postJson(route('student.progress.store'), [
+        'topic_key' => 'ari', 'phase' => 'pre', 'score' => 7, 'total' => 10,
+    ])->assertOk();
+
+    expect(StudentProgress::count())->toBe(2);
 });
 
 it('accepts the reading phase and rejects an unknown phase', function () {
