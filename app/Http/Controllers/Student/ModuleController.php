@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Student;
 
 use App\Http\Controllers\Controller;
 use App\Models\ModuleStatus;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -25,8 +27,8 @@ class ModuleController extends Controller
         'fib' => 'Fibonacci Sequence.pdf',
         'fin' => 'Finite and Infinite Sequence.pdf',
         'div' => 'Division of Polynomials.pdf',
-        'rem' => 'The Remainder and Factor Theorem.pdf',
-        'poly' => 'Polynomial Equation.pdf',
+        'rem' => 'The Remainder Theorem and Factor Theorem.pdf',
+        'poly' => 'Polynomial Equations.pdf',
         'rat' => 'Rational Functions.pdf',
         'rad' => 'Radical Equations.pdf',
         'exp' => 'Exponential Functions.pdf',
@@ -66,7 +68,17 @@ class ModuleController extends Controller
         $filename = $byTopic ?? $byName;
         abort_if($filename === null, 404);
 
-        return Storage::disk('supabase_materials')->download($filename);
+        /** @var FilesystemAdapter $disk */
+        $disk = Storage::disk('supabase_materials');
+
+        // Clean 404 (and a log entry) instead of a 500 when the PDF is
+        // missing from the bucket or has a different name.
+        if (! $disk->exists($filename)) {
+            Log::warning('Curriculum PDF missing in bucket', ['file' => $filename]);
+            abort(404, 'This module file is not available yet.');
+        }
+
+        return $disk->download($filename);
     }
 
     /**
@@ -76,7 +88,18 @@ class ModuleController extends Controller
     {
         abort_unless($moduleStatus->status === 'approved', 404);
 
-        return Storage::disk('supabase')->download(
+        /** @var FilesystemAdapter $disk */
+        $disk = Storage::disk('supabase');
+
+        if (! $disk->exists($moduleStatus->file_name)) {
+            Log::warning('Teacher module missing in bucket', [
+                'module_id' => $moduleStatus->id,
+                'file' => $moduleStatus->file_name,
+            ]);
+            abort(404, 'This module file is not available.');
+        }
+
+        return $disk->download(
             $moduleStatus->file_name,
             ($moduleStatus->module_title ?: 'module').'.pdf',
         );
