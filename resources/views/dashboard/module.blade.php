@@ -2068,7 +2068,7 @@ const HARDCODED_DOWNLOADS = {
   'Module 2: Polynomials': [
     { name:'Division of Polynomials',                  file:'Division of Polynomials.pdf',          size:'514 KB' },
     { name:'The Remainder Theorem and Factor Theorem', file:'The Remainder and Factor Theorem.pdf', size:'577 KB' },
-    { name:'Polynomial Equations',                     file:'Polynomial Equation.pdf',              size:'661 KB' },
+    { name:'Polynomial Equations',                     file:'Polynomial Equations.pdf',              size:'661 KB' },
   ],
   'Module 3: Advanced Equations': [
     { name:'Rational Functions',    file:'Rational Functions.pdf',    size:'1.1 MB' },
