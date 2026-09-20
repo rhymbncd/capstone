@@ -28,7 +28,7 @@ class ModuleController extends Controller
         'fin' => 'Finite and Infinite Sequence.pdf',
         'div' => 'Division of Polynomials.pdf',
         'rem' => 'The Remainder Theorem and Factor Theorem.pdf',
-        'poly' => 'Polynomial Equations.pdf',
+        'poly' =>'Polynomial Equations.pdf',
         'rat' => 'Rational Functions.pdf',
         'rad' => 'Radical Equations.pdf',
         'exp' => 'Exponential Functions.pdf',
